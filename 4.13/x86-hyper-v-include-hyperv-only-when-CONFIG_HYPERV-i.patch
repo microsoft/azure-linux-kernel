@@ -1,0 +1,45 @@
+From 3b00bf7cbe5433883ff08217bf2fd3d2efce02cb Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Fri, 14 Jul 2017 14:44:33 +0200
+Subject: [PATCH 12/98] x86/hyper-v: include hyperv/ only when CONFIG_HYPERV is
+ set
+
+Code is arch/x86/hyperv/ is only needed when CONFIG_HYPERV is set, the
+'basic' support and detection lives in arch/x86/kernel/cpu/mshyperv.c
+which is included when CONFIG_HYPERVISOR_GUEST is set.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ arch/x86/Kbuild                 |    2 +-
+ arch/x86/include/asm/mshyperv.h |    7 ++++++-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+--- a/arch/x86/Kbuild	2017-10-05 14:20:48.047481831 -0700
++++ b/arch/x86/Kbuild	2017-10-05 14:20:48.043481783 -0700
+@@ -8,7 +8,7 @@ obj-$(CONFIG_KVM) += kvm/
+ obj-$(CONFIG_XEN) += xen/
+ 
+ # Hyper-V paravirtualization support
+-obj-$(CONFIG_HYPERVISOR_GUEST) += hyperv/
++obj-$(subst m,y,$(CONFIG_HYPERV)) += hyperv/
+ 
+ # lguest paravirtualization support
+ obj-$(CONFIG_LGUEST_GUEST) += lguest/
+--- a/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.047481831 -0700
++++ b/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.043481783 -0700
+@@ -173,7 +173,12 @@ void hyperv_init(void);
+ void hyperv_report_panic(struct pt_regs *regs);
+ bool hv_is_hypercall_page_setup(void);
+ void hyperv_cleanup(void);
+-#endif
++#else /* CONFIG_HYPERV */
++static inline void hyperv_init(void) {}
++static inline bool hv_is_hypercall_page_setup(void) { return false; }
++static inline hyperv_cleanup(void) {}
++#endif /* CONFIG_HYPERV */
++
+ #ifdef CONFIG_HYPERV_TSCPAGE
+ struct ms_hyperv_tsc_page *hv_get_tsc_page(void);
+ static inline u64 hv_read_tsc_page(const struct ms_hyperv_tsc_page *tsc_pg)

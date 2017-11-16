@@ -1,0 +1,74 @@
+From 94a173e345c1c05cf293ee39375d11fcc52a6f0b Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 31 Aug 2017 16:16:13 -0700
+Subject: [PATCH 89/98] netvsc: allow driver to be removed even if VF is
+ present
+
+If VF is attached then can still allow netvsc driver module to
+be removed. Just have to make sure and do the cleanup.
+
+Also, avoid extra rtnl round trip when calling unregister.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/netvsc_drv.c |   17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.851577980 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.851577980 -0700
+@@ -1839,9 +1839,6 @@ static int netvsc_register_vf(struct net
+ 
+ 	netdev_info(ndev, "VF registering: %s\n", vf_netdev->name);
+ 
+-	/* Prevent this module from being unloaded while VF is registered */
+-	try_module_get(THIS_MODULE);
+-
+ 	dev_hold(vf_netdev);
+ 	rcu_assign_pointer(net_device_ctx->vf_netdev, vf_netdev);
+ 	return NOTIFY_OK;
+@@ -1885,10 +1882,11 @@ static int netvsc_unregister_vf(struct n
+ 
+ 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
+ 
++	netdev_rx_handler_unregister(vf_netdev);
+ 	netdev_upper_dev_unlink(vf_netdev, ndev);
+ 	RCU_INIT_POINTER(net_device_ctx->vf_netdev, NULL);
+ 	dev_put(vf_netdev);
+-	module_put(THIS_MODULE);
++
+ 	return NOTIFY_OK;
+ }
+ 
+@@ -1992,11 +1990,11 @@ no_net:
+ 
+ static int netvsc_remove(struct hv_device *dev)
+ {
+-	struct net_device *net;
+ 	struct net_device_context *ndev_ctx;
++	struct net_device *vf_netdev;
++	struct net_device *net;
+ 
+ 	net = hv_get_drvdata(dev);
+-
+ 	if (net == NULL) {
+ 		dev_err(&dev->device, "No net device to remove\n");
+ 		return 0;
+@@ -2013,12 +2011,15 @@ static int netvsc_remove(struct hv_devic
+ 	 * removed. Also blocks mtu and channel changes.
+ 	 */
+ 	rtnl_lock();
++	vf_netdev = rtnl_dereference(ndev_ctx->vf_netdev);
++	if (vf_netdev)
++		netvsc_unregister_vf(vf_netdev);
++
+ 	rndis_filter_device_remove(dev,
+ 				   rtnl_dereference(ndev_ctx->nvdev));
++	unregister_netdevice(net);
+ 	rtnl_unlock();
+ 
+-	unregister_netdev(net);
+-
+ 	hv_set_drvdata(dev, NULL);
+ 
+ 	free_percpu(ndev_ctx->vf_stats);

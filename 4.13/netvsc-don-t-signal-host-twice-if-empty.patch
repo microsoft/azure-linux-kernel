@@ -1,0 +1,26 @@
+From b10e5553187a5a815cd782be7ae0886ebfa844cb Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Mon, 7 Aug 2017 09:21:31 -0700
+Subject: [PATCH 66/98] netvsc: don't signal host twice if empty
+
+When hv_pkt_iter_next() returns NULL, it has already called
+hv_pkt_iter_close(). Calling it twice can lead to extra host signal.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c |    4 ----
+ 1 file changed, 4 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:53.627550579 -0700
++++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:53.627550579 -0700
+@@ -1196,10 +1196,6 @@ int netvsc_poll(struct napi_struct *napi
+ 		nvchan->desc = hv_pkt_iter_next(channel, nvchan->desc);
+ 	}
+ 
+-	/* if ring is empty, signal host */
+-	if (!nvchan->desc)
+-		hv_pkt_iter_close(channel);
+-
+ 	/* If send of pending receive completions suceeded
+ 	 *   and did not exhaust NAPI budget this time
+ 	 *   and not doing busy poll

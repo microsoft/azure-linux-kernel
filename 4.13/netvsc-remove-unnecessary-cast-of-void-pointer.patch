@@ -1,0 +1,38 @@
+From 5c09500a6aa8338c03f33acfb4ed9028f5f73ddb Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Mon, 7 Aug 2017 15:12:48 -0700
+Subject: [PATCH 74/98] netvsc: remove unnecessary cast of void pointer
+
+Assignment to a typed pointer is sufficient in C.
+No cast is needed.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.423560386 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.419560338 -0700
+@@ -527,9 +527,9 @@ static int netvsc_start_xmit(struct sk_b
+ 
+ 		rndis_msg_size += NDIS_VLAN_PPI_SIZE;
+ 		ppi = init_ppi_data(rndis_msg, NDIS_VLAN_PPI_SIZE,
+-					IEEE_8021Q_INFO);
+-		vlan = (struct ndis_pkt_8021q_info *)((void *)ppi +
+-						ppi->ppi_offset);
++				    IEEE_8021Q_INFO);
++
++		vlan = (void *)ppi + ppi->ppi_offset;
+ 		vlan->vlanid = skb->vlan_tci & VLAN_VID_MASK;
+ 		vlan->pri = (skb->vlan_tci & VLAN_PRIO_MASK) >>
+ 				VLAN_PRIO_SHIFT;
+@@ -542,8 +542,7 @@ static int netvsc_start_xmit(struct sk_b
+ 		ppi = init_ppi_data(rndis_msg, NDIS_LSO_PPI_SIZE,
+ 				    TCP_LARGESEND_PKTINFO);
+ 
+-		lso_info = (struct ndis_tcp_lso_info *)((void *)ppi +
+-							ppi->ppi_offset);
++		lso_info = (void *)ppi + ppi->ppi_offset;
+ 
+ 		lso_info->lso_v2_transmit.type = NDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE;
+ 		if (skb->protocol == htons(ETH_P_IP)) {

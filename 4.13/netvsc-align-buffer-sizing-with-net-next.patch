@@ -1,0 +1,26 @@
+From 52705cc0231fc0b35ff20d9afb1a88bb74562c89 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Thu, 10 Aug 2017 09:50:36 -0700
+Subject: [PATCH 76/98] netvsc: align buffer sizing with net-next
+
+Submission to net-next had different send buffer size.
+---
+ drivers/net/hyperv/netvsc_drv.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.623562850 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.623562850 -0700
+@@ -47,10 +47,11 @@
+ 
+ #define RING_SIZE_MIN		64
+ #define NETVSC_MIN_TX_SECTIONS	10
+-#define NETVSC_DEFAULT_TX	160	/* ~1M */
++#define NETVSC_DEFAULT_TX	192	/* ~1M */
+ #define NETVSC_MIN_RX_SECTIONS	10	/* ~64K */
+ #define NETVSC_DEFAULT_RX	2048	/* ~4M */
+-#define LINKCHANGE_INT		(2 * HZ)
++
++#define LINKCHANGE_INT (2 * HZ)
+ #define VF_TAKEOVER_INT (HZ / 10)
+ 
+ static int ring_size = 128;

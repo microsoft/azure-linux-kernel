@@ -1,0 +1,28 @@
+From 3943206ad3f117ad0548a3dd6ac239ca5fe46064 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 19 Jul 2017 11:53:12 -0700
+Subject: [PATCH 30/98] netvsc: force link update after MTU change
+
+If two MTU changes are in less than update interval (2 seconds),
+then the netvsc network device may get stuck with no carrier.
+
+The netvsc driver debounces link status events which is fine
+for unsolicited updates, but blocks getting the update after
+down/up from MTU reinitialization.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/netvsc_drv.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:49.919504896 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:49.919504896 -0700
+@@ -806,6 +806,7 @@ static int netvsc_set_channels(struct ne
+ 		ret = netvsc_open(net);
+ 
+ 	/* We may have missed link change notifications */
++	net_device_ctx->last_reconfig = 0;
+ 	schedule_delayed_work(&net_device_ctx->dwork, 0);
+ 
+ 	return ret;

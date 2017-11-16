@@ -1,0 +1,35 @@
+From a28beda2cf8bc260e633388c9ac8f376d8094d71 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Fri, 28 Jul 2017 08:59:47 -0700
+Subject: [PATCH 51/98] netvsc: signal host if receive ring is emptied
+
+Latency improvement related to NAPI conversion.
+If all packets are processed from receive ring then need
+to signal host.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/netvsc.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.143532296 -0700
++++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.143532296 -0700
+@@ -1195,10 +1195,15 @@ int netvsc_poll(struct napi_struct *napi
+ 		nvchan->desc = hv_pkt_iter_next(channel, nvchan->desc);
+ 	}
+ 
++	/* if ring is empty, signal host */
++	if (!nvchan->desc)
++		hv_pkt_iter_close(channel);
++
+ 	/* If send of pending receive completions suceeded
+-	 *   and did not exhaust NAPI budget
++	 *   and did not exhaust NAPI budget this time
+ 	 *   and not doing busy poll
+-	 * then reschedule if more data has arrived from host
++	 * then re-enable host interrupts
++	 *     and reschedule if ring is not empty.
+ 	 */
+ 	if (send_recv_completions(nvchan) == 0 &&
+ 	    work_done < budget &&

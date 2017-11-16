@@ -1,0 +1,99 @@
+From 0ac70a233abfe0d5a0409cf142db1aea2f7fffc5 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Wed, 23 Aug 2017 10:39:18 -0700
+Subject: [PATCH 84/98] vmbus: expose per-channel interrupts and events
+ counters
+
+When investigating performance, it is useful to be able to look at
+the number of host and guest events per-channel. This is equivalent
+to per-device interrupt statistics.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/hv/channel.c    |    2 ++
+ drivers/hv/connection.c |    1 +
+ drivers/hv/vmbus_drv.c  |   23 +++++++++++++++++++++++
+ include/linux/hyperv.h  |    5 +++++
+ 4 files changed, 31 insertions(+)
+
+--- a/drivers/hv/channel.c	2017-10-05 14:20:55.423572707 -0700
++++ b/drivers/hv/channel.c	2017-10-05 14:20:55.419572657 -0700
+@@ -48,6 +48,8 @@ void vmbus_setevent(struct vmbus_channel
+ 	 * bypass the monitor page mechanism.
+ 	 */
+ 	if (channel->offermsg.monitor_allocated && !channel->low_latency) {
++		++channel->interrupts_out;
++
+ 		vmbus_send_interrupt(channel->offermsg.child_relid);
+ 
+ 		/* Get the child to parent monitor page */
+--- a/drivers/hv/connection.c	2017-10-05 14:20:55.423572707 -0700
++++ b/drivers/hv/connection.c	2017-10-05 14:20:55.419572657 -0700
+@@ -409,6 +409,7 @@ void vmbus_set_event(struct vmbus_channe
+ 	if (!channel->is_dedicated_interrupt)
+ 		vmbus_send_interrupt(child_relid);
+ 
++	++channel->events_out;
+ 	hv_do_fast_hypercall8(HVCALL_SIGNAL_EVENT, channel->sig_event);
+ }
+ EXPORT_SYMBOL_GPL(vmbus_set_event);
+--- a/drivers/hv/vmbus_drv.c	2017-10-05 14:20:55.423572707 -0700
++++ b/drivers/hv/vmbus_drv.c	2017-10-05 14:20:55.419572657 -0700
+@@ -942,6 +942,8 @@ static void vmbus_chan_sched(struct hv_p
+ 			if (channel->offermsg.child_relid != relid)
+ 				continue;
+ 
++			++channel->interrupts_in;
++
+ 			switch (channel->callback_mode) {
+ 			case HV_CALL_ISR:
+ 				vmbus_channel_isr(channel);
+@@ -1235,6 +1237,24 @@ static ssize_t channel_latency_show(cons
+ }
+ VMBUS_CHAN_ATTR(lantency, S_IRUGO, channel_latency_show, NULL);
+ 
++static ssize_t interrupts_in_show(const struct vmbus_channel *channel, char *buf)
++{
++	return sprintf(buf, "%u\n", channel->interrupts_in);
++}
++VMBUS_CHAN_ATTR_RO(interrupts_in);
++
++static ssize_t interrupts_out_show(const struct vmbus_channel *channel, char *buf)
++{
++	return sprintf(buf, "%u\n", channel->interrupts_out);
++}
++VMBUS_CHAN_ATTR_RO(interrupts_out);
++
++static ssize_t events_out_show(const struct vmbus_channel *channel, char *buf)
++{
++	return sprintf(buf, "%u\n", channel->events_out);
++}
++VMBUS_CHAN_ATTR_RO(events_out);
++
+ static struct attribute *vmbus_chan_attrs[] = {
+ 	&chan_attr_out_mask.attr,
+ 	&chan_attr_in_mask.attr,
+@@ -1243,6 +1263,9 @@ static struct attribute *vmbus_chan_attr
+ 	&chan_attr_cpu.attr,
+ 	&chan_attr_pending.attr,
+ 	&chan_attr_lantency.attr,
++	&chan_attr_interrupts_in.attr,
++	&chan_attr_interrupts_out.attr,
++	&chan_attr_events_out.attr,
+ 	NULL
+ };
+ 
+--- a/include/linux/hyperv.h	2017-10-05 14:20:55.423572707 -0700
++++ b/include/linux/hyperv.h	2017-10-05 14:20:55.419572657 -0700
+@@ -719,6 +719,11 @@ struct vmbus_channel {
+ 
+ 	struct vmbus_close_msg close_msg;
+ 
++	/* Statistics */
++	unsigned int	interrupts_in;		/* Host to Guest interrupts */
++	unsigned int	interrupts_out;		/* Guest to Host via interrupt */
++	unsigned int	events_out;		/* Guest to Host via hypercall */
++
+ 	/* Channel callback's invoked in softirq context */
+ 	struct tasklet_struct callback_event;
+ 	void (*onchannel_callback)(void *context);

@@ -1,0 +1,35 @@
+From 3da79d5f068980492874b6ebcb96333a1653c931 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon, 21 Aug 2017 19:22:38 -0700
+Subject: [PATCH 81/98] hv_netvsc: Clean up unused parameter from
+ netvsc_get_rss_hash_opts()
+
+The parameter "nvdev" is not in use.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/netvsc_drv.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.111568863 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.111568863 -0700
+@@ -1228,8 +1228,7 @@ static void netvsc_get_strings(struct ne
+ }
+ 
+ static int
+-netvsc_get_rss_hash_opts(struct netvsc_device *nvdev,
+-			 struct ethtool_rxnfc *info)
++netvsc_get_rss_hash_opts(struct ethtool_rxnfc *info)
+ {
+ 	info->data = RXH_IP_SRC | RXH_IP_DST;
+ 
+@@ -1267,7 +1266,7 @@ netvsc_get_rxnfc(struct net_device *dev,
+ 		return 0;
+ 
+ 	case ETHTOOL_GRXFH:
+-		return netvsc_get_rss_hash_opts(nvdev, info);
++		return netvsc_get_rss_hash_opts(info);
+ 	}
+ 	return -EOPNOTSUPP;
+ }

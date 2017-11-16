@@ -1,0 +1,74 @@
+From d263e296e3725bcabbcf10704e1af33c327fd198 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Wed, 23 Aug 2017 11:30:38 -0700
+Subject: [PATCH 85/98] vmbus: make vmbus_set_event local
+
+Since vmbus_set_event is only used by vmbus_setevent make
+it static. Compiler will inline it in this case.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/hv/channel.c    |   16 ++++++++++++++--
+ drivers/hv/connection.c |   15 ---------------
+ include/linux/hyperv.h  |    1 -
+ 3 files changed, 14 insertions(+), 18 deletions(-)
+
+--- a/drivers/hv/channel.c	2017-10-05 14:20:55.535574086 -0700
++++ b/drivers/hv/channel.c	2017-10-05 14:20:55.535574086 -0700
+@@ -29,11 +29,23 @@
+ #include <linux/hyperv.h>
+ #include <linux/uio.h>
+ #include <linux/interrupt.h>
++#include <asm/mshyperv.h>
+ 
+ #include "hyperv_vmbus.h"
+ 
+-#define NUM_PAGES_SPANNED(addr, len) \
+-((PAGE_ALIGN(addr + len) >> PAGE_SHIFT) - (addr >> PAGE_SHIFT))
++/*
++ * vmbus_set_event - Send an event notification to the parent
++ */
++static void vmbus_set_event(struct vmbus_channel *channel)
++{
++	u32 child_relid = channel->offermsg.child_relid;
++
++	if (!channel->is_dedicated_interrupt)
++		vmbus_send_interrupt(child_relid);
++
++	++channel->events_out;
++	hv_do_fast_hypercall8(HVCALL_SIGNAL_EVENT, channel->sig_event);
++}
+ 
+ /*
+  * vmbus_setevent- Trigger an event notification on the specified
+--- a/drivers/hv/connection.c	2017-10-05 14:20:55.535574086 -0700
++++ b/drivers/hv/connection.c	2017-10-05 14:20:55.535574086 -0700
+@@ -398,18 +398,3 @@ int vmbus_post_msg(void *buffer, size_t
+ 	}
+ 	return ret;
+ }
+-
+-/*
+- * vmbus_set_event - Send an event notification to the parent
+- */
+-void vmbus_set_event(struct vmbus_channel *channel)
+-{
+-	u32 child_relid = channel->offermsg.child_relid;
+-
+-	if (!channel->is_dedicated_interrupt)
+-		vmbus_send_interrupt(child_relid);
+-
+-	++channel->events_out;
+-	hv_do_fast_hypercall8(HVCALL_SIGNAL_EVENT, channel->sig_event);
+-}
+-EXPORT_SYMBOL_GPL(vmbus_set_event);
+--- a/include/linux/hyperv.h	2017-10-05 14:20:55.535574086 -0700
++++ b/include/linux/hyperv.h	2017-10-05 14:20:55.535574086 -0700
+@@ -1431,7 +1431,6 @@ extern __u32 vmbus_proto_version;
+ 
+ int vmbus_send_tl_connect_request(const uuid_le *shv_guest_servie_id,
+ 				  const uuid_le *shv_host_servie_id);
+-void vmbus_set_event(struct vmbus_channel *channel);
+ 
+ /* Get the start of the ring buffer. */
+ static inline void *

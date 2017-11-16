@@ -1,0 +1,53 @@
+From 593a86b697465a287587251de2a12ddd4e7b5535 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Tue, 1 Aug 2017 13:44:01 -0700
+Subject: [PATCH 58/98] netvsc: no need to allocate send/receive on numa node
+
+The send and receive buffers are both per-device (not per-channel).
+The associated NUMA node is a property of the CPU which is per-channel
+therefore it makes no sense to force the receive/send buffer to be
+allocated on a particular node (since it is a shared resource).
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c |   19 +++++--------------
+ 1 file changed, 5 insertions(+), 14 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.835540822 -0700
++++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.831540773 -0700
+@@ -249,20 +249,13 @@ int netvsc_alloc_recv_comp_ring(struct n
+ static int netvsc_init_buf(struct hv_device *device,
+ 			   struct netvsc_device *net_device)
+ {
+-	int ret = 0;
+-	struct nvsp_message *init_packet;
+ 	struct nvsp_1_message_send_receive_buffer_complete *resp;
+-	struct net_device *ndev;
++	struct net_device *ndev = hv_get_drvdata(device);
++	struct nvsp_message *init_packet;
+ 	size_t map_words;
+-	int node;
+-
+-	ndev = hv_get_drvdata(device);
+-
+-	node = cpu_to_node(device->channel->target_cpu);
+-	net_device->recv_buf = vzalloc_node(net_device->recv_buf_size, node);
+-	if (!net_device->recv_buf)
+-		net_device->recv_buf = vzalloc(net_device->recv_buf_size);
++	int ret = 0;
+ 
++	net_device->recv_buf = vzalloc(net_device->recv_buf_size);
+ 	if (!net_device->recv_buf) {
+ 		netdev_err(ndev, "unable to allocate receive "
+ 			"buffer of size %d\n", net_device->recv_buf_size);
+@@ -343,9 +336,7 @@ static int netvsc_init_buf(struct hv_dev
+ 		goto cleanup;
+ 
+ 	/* Now setup the send buffer. */
+-	net_device->send_buf = vzalloc_node(net_device->send_buf_size, node);
+-	if (!net_device->send_buf)
+-		net_device->send_buf = vzalloc(net_device->send_buf_size);
++	net_device->send_buf = vzalloc(net_device->send_buf_size);
+ 	if (!net_device->send_buf) {
+ 		netdev_err(ndev, "unable to allocate send "
+ 			   "buffer of size %d\n", net_device->send_buf_size);

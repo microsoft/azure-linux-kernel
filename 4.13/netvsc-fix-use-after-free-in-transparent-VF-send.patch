@@ -1,0 +1,29 @@
+From f49738e44d501d2e1bf4633e8dc632fda3a21f84 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Mon, 31 Jul 2017 20:58:52 -0700
+Subject: [PATCH 55/98] netvsc: fix use after free in transparent VF send
+
+This was found by KASAN and fixed  before submitting upstream.
+---
+ drivers/net/hyperv/netvsc_drv.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:52.535537126 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:52.531537077 -0700
+@@ -410,6 +410,7 @@ static int netvsc_vf_xmit(struct net_dev
+ 			  struct sk_buff *skb)
+ {
+ 	struct net_device_context *ndev_ctx = netdev_priv(net);
++	unsigned int len = skb->len;
+ 	int rc;
+ 
+ 	skb->dev = vf_netdev;
+@@ -422,7 +423,7 @@ static int netvsc_vf_xmit(struct net_dev
+ 
+ 		u64_stats_update_begin(&pcpu_stats->syncp);
+ 		pcpu_stats->tx_packets++;
+-		pcpu_stats->tx_bytes += skb->len;
++		pcpu_stats->tx_bytes += len;
+ 		u64_stats_update_end(&pcpu_stats->syncp);
+ 	} else {
+ 		this_cpu_inc(ndev_ctx->vf_stats->tx_dropped);

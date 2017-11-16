@@ -1,0 +1,42 @@
+From 67d81a26a7f4a5efb65bd7f9ae21520009c3c6e6 Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Wed, 26 Jul 2017 12:32:14 -0600
+Subject: [PATCH 28/98] vmbus: don't acquire the mutex in
+ vmbus_hvsock_device_unregister()
+
+This is a tempoary workaround to avoid deadlock:
+
+If we get the mutex in vmbus_hvsock_device_unregister() and call
+vmbus_device_unregister() -> device_unregister() -> ... -> device_release()
+-> vmbus_device_release(), we'll get a deadlock, because
+vmbus_device_release() tries to get the same lock.
+
+We need to add a proper sync mechanism for onoffer, onrescind and
+vmbus_hvsock_device_unregister().
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/hv/channel_mgmt.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+--- a/drivers/hv/channel_mgmt.c	2017-10-05 14:20:49.719502432 -0700
++++ b/drivers/hv/channel_mgmt.c	2017-10-05 14:20:49.719502432 -0700
+@@ -913,14 +913,11 @@ static void vmbus_onoffer_rescind(struct
+ 
+ void vmbus_hvsock_device_unregister(struct vmbus_channel *channel)
+ {
+-	mutex_lock(&vmbus_connection.channel_mutex);
+-
+ 	BUG_ON(!is_hvsock_channel(channel));
+ 
++	/* XXX: need to sync with onoffer/onrescind */
+ 	channel->rescind = true;
+ 	vmbus_device_unregister(channel->device_obj);
+-
+-	mutex_unlock(&vmbus_connection.channel_mutex);
+ }
+ EXPORT_SYMBOL_GPL(vmbus_hvsock_device_unregister);
+ 

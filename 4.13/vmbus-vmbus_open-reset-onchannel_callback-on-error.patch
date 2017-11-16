@@ -1,0 +1,27 @@
+From 6ce3e92a90dae96db2f27b4264c53fda8eb1a04a Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Wed, 26 Jul 2017 12:31:50 -0600
+Subject: [PATCH 10/98] vmbus: vmbus_open(): reset onchannel_callback on error
+
+No real issue is observed without the patch, but let's add this
+just in case.
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/hv/channel.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+--- a/drivers/hv/channel.c	2017-10-05 14:20:47.859479516 -0700
++++ b/drivers/hv/channel.c	2017-10-05 14:20:47.855479466 -0700
+@@ -220,6 +220,8 @@ error_free_pages:
+ 		     get_order(send_ringbuffer_size + recv_ringbuffer_size));
+ error_set_chnstate:
+ 	newchannel->state = CHANNEL_OPEN_STATE;
++	newchannel->onchannel_callback = NULL;
++	newchannel->channel_callback_context = NULL;
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(vmbus_open);

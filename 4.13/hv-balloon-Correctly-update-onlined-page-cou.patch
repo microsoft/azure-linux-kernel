@@ -1,0 +1,41 @@
+From 4cfa6815f6149c487a8d45a6b0d8ca6cb326b468 Mon Sep 17 00:00:00 2001
+From: Alex Ng <alexng@messages.microsoft.com>
+Date: Sun, 6 Aug 2017 13:12:53 -0700
+Subject: [PATCH 62/98] Drivers: hv: balloon: Correctly update onlined page
+ count
+
+Previously, num_pages_onlined was updated using value from memory online
+notifier. This is incorrect because they assume that all hot-added pages
+are online, even though we only online the amount that's backed by the
+host. We should update num_pages_onlined only when the balloon driver
+marks a page as online.
+
+Signed-off-by: Alex Ng <alexng@messages.microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/hv/hv_balloon.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+--- a/drivers/hv/hv_balloon.c	2017-10-05 14:20:53.239545799 -0700
++++ b/drivers/hv/hv_balloon.c	2017-10-05 14:20:53.239545799 -0700
+@@ -584,10 +584,6 @@ static int hv_memory_notifier(struct not
+ 
+ 	switch (val) {
+ 	case MEM_ONLINE:
+-		spin_lock_irqsave(&dm_device.ha_lock, flags);
+-		dm_device.num_pages_onlined += mem->nr_pages;
+-		spin_unlock_irqrestore(&dm_device.ha_lock, flags);
+-		/* Fall through */
+ 	case MEM_CANCEL_ONLINE:
+ 		if (dm_device.ha_waiting) {
+ 			dm_device.ha_waiting = false;
+@@ -644,6 +640,9 @@ static void hv_page_online_one(struct hv
+ 	__online_page_set_limits(pg);
+ 	__online_page_increment_counters(pg);
+ 	__online_page_free(pg);
++
++	WARN_ON_ONCE(!spin_is_locked(&dm_device.ha_lock));
++	dm_device.num_pages_onlined++;
+ }
+ 
+ static void hv_bring_pgs_online(struct hv_hotadd_state *has,

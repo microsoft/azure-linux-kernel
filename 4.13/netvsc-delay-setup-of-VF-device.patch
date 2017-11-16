@@ -1,0 +1,89 @@
+From 25cf20ad52efc9451135cc847637da42a0d690cc Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Thu, 10 Aug 2017 09:43:55 -0700
+Subject: [PATCH 71/98] netvsc: delay setup of VF device
+
+When VF device is discovered, delay bring it automatically up in
+order to allow userspace to some simple changes (like renaming).
+
+Reported-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    2 +-
+ drivers/net/hyperv/netvsc_drv.c |   15 ++++++++-------
+ 2 files changed, 9 insertions(+), 8 deletions(-)
+
+--- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:54.123556690 -0700
++++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:54.123556690 -0700
+@@ -729,7 +729,7 @@ struct net_device_context {
+ 	/* State to manage the associated VF interface. */
+ 	struct net_device __rcu *vf_netdev;
+ 	struct netvsc_vf_pcpu_stats __percpu *vf_stats;
+-	struct work_struct vf_takeover;
++	struct delayed_work vf_takeover;
+ 
+ 	/* 1: allocated, serial number is valid. 0: not allocated */
+ 	u32 vf_alloc;
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.123556690 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.123556690 -0700
+@@ -51,6 +51,7 @@
+ #define NETVSC_MIN_RX_SECTIONS	10	/* ~64K */
+ #define NETVSC_DEFAULT_RX	2048	/* ~4M */
+ #define LINKCHANGE_INT		(2 * HZ)
++#define VF_TAKEOVER_INT (HZ / 10)
+ 
+ static int ring_size = 128;
+ module_param(ring_size, int, S_IRUGO);
+@@ -1686,7 +1687,9 @@ static int netvsc_vf_join(struct net_dev
+ 	/* set slave flag before open to prevent IPv6 addrconf */
+ 	vf_netdev->flags |= IFF_SLAVE;
+ 
+-	schedule_work(&ndev_ctx->vf_takeover);
++	schedule_delayed_work(&ndev_ctx->vf_takeover, VF_TAKEOVER_INT);
++
++	call_netdevice_notifiers(NETDEV_JOIN, vf_netdev);
+ 
+ 	netdev_info(vf_netdev, "joined to %s\n", ndev->name);
+ 	return 0;
+@@ -1702,8 +1705,6 @@ static void __netvsc_vf_setup(struct net
+ {
+ 	int ret;
+ 
+-	call_netdevice_notifiers(NETDEV_JOIN, vf_netdev);
+-
+ 	/* Align MTU of VF with master */
+ 	ret = dev_set_mtu(vf_netdev, ndev->mtu);
+ 	if (ret)
+@@ -1724,12 +1725,12 @@ static void __netvsc_vf_setup(struct net
+ static void netvsc_vf_setup(struct work_struct *w)
+ {
+ 	struct net_device_context *ndev_ctx
+-		= container_of(w, struct net_device_context, vf_takeover);
++		= container_of(w, struct net_device_context, vf_takeover.work);
+ 	struct net_device *ndev = hv_get_drvdata(ndev_ctx->device_ctx);
+ 	struct net_device *vf_netdev;
+ 
+ 	if (!rtnl_trylock()) {
+-		schedule_work(w);
++		schedule_delayed_work(&ndev_ctx->vf_takeover, 0);
+ 		return;
+ 	}
+ 
+@@ -1833,7 +1834,7 @@ static int netvsc_unregister_vf(struct n
+ 		return NOTIFY_DONE;
+ 
+ 	net_device_ctx = netdev_priv(ndev);
+-	cancel_work_sync(&net_device_ctx->vf_takeover);
++	cancel_delayed_work_sync(&net_device_ctx->vf_takeover);
+ 
+ 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
+ 
+@@ -1875,7 +1876,7 @@ static int netvsc_probe(struct hv_device
+ 
+ 	spin_lock_init(&net_device_ctx->lock);
+ 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
+-	INIT_WORK(&net_device_ctx->vf_takeover, netvsc_vf_setup);
++	INIT_DELAYED_WORK(&net_device_ctx->vf_takeover, netvsc_vf_setup);
+ 
+ 	net_device_ctx->vf_stats
+ 		= netdev_alloc_pcpu_stats(struct netvsc_vf_pcpu_stats);

@@ -1,0 +1,42 @@
+From 8892a80122dafc4fc3239b0f9061143bab33929e Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Mon, 24 Jul 2017 10:57:30 -0700
+Subject: [PATCH 44/98] netvsc: remove no longer used max_num_rss queues
+
+This value has been calculated in rndis_device_attach since 4.11.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/hyperv_net.h |    1 -
+ drivers/net/hyperv/netvsc_drv.c |    2 --
+ 2 files changed, 3 deletions(-)
+
+--- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:51.399523130 -0700
++++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:51.399523130 -0700
+@@ -147,7 +147,6 @@ struct hv_netvsc_packet {
+ struct netvsc_device_info {
+ 	unsigned char mac_adr[ETH_ALEN];
+ 	int  ring_size;
+-	u32  max_num_vrss_chns;
+ 	u32  num_chn;
+ };
+ 
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:51.399523130 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:51.399523130 -0700
+@@ -776,7 +776,6 @@ static int netvsc_set_channels(struct ne
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.num_chn = count;
+ 	device_info.ring_size = ring_size;
+-	device_info.max_num_vrss_chns = count;
+ 
+ 	nvdev = rndis_filter_device_add(dev, &device_info);
+ 	if (!IS_ERR(nvdev)) {
+@@ -785,7 +784,6 @@ static int netvsc_set_channels(struct ne
+ 		ret = PTR_ERR(nvdev);
+ 	} else {
+ 		device_info.num_chn = orig;
+-		device_info.max_num_vrss_chns = count;
+ 		rndis_filter_device_add(dev, &device_info);
+ 	}
+ 

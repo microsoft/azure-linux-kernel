@@ -1,0 +1,29 @@
+From eda5e15b8e4d9e1d882a05c40d6c356f52dba4fa Mon Sep 17 00:00:00 2001
+From: Alex Ng <alexng@messages.microsoft.com>
+Date: Sun, 6 Aug 2017 13:12:54 -0700
+Subject: [PATCH 63/98] Drivers: hv: balloon: Show the max dynamic memory
+ assigned
+
+Previously we were only showing max number of pages. We should make it
+more clear that this value is the max amount of dynamic memory that the
+Hyper-V host is willing to assign to this guest.
+
+Signed-off-by: Alex Ng <alexng@messages.microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/hv/hv_balloon.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/drivers/hv/hv_balloon.c	2017-10-05 14:20:53.335546982 -0700
++++ b/drivers/hv/hv_balloon.c	2017-10-05 14:20:53.331546933 -0700
+@@ -1035,8 +1035,8 @@ static void process_info(struct hv_dynme
+ 		if (info_hdr->data_size == sizeof(__u64)) {
+ 			__u64 *max_page_count = (__u64 *)&info_hdr[1];
+ 
+-			pr_info("INFO_TYPE_MAX_PAGE_CNT = %llu\n",
+-				*max_page_count);
++			pr_info("Max. dynamic memory size: %llu MB\n",
++				(*max_page_count) >> (20 - PAGE_SHIFT));
+ 		}
+ 
+ 		break;

@@ -1,0 +1,24 @@
+From 157d1be023f1f994f979f4fa8395120fd3d88a6e Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Mon, 24 Jul 2017 10:57:27 -0700
+Subject: [PATCH 41/98] netvsc: prefetch the first incoming ring element
+
+In interrupt handler, prefetch the first incoming ring element
+so that it is in cache by the time NAPI poll gets to it.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/netvsc.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:51.107519533 -0700
++++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:51.103519483 -0700
+@@ -31,6 +31,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/prefetch.h>
+ #include <linux/rtnetlink.h>
++#include <linux/prefetch.h>
+ 
+ #include <asm/sync_bitops.h>
+ 

@@ -1,0 +1,31 @@
+From fba513bdc29e73169e9d6fa0cc918732a596b279 Mon Sep 17 00:00:00 2001
+From: Alex Ng <alexng@messages.microsoft.com>
+Date: Sun, 6 Aug 2017 13:12:56 -0700
+Subject: [PATCH 65/98] Drivers: hv: kvp: Use MAX_ADAPTER_ID_SIZE for
+ translating adapter id
+
+There's a bug which passes the output buffer size as MAX_IP_ADDR_SIZE,
+when converting the adapter_id field to UTF16. This is much larger than
+the actual size (MAX_ADAPTER_ID_SIZE). Fix this by passing the proper
+size.
+
+Fortunately, the translation is limited by the length of the input. This
+explains why we haven't seen output buffer overflow conditions.
+
+Signed-off-by: Alex Ng <alexng@messages.microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/hv/hv_kvp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/hv/hv_kvp.c	2017-10-05 14:20:53.531549397 -0700
++++ b/drivers/hv/hv_kvp.c	2017-10-05 14:20:53.531549397 -0700
+@@ -304,7 +304,7 @@ static int process_ob_ipinfo(void *in_ms
+ 				strlen((char *)in->body.kvp_ip_val.adapter_id),
+ 				UTF16_HOST_ENDIAN,
+ 				(wchar_t *)out->kvp_ip_val.adapter_id,
+-				MAX_IP_ADDR_SIZE);
++				MAX_ADAPTER_ID_SIZE);
+ 		if (len < 0)
+ 			return len;
+ 

@@ -1,0 +1,33 @@
+From 45442ca9095af14f1862ba1b91f56c27817579d5 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Thu, 10 Aug 2017 09:42:34 -0700
+Subject: [PATCH 70/98] netvsc: fix rtnl deadlock on unregister of vf
+
+With new transparent VF support, it is possible to get a deadlock
+when some of the deferred work is running and the unregister_vf
+is trying to cancel the work element. The solution is to use
+trylock and reschedule (similar to bonding and team device).
+
+Reported-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Fixes: 0c195567a8f6 ("netvsc: transparent VF management")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/netvsc_drv.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.027555507 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.027555507 -0700
+@@ -1728,7 +1728,11 @@ static void netvsc_vf_setup(struct work_
+ 	struct net_device *ndev = hv_get_drvdata(ndev_ctx->device_ctx);
+ 	struct net_device *vf_netdev;
+ 
+-	rtnl_lock();
++	if (!rtnl_trylock()) {
++		schedule_work(w);
++		return;
++	}
++
+ 	vf_netdev = rtnl_dereference(ndev_ctx->vf_netdev);
+ 	if (vf_netdev)
+ 		__netvsc_vf_setup(ndev, vf_netdev);

@@ -1,0 +1,34 @@
+From 2c9ef7e743442f4f3ec400f50b7bc914f56a82bf Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon, 21 Aug 2017 19:22:37 -0700
+Subject: [PATCH 80/98] hv_netvsc: Clean up unused parameter from
+ netvsc_get_hash()
+
+The parameter "sk" is not in use.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/netvsc_drv.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.015567681 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.015567681 -0700
+@@ -193,7 +193,7 @@ static void *init_ppi_data(struct rndis_
+ /* Azure hosts don't support non-TCP port numbers in hashing yet. We compute
+  * hash for non-TCP traffic with only IP numbers.
+  */
+-static inline u32 netvsc_get_hash(struct sk_buff *skb, struct sock *sk)
++static inline u32 netvsc_get_hash(struct sk_buff *skb)
+ {
+ 	struct flow_keys flow;
+ 	u32 hash;
+@@ -227,7 +227,7 @@ static inline int netvsc_get_tx_queue(st
+ 	struct sock *sk = skb->sk;
+ 	int q_idx;
+ 
+-	q_idx = ndc->tx_send_table[netvsc_get_hash(skb, sk) &
++	q_idx = ndc->tx_send_table[netvsc_get_hash(skb) &
+ 				   (VRSS_SEND_TAB_SIZE - 1)];
+ 
+ 	/* If queue index changed record the new value */
