@@ -1,0 +1,95 @@
+From 717df6b34d16e656332683eb85d3674b919bbac0 Mon Sep 17 00:00:00 2001
+From: Olaf Hering <olaf@aepfle.de>
+Date: Thu, 10 Aug 2017 15:45:16 -0700
+Subject: [PATCH 78/98] Tools: hv: update buffer handling in hv_fcopy_daemon
+
+Currently this warning is triggered when compiling hv_fcopy_daemon:
+
+hv_fcopy_daemon.c:216:4: warning: dereferencing type-punned pointer will break
+strict-aliasing rules [-Wstrict-aliasing]
+    kernel_modver = *(__u32 *)buffer;
+
+Convert the send/receive buffer to a union and pass individual members as
+needed. This also gives the correct size for the buffer.
+
+Signed-off-by: Olaf Hering <olaf@aepfle.de>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ tools/hv/hv_fcopy_daemon.c |   32 +++++++++++++++++---------------
+ 1 file changed, 17 insertions(+), 15 deletions(-)
+
+--- a/tools/hv/hv_fcopy_daemon.c	2017-10-05 14:20:54.823565314 -0700
++++ b/tools/hv/hv_fcopy_daemon.c	2017-10-05 14:20:54.819565265 -0700
+@@ -138,14 +138,17 @@ void print_usage(char *argv[])
+ 
+ int main(int argc, char *argv[])
+ {
+-	int fcopy_fd, len;
++	int fcopy_fd;
+ 	int error;
+ 	int daemonize = 1, long_index = 0, opt;
+ 	int version = FCOPY_CURRENT_VERSION;
+-	char *buffer[4096 * 2];
+-	struct hv_fcopy_hdr *in_msg;
++	union {
++		struct hv_fcopy_hdr hdr;
++		struct hv_start_fcopy start;
++		struct hv_do_fcopy copy;
++		__u32 kernel_modver;
++	} buffer = { };
+ 	int in_handshake = 1;
+-	__u32 kernel_modver;
+ 
+ 	static struct option long_options[] = {
+ 		{"help",	no_argument,	   0,  'h' },
+@@ -195,32 +198,31 @@ int main(int argc, char *argv[])
+ 		 * In this loop we process fcopy messages after the
+ 		 * handshake is complete.
+ 		 */
+-		len = pread(fcopy_fd, buffer, (4096 * 2), 0);
++		ssize_t len;
++
++		len = pread(fcopy_fd, &buffer, sizeof(buffer), 0);
+ 		if (len < 0) {
+ 			syslog(LOG_ERR, "pread failed: %s", strerror(errno));
+ 			exit(EXIT_FAILURE);
+ 		}
+ 
+ 		if (in_handshake) {
+-			if (len != sizeof(kernel_modver)) {
++			if (len != sizeof(buffer.kernel_modver)) {
+ 				syslog(LOG_ERR, "invalid version negotiation");
+ 				exit(EXIT_FAILURE);
+ 			}
+-			kernel_modver = *(__u32 *)buffer;
+ 			in_handshake = 0;
+-			syslog(LOG_INFO, "kernel module version: %d",
+-			       kernel_modver);
++			syslog(LOG_INFO, "kernel module version: %u",
++			       buffer.kernel_modver);
+ 			continue;
+ 		}
+ 
+-		in_msg = (struct hv_fcopy_hdr *)buffer;
+-
+-		switch (in_msg->operation) {
++		switch (buffer.hdr.operation) {
+ 		case START_FILE_COPY:
+-			error = hv_start_fcopy((struct hv_start_fcopy *)in_msg);
++			error = hv_start_fcopy(&buffer.start);
+ 			break;
+ 		case WRITE_TO_FILE:
+-			error = hv_copy_data((struct hv_do_fcopy *)in_msg);
++			error = hv_copy_data(&buffer.copy);
+ 			break;
+ 		case COMPLETE_FCOPY:
+ 			error = hv_copy_finished();
+@@ -231,7 +233,7 @@ int main(int argc, char *argv[])
+ 
+ 		default:
+ 			syslog(LOG_ERR, "Unknown operation: %d",
+-				in_msg->operation);
++				buffer.hdr.operation);
+ 
+ 		}
+ 

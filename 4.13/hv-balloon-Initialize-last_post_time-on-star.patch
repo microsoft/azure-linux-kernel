@@ -1,0 +1,32 @@
+From cc7e715c468e617eff7ed0177fe1233ce18b9d2a Mon Sep 17 00:00:00 2001
+From: Alex Ng <alexng@messages.microsoft.com>
+Date: Sun, 6 Aug 2017 13:12:55 -0700
+Subject: [PATCH 64/98] Drivers: hv: balloon: Initialize last_post_time on
+ startup
+
+When left uninitialized, this sometimes fails the following check in
+post_status():
+
+	if (!time_after(now, (last_post_time + HZ))) {
+		return;
+        }
+
+This causes unnecessary delays in reporting memory pressure to host after
+booting up.
+
+Signed-off-by: Alex Ng <alexng@messages.microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/hv/hv_balloon.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/drivers/hv/hv_balloon.c	2017-10-05 14:20:53.435548214 -0700
++++ b/drivers/hv/hv_balloon.c	2017-10-05 14:20:53.435548214 -0700
+@@ -1655,6 +1655,7 @@ static int balloon_probe(struct hv_devic
+ 	}
+ 
+ 	dm_device.state = DM_INITIALIZED;
++	last_post_time = jiffies;
+ 
+ 	return 0;
+ 

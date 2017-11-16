@@ -1,0 +1,28 @@
+From 25cb1e5b4589472aa3b310f422a23e1a1f21d3d9 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Thu, 20 Apr 2017 09:35:23 -0700
+Subject: [PATCH 04/98] pci-hyperv: Use only 16 bit integer for PCI domain
+
+This patch uses the lower 16 bits of the serial number as PCI
+domain, otherwise some drivers may not be able to handle it.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ drivers/pci/host/pci-hyperv.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+--- a/drivers/pci/host/pci-hyperv.c	2017-10-05 14:20:47.347473207 -0700
++++ b/drivers/pci/host/pci-hyperv.c	2017-10-05 14:20:47.347473207 -0700
+@@ -1578,9 +1578,11 @@ static struct hv_pci_dev *new_pcichild_d
+ 	 * can have shorter names than based on the bus instance UUID.
+ 	 * Only the first device serial number is used for domain, so the
+ 	 * domain number will not change after the first device is added.
++	 * The lower 16 bits of the serial number is used, otherwise some
++	 * drivers may not be able to handle it.
+ 	 */
+ 	if (list_empty(&hbus->children))
+-		hbus->sysdata.domain = desc->ser;
++		hbus->sysdata.domain = desc->ser & 0xFFFF;
+ 	list_add_tail(&hpdev->list_entry, &hbus->children);
+ 	spin_unlock_irqrestore(&hbus->device_list_lock, flags);
+ 	return hpdev;

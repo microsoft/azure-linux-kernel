@@ -1,0 +1,122 @@
+From c96f51cb5fe29a19da0c7208ec94bdc8f5314a25 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 19 Jul 2017 11:53:15 -0700
+Subject: [PATCH 33/98] netvsc: change logic for change mtu and set_queues
+
+Use device detach/attach to ensure that no packets are handed
+to device during state changes. Call rndis_filter_open/close
+directly as part of later VF related changes.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/hyperv_net.h   |    1 +
+ drivers/net/hyperv/netvsc_drv.c   |   38 ++++++++++++++++++--------------------
+ drivers/net/hyperv/rndis_filter.c |    5 +++++
+ 3 files changed, 24 insertions(+), 20 deletions(-)
+
+--- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:50.239508839 -0700
++++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:50.235508789 -0700
+@@ -200,6 +200,7 @@ int netvsc_recv_callback(struct net_devi
+ 			 const struct ndis_pkt_8021q_info *vlan);
+ void netvsc_channel_cb(void *context);
+ int netvsc_poll(struct napi_struct *napi, int budget);
++bool rndis_filter_opened(const struct netvsc_device *nvdev);
+ int rndis_filter_open(struct netvsc_device *nvdev);
+ int rndis_filter_close(struct netvsc_device *nvdev);
+ int rndis_filter_device_add(struct hv_device *dev,
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:50.239508839 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:50.235508789 -0700
+@@ -765,7 +765,7 @@ static int netvsc_set_channels(struct ne
+ 	struct hv_device *dev = net_device_ctx->device_ctx;
+ 	struct netvsc_device *nvdev = rtnl_dereference(net_device_ctx->nvdev);
+ 	unsigned int count = channels->combined_count;
+-	bool was_running;
++	bool was_opened;
+ 	int ret;
+ 
+ 	/* We do not support separate count for rx, tx, or other */
+@@ -785,12 +785,9 @@ static int netvsc_set_channels(struct ne
+ 	if (count > nvdev->max_chn)
+ 		return -EINVAL;
+ 
+-	was_running = netif_running(net);
+-	if (was_running) {
+-		ret = netvsc_close(net);
+-		if (ret)
+-			return ret;
+-	}
++	was_opened = rndis_filter_opened(nvdev);
++	if (was_opened)
++		rndis_filter_close(nvdev);
+ 
+ 	rndis_filter_device_remove(dev, nvdev);
+ 
+@@ -800,8 +797,9 @@ static int netvsc_set_channels(struct ne
+ 	else
+ 		netvsc_set_queues(net, dev, nvdev->num_chn);
+ 
+-	if (was_running)
+-		ret = netvsc_open(net);
++	nvdev = rtnl_dereference(net_device_ctx->nvdev);
++	if (was_opened)
++		rndis_filter_open(nvdev);
+ 
+ 	/* We may have missed link change notifications */
+ 	net_device_ctx->last_reconfig = 0;
+@@ -871,18 +869,15 @@ static int netvsc_change_mtu(struct net_
+ 	struct netvsc_device *nvdev = rtnl_dereference(ndevctx->nvdev);
+ 	struct hv_device *hdev = ndevctx->device_ctx;
+ 	struct netvsc_device_info device_info;
+-	bool was_running;
+-	int ret = 0;
++	bool was_opened;
+ 
+ 	if (!nvdev || nvdev->destroy)
+ 		return -ENODEV;
+ 
+-	was_running = netif_running(ndev);
+-	if (was_running) {
+-		ret = netvsc_close(ndev);
+-		if (ret)
+-			return ret;
+-	}
++	netif_device_detach(ndev);
++	was_opened = rndis_filter_opened(nvdev);
++	if (was_opened)
++		rndis_filter_close(nvdev);
+ 
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+@@ -900,14 +895,17 @@ static int netvsc_change_mtu(struct net_
+ 	ndev->mtu = mtu;
+ 
+ 	rndis_filter_device_add(hdev, &device_info);
++	nvdev = rtnl_dereference(ndevctx->nvdev);
+ 
+-	if (was_running)
+-		ret = netvsc_open(ndev);
++	if (was_opened)
++		rndis_filter_open(nvdev);
++
++	netif_device_attach(ndev);
+ 
+ 	/* We may have missed link change notifications */
+ 	schedule_delayed_work(&ndevctx->dwork, 0);
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static void netvsc_get_stats64(struct net_device *net,
+--- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:50.239508839 -0700
++++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:50.235508789 -0700
+@@ -1304,3 +1304,8 @@ int rndis_filter_close(struct netvsc_dev
+ 
+ 	return rndis_filter_close_device(nvdev->extension);
+ }
++
++bool rndis_filter_opened(const struct netvsc_device *nvdev)
++{
++	return atomic_read(&nvdev->open_cnt) > 0;
++}

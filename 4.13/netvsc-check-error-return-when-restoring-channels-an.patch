@@ -1,0 +1,50 @@
+From 1eac54c468ff20d59eff80eb5352fde0ad28a5f6 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Tue, 1 Aug 2017 13:31:02 -0700
+Subject: [PATCH 57/98] netvsc: check error return when restoring channels and
+ mtu
+
+If setting new values fails, and the attempt to restore original
+settings fails. Then log an error and leave device down.
+This should never happen, but if it does don't go down in flames.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c |   16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:52.739539639 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:52.735539590 -0700
+@@ -844,7 +844,13 @@ static int netvsc_set_channels(struct ne
+ 	} else {
+ 		ret = PTR_ERR(nvdev);
+ 		device_info.num_chn = orig;
+-		rndis_filter_device_add(dev, &device_info);
++		nvdev = rndis_filter_device_add(dev, &device_info);
++
++		if (IS_ERR(nvdev)) {
++			netdev_err(net, "restoring channel setting failed: %ld\n",
++				   PTR_ERR(nvdev));
++			return ret;
++		}
+ 	}
+ 
+ 	if (was_opened)
+@@ -952,10 +958,16 @@ static int netvsc_change_mtu(struct net_
+ 
+ 		/* Attempt rollback to original MTU */
+ 		ndev->mtu = orig_mtu;
+-		rndis_filter_device_add(hdev, &device_info);
++		nvdev = rndis_filter_device_add(hdev, &device_info);
+ 
+ 		if (vf_netdev)
+ 			dev_set_mtu(vf_netdev, orig_mtu);
++
++		if (IS_ERR(nvdev)) {
++			netdev_err(ndev, "restoring mtu failed: %ld\n",
++				   PTR_ERR(nvdev));
++			return ret;
++		}
+ 	}
+ 
+ 	if (was_opened)

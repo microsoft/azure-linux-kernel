@@ -1,0 +1,29 @@
+From 6a1ab381b61a000a441bf78e43c3ba844fac7c06 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Mon, 7 Aug 2017 15:13:35 -0700
+Subject: [PATCH 75/98] netvsc: remove unnecessary check for NULL hdr
+
+The function init_page_array is always called with a valid pointer
+to RNDIS header. No check for NULL is needed.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.527561668 -0700
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.523561618 -0700
+@@ -337,10 +337,9 @@ static u32 init_page_array(void *hdr, u3
+ 	 * 2. skb linear data
+ 	 * 3. skb fragment data
+ 	 */
+-	if (hdr != NULL)
+-		slots_used += fill_pg_buf(virt_to_page(hdr),
+-					offset_in_page(hdr),
+-					len, &pb[slots_used]);
++	slots_used += fill_pg_buf(virt_to_page(hdr),
++				  offset_in_page(hdr),
++				  len, &pb[slots_used]);
+ 
+ 	packet->rmsg_size = len;
+ 	packet->rmsg_pgcnt = slots_used;

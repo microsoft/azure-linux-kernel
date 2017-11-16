@@ -1,0 +1,28 @@
+From f9a094c19734bd8e87e2c6118c9f21ef78be8f1e Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Fri, 28 Jul 2017 08:59:46 -0700
+Subject: [PATCH 50/98] netvsc: fix error unwind on device setup failure
+
+If setting receive buffer fails, the error unwind would cause
+kernel panic because it was not correctly doing RCU and NAPI
+unwind.  RCU'd pointer needs to be reset to NULL, and NAPI needs
+to be disabled not deleted.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/netvsc.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.039531016 -0700
++++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.039531016 -0700
+@@ -1309,7 +1309,8 @@ struct netvsc_device *netvsc_device_add(
+ 	return net_device;
+ 
+ close:
+-	netif_napi_del(&net_device->chan_table[0].napi);
++	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
++	napi_disable(&net_device->chan_table[0].napi);
+ 
+ 	/* Now, we can close the channel safely */
+ 	vmbus_close(device->channel);

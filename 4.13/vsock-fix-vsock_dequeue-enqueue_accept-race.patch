@@ -1,0 +1,47 @@
+From 133219f2997a87e1734dc2d4c52dd37a8bb6430e Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Wed, 26 Jul 2017 12:32:06 -0600
+Subject: [PATCH 26/98] vsock: fix vsock_dequeue/enqueue_accept race
+
+We should add a lock to protect the concurrent access to the list.
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ net/vmw_vsock/af_vsock.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
+
+--- a/net/vmw_vsock/af_vsock.c	2017-10-05 14:20:49.527500067 -0700
++++ b/net/vmw_vsock/af_vsock.c	2017-10-05 14:20:49.527500067 -0700
+@@ -126,6 +126,7 @@ static struct proto vsock_proto = {
+ 
+ static const struct vsock_transport *transport;
+ static DEFINE_MUTEX(vsock_register_mutex);
++static DEFINE_SPINLOCK(vsock_accept_queue_lock);
+ 
+ /**** EXPORTS ****/
+ 
+@@ -406,7 +407,10 @@ void vsock_enqueue_accept(struct sock *l
+ 
+ 	sock_hold(connected);
+ 	sock_hold(listener);
++
++	spin_lock(&vsock_accept_queue_lock);
+ 	list_add_tail(&vconnected->accept_queue, &vlistener->accept_queue);
++	spin_unlock(&vsock_accept_queue_lock);
+ }
+ EXPORT_SYMBOL_GPL(vsock_enqueue_accept);
+ 
+@@ -423,7 +427,10 @@ static struct sock *vsock_dequeue_accept
+ 	vconnected = list_entry(vlistener->accept_queue.next,
+ 				struct vsock_sock, accept_queue);
+ 
++	spin_lock(&vsock_accept_queue_lock);
+ 	list_del_init(&vconnected->accept_queue);
++	spin_unlock(&vsock_accept_queue_lock);
++
+ 	sock_put(listener);
+ 	/* The caller will need a reference on the connected socket so we let
+ 	 * it call sock_put().

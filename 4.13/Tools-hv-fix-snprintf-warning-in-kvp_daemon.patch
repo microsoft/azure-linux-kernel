@@ -1,0 +1,25 @@
+From b1284536ce050830a8fdc7db00522d3d8b492a7e Mon Sep 17 00:00:00 2001
+From: Olaf Hering <olaf@aepfle.de>
+Date: Thu, 10 Aug 2017 15:45:15 -0700
+Subject: [PATCH 77/98] Tools: hv: fix snprintf warning in kvp_daemon
+
+Increase buffer size so that "_{-INT_MAX}" will fit.
+Spotted by the gcc7 snprintf checker.
+
+Signed-off-by: Olaf Hering <olaf@aepfle.de>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ tools/hv/hv_kvp_daemon.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/tools/hv/hv_kvp_daemon.c	2017-10-05 14:20:54.719564034 -0700
++++ b/tools/hv/hv_kvp_daemon.c	2017-10-05 14:20:54.719564034 -0700
+@@ -1136,7 +1136,7 @@ static int process_ip_string(FILE *f, ch
+ 	int i = 0;
+ 	int j = 0;
+ 	char str[256];
+-	char sub_str[10];
++	char sub_str[13];
+ 	int offset = 0;
+ 
+ 	memset(addr, 0, sizeof(addr));

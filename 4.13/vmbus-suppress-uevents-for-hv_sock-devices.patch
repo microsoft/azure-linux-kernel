@@ -1,0 +1,33 @@
+From 833a82c49e60ceda5b73861bb58d7c7acde6a9f8 Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Wed, 16 Aug 2017 03:39:17 +0000
+Subject: [PATCH 79/98] vmbus: suppress uevents for hv_sock devices
+
+hv_sock driver is automatically loaded when an application creates an
+AF_VSOCK socket, so we don't really need to trigger uevents to the user
+space udevd.
+
+And hv_sock devices can appear and disappear frequency, e.g. 100 per
+second, so triggering the udevents can cause a high cpu utilization of
+udevd, e.g. 30% on a 2-cpu virtual machine. So let's suppress the
+uevents to avoid this.
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/hv/vmbus_drv.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+--- a/drivers/hv/vmbus_drv.c	2017-10-05 14:20:54.919566497 -0700
++++ b/drivers/hv/vmbus_drv.c	2017-10-05 14:20:54.915566449 -0700
+@@ -1171,6 +1171,8 @@ int vmbus_device_register(struct hv_devi
+ 	child_device_obj->device.parent = &hv_acpi_dev->dev;
+ 	child_device_obj->device.release = vmbus_device_release;
+ 
++	if (is_hvsock_channel(child_device_obj->channel))
++		dev_set_uevent_suppress(&child_device_obj->device, 1);
+ 	/*
+ 	 * Register with the LDM. This will kick off the driver/device
+ 	 * binding...which will eventually call vmbus_match() and vmbus_probe()
