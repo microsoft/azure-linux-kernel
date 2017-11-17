@@ -22,8 +22,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  include/linux/hyperv.h          |    1 
  9 files changed, 65 insertions(+), 95 deletions(-)
 
---- a/arch/x86/hyperv/hv_init.c	2017-10-05 14:20:48.655489322 -0700
-+++ b/arch/x86/hyperv/hv_init.c	2017-10-05 14:20:48.651489274 -0700
+--- a/arch/x86/hyperv/hv_init.c	2017-11-17 09:49:04.067210115 -0800
++++ b/arch/x86/hyperv/hv_init.c	2017-11-17 09:49:04.063210169 -0800
 @@ -26,6 +26,8 @@
  #include <linux/mm.h>
  #include <linux/clockchips.h>
@@ -93,8 +93,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  }
  
  /*
---- a/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.655489322 -0700
-+++ b/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.651489274 -0700
+--- a/arch/x86/include/asm/mshyperv.h	2017-11-17 09:49:04.067210115 -0800
++++ b/arch/x86/include/asm/mshyperv.h	2017-11-17 09:49:04.063210169 -0800
 @@ -283,6 +283,30 @@ static inline u64 hv_do_rep_hypercall(u1
  	return status;
  }
@@ -126,9 +126,9 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  void hyperv_init(void);
  void hyperv_report_panic(struct pt_regs *regs);
  bool hv_is_hypercall_page_setup(void);
---- a/drivers/hv/channel_mgmt.c	2017-10-05 14:20:48.655489322 -0700
-+++ b/drivers/hv/channel_mgmt.c	2017-10-05 14:20:48.651489274 -0700
-@@ -599,7 +599,7 @@ static void init_vp_index(struct vmbus_c
+--- a/drivers/hv/channel_mgmt.c	2017-11-17 09:49:04.067210115 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-11-17 09:49:04.063210169 -0800
+@@ -611,7 +611,7 @@ static void init_vp_index(struct vmbus_c
  		 */
  		channel->numa_node = 0;
  		channel->target_cpu = 0;
@@ -137,7 +137,7 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  		return;
  	}
  
-@@ -683,7 +683,7 @@ static void init_vp_index(struct vmbus_c
+@@ -695,7 +695,7 @@ static void init_vp_index(struct vmbus_c
  	}
  
  	channel->target_cpu = cur_cpu;
@@ -146,7 +146,7 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  }
  
  static void vmbus_wait_for_unload(void)
-@@ -1219,8 +1219,7 @@ struct vmbus_channel *vmbus_get_outgoing
+@@ -1237,8 +1237,7 @@ struct vmbus_channel *vmbus_get_outgoing
  		return outgoing_channel;
  	}
  
@@ -156,8 +156,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  	list_for_each_safe(cur, tmp, &primary->sc_list) {
  		cur_channel = list_entry(cur, struct vmbus_channel, sc_list);
  		if (cur_channel->state != CHANNEL_OPENED_STATE)
---- a/drivers/hv/connection.c	2017-10-05 14:20:48.655489322 -0700
-+++ b/drivers/hv/connection.c	2017-10-05 14:20:48.651489274 -0700
+--- a/drivers/hv/connection.c	2017-11-17 09:49:04.067210115 -0800
++++ b/drivers/hv/connection.c	2017-11-17 09:49:04.063210169 -0800
 @@ -96,7 +96,8 @@ static int vmbus_negotiate_version(struc
  	 * the CPU attempting to connect may not be CPU 0.
  	 */
@@ -168,8 +168,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  		vmbus_connection.connect_cpu = smp_processor_id();
  	} else {
  		msg->target_vcpu = 0;
---- a/drivers/hv/hv.c	2017-10-05 14:20:48.655489322 -0700
-+++ b/drivers/hv/hv.c	2017-10-05 14:20:48.651489274 -0700
+--- a/drivers/hv/hv.c	2017-11-17 09:49:04.067210115 -0800
++++ b/drivers/hv/hv.c	2017-11-17 09:49:04.063210169 -0800
 @@ -234,7 +234,6 @@ int hv_synic_init(unsigned int cpu)
  	union hv_synic_siefp siefp;
  	union hv_synic_sint shared_sint;
@@ -193,8 +193,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  	 * Register the per-cpu clockevent source.
  	 */
  	if (ms_hyperv.features & HV_X64_MSR_SYNTIMER_AVAILABLE)
---- a/drivers/hv/hyperv_vmbus.h	2017-10-05 14:20:48.655489322 -0700
-+++ b/drivers/hv/hyperv_vmbus.h	2017-10-05 14:20:48.651489274 -0700
+--- a/drivers/hv/hyperv_vmbus.h	2017-11-17 09:49:04.067210115 -0800
++++ b/drivers/hv/hyperv_vmbus.h	2017-11-17 09:49:04.063210169 -0800
 @@ -229,17 +229,6 @@ struct hv_context {
  	struct hv_per_cpu_context __percpu *cpu_context;
  
@@ -213,9 +213,9 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  	 * To manage allocations in a NUMA node.
  	 * Array indexed by numa node ID.
  	 */
---- a/drivers/hv/vmbus_drv.c	2017-10-05 14:20:48.655489322 -0700
-+++ b/drivers/hv/vmbus_drv.c	2017-10-05 14:20:48.651489274 -0700
-@@ -1451,23 +1451,6 @@ void vmbus_free_mmio(resource_size_t sta
+--- a/drivers/hv/vmbus_drv.c	2017-11-17 09:49:04.067210115 -0800
++++ b/drivers/hv/vmbus_drv.c	2017-11-17 09:49:04.063210169 -0800
+@@ -1453,23 +1453,6 @@ void vmbus_free_mmio(resource_size_t sta
  }
  EXPORT_SYMBOL_GPL(vmbus_free_mmio);
  
@@ -239,8 +239,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  static int vmbus_acpi_add(struct acpi_device *device)
  {
  	acpi_status result;
---- a/drivers/pci/host/pci-hyperv.c	2017-10-05 14:20:48.655489322 -0700
-+++ b/drivers/pci/host/pci-hyperv.c	2017-10-05 14:20:48.655489322 -0700
+--- a/drivers/pci/host/pci-hyperv.c	2017-11-17 09:49:04.067210115 -0800
++++ b/drivers/pci/host/pci-hyperv.c	2017-11-17 09:49:04.063210169 -0800
 @@ -562,52 +562,6 @@ static void put_pcichild(struct hv_pci_d
  static void get_hvpcibus(struct hv_pcibus_device *hv_pcibus);
  static void put_hvpcibus(struct hv_pcibus_device *hv_pcibus);
@@ -330,9 +330,9 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  	/*
  	 * The PCI bus "domain" is what is called "segment" in ACPI and
  	 * other specs.  Pull it from the instance ID, to get something
---- a/include/linux/hyperv.h	2017-10-05 14:20:48.655489322 -0700
-+++ b/include/linux/hyperv.h	2017-10-05 14:20:48.655489322 -0700
-@@ -1160,7 +1160,6 @@ int vmbus_allocate_mmio(struct resource
+--- a/include/linux/hyperv.h	2017-11-17 09:49:04.067210115 -0800
++++ b/include/linux/hyperv.h	2017-11-17 09:49:04.063210169 -0800
+@@ -1148,7 +1148,6 @@ int vmbus_allocate_mmio(struct resource
  			resource_size_t size, resource_size_t align,
  			bool fb_overlap_ok);
  void vmbus_free_mmio(resource_size_t start, resource_size_t size);

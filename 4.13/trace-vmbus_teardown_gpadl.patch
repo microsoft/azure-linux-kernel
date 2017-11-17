@@ -1,0 +1,51 @@
+From e2d7f7f38e0a683767453a9d3ef3caf8146d6e96 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 16:50:40 +0200
+Subject: [PATCH 20/71] hyper-v: trace vmbus_teardown_gpadl()
+
+Add tracepoint to CHANNELMSG_GPADL_TEARDOWN sender.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/channel.c  |    2 ++
+ drivers/hv/hv_trace.h |   18 ++++++++++++++++++
+ 2 files changed, 20 insertions(+)
+
+--- a/drivers/hv/channel.c	2017-11-17 10:41:06.262762451 -0800
++++ b/drivers/hv/channel.c	2017-11-17 10:41:06.258762501 -0800
+@@ -531,6 +531,8 @@ int vmbus_teardown_gpadl(struct vmbus_ch
+ 	ret = vmbus_post_msg(msg, sizeof(struct vmbus_channel_gpadl_teardown),
+ 			     true);
+ 
++	trace_vmbus_teardown_gpadl(msg, ret);
++
+ 	if (ret)
+ 		goto post_msg_err;
+ 
+--- a/drivers/hv/hv_trace.h	2017-11-17 10:41:06.262762451 -0800
++++ b/drivers/hv/hv_trace.h	2017-11-17 10:41:06.258762501 -0800
+@@ -214,6 +214,24 @@ TRACE_EVENT(vmbus_establish_gpadl_body,
+ 		    )
+ 	);
+ 
++TRACE_EVENT(vmbus_teardown_gpadl,
++	    TP_PROTO(const struct vmbus_channel_gpadl_teardown *msg, int ret),
++	    TP_ARGS(msg, ret),
++	    TP_STRUCT__entry(
++		    __field(u32, child_relid)
++		    __field(u32, gpadl)
++		    __field(int, ret)
++		    ),
++	    TP_fast_assign(
++		    __entry->child_relid = msg->child_relid;
++		    __entry->gpadl = msg->gpadl;
++		    __entry->ret = ret;
++		    ),
++	    TP_printk("sending child_relid 0x%x, gpadl 0x%x, ret %d",
++		      __entry->child_relid, __entry->gpadl, __entry->ret
++		    )
++	);
++
+ #undef TRACE_INCLUDE_PATH
+ #define TRACE_INCLUDE_PATH .
+ #undef TRACE_INCLUDE_FILE

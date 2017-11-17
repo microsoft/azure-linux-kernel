@@ -17,8 +17,8 @@ that gets triggered (if necessary) after primary channel is setup.
  drivers/net/hyperv/rndis_filter.c |  106 +++++++++++++++++++++++++-------------
  3 files changed, 74 insertions(+), 41 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:56.371584387 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:56.371584387 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 11:55:42.007817693 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 11:55:42.003817745 -0800
 @@ -172,6 +172,7 @@ struct rndis_device {
  	struct list_head req_list;
  
@@ -27,8 +27,8 @@ that gets triggered (if necessary) after primary channel is setup.
  
  	bool link_state;        /* 0 - link up, 1 - link down */
  
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:56.371584387 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:56.371584387 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 11:55:42.007817693 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 11:55:42.003817745 -0800
 @@ -853,10 +853,7 @@ static int netvsc_set_channels(struct ne
  	rndis_filter_device_remove(dev, nvdev);
  
@@ -51,8 +51,8 @@ that gets triggered (if necessary) after primary channel is setup.
  	netdev_lockdep_set_classes(net);
  
  	/* MTU range: 68 - 1500 or 65521 */
---- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:56.371584387 -0700
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:56.371584387 -0700
+--- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 11:55:42.007817693 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 11:55:42.003817745 -0800
 @@ -33,6 +33,7 @@
  #include "hyperv_net.h"
  
@@ -210,3 +210,22 @@ that gets triggered (if necessary) after primary channel is setup.
  	if (ret) {
  		net_device->max_chn = 1;
  		net_device->num_chn = 1;
+--- a/drivers/net/hyperv/netvsc.c	2017-11-17 11:55:41.507824232 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-11-17 11:57:02.890759804 -0800
+@@ -82,6 +82,7 @@ static struct netvsc_device *alloc_net_d
+ 
+ 	init_completion(&net_device->channel_init_wait);
+ 	init_waitqueue_head(&net_device->subchan_open);
++	INIT_WORK(&net_device->subchan_work, rndis_set_subchannel);
+ 
+ 	return net_device;
+ }
+@@ -558,6 +559,8 @@ void netvsc_device_remove(struct hv_devi
+ 		= rtnl_dereference(net_device_ctx->nvdev);
+ 	int i;
+ 
++	cancel_work_sync(&net_device->subchan_work);
++
+ 	netvsc_disconnect_vsp(device);
+ 
+ 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);

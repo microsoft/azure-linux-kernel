@@ -18,8 +18,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  arch/x86/include/asm/mshyperv.h |   39 +++++++++++++++++++++++++++++++++++++++
  1 file changed, 39 insertions(+)
 
---- a/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.559488140 -0700
-+++ b/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.559488140 -0700
+--- a/arch/x86/include/asm/mshyperv.h	2017-11-17 09:49:00.403258535 -0800
++++ b/arch/x86/include/asm/mshyperv.h	2017-11-17 09:49:00.399258588 -0800
 @@ -3,6 +3,7 @@
  
  #include <linux/types.h>

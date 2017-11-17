@@ -1,0 +1,67 @@
+From b45dc2040bae29f1d293ad4a27b79880de7fa216 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Wed, 15 Nov 2017 10:33:05 -0800
+Subject: [PATCH 67/71] hv_netvsc: remove open_cnt reference count
+
+There is only ever a single instance of network device object
+referencing the internal rndis object. Therefore the open_cnt atomic
+is not necessary.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |    2 --
+ drivers/net/hyperv/netvsc.c       |    2 +-
+ drivers/net/hyperv/rndis_filter.c |   10 +++-------
+ 3 files changed, 4 insertions(+), 10 deletions(-)
+
+--- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:44.618784948 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:44.614785002 -0800
+@@ -812,8 +812,6 @@ struct netvsc_device {
+ 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
+ 	u32 pkt_align; /* alignment bytes, e.g. 8 */
+ 
+-	atomic_t open_cnt;
+-
+ 	struct netvsc_channel chan_table[VRSS_CHANNEL_MAX];
+ 
+ 	struct rcu_head rcu;
+--- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:44.618784948 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:44.614785002 -0800
+@@ -73,7 +73,7 @@ static struct netvsc_device *alloc_net_d
+ 
+ 	init_waitqueue_head(&net_device->wait_drain);
+ 	net_device->destroy = false;
+-	atomic_set(&net_device->open_cnt, 0);
++
+ 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
+ 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
+ 
+--- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:44.618784948 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:44.614785002 -0800
+@@ -1362,9 +1362,6 @@ int rndis_filter_open(struct netvsc_devi
+ 	if (!nvdev)
+ 		return -EINVAL;
+ 
+-	if (atomic_inc_return(&nvdev->open_cnt) != 1)
+-		return 0;
+-
+ 	return rndis_filter_open_device(nvdev->extension);
+ }
+ 
+@@ -1373,13 +1370,12 @@ int rndis_filter_close(struct netvsc_dev
+ 	if (!nvdev)
+ 		return -EINVAL;
+ 
+-	if (atomic_dec_return(&nvdev->open_cnt) != 0)
+-		return 0;
+-
+ 	return rndis_filter_close_device(nvdev->extension);
+ }
+ 
+ bool rndis_filter_opened(const struct netvsc_device *nvdev)
+ {
+-	return atomic_read(&nvdev->open_cnt) > 0;
++	const struct rndis_device *dev = nvdev->extension;
++
++	return dev->state == RNDIS_DEV_DATAINITIALIZED;
+ }

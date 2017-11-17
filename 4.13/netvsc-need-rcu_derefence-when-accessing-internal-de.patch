@@ -19,8 +19,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/rndis_filter.c |    2 +-
  4 files changed, 11 insertions(+), 13 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:50.463511598 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:50.459511549 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 10:19:14.711795168 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 10:19:14.707795220 -0800
 @@ -183,10 +183,12 @@ struct rndis_device {
  /* Interface */
  struct rndis_message;
@@ -48,9 +48,9 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  /* NdisInitialize message */
  struct rndis_initialize_request {
  	u32 req_id;
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:50.463511598 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:50.459511549 -0700
-@@ -823,13 +823,15 @@ static inline void move_pkt_msd(struct h
+--- a/drivers/net/hyperv/netvsc.c	2017-11-17 10:19:14.711795168 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-11-17 10:19:14.707795220 -0800
+@@ -824,13 +824,15 @@ static inline void move_pkt_msd(struct h
  	msdp->count = 0;
  }
  
@@ -68,7 +68,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	int ret = 0;
  	struct netvsc_channel *nvchan;
  	u32 pktlen = packet->total_data_buflen, msd_len = 0;
-@@ -841,7 +843,7 @@ int netvsc_send(struct hv_device *device
+@@ -842,7 +844,7 @@ int netvsc_send(struct hv_device *device
  	bool xmit_more = (skb != NULL) ? skb->xmit_more : false;
  
  	/* If device is rescinded, return error and packet will get dropped. */
@@ -77,8 +77,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  		return -ENODEV;
  
  	/* We may race with netvsc_connect_vsp()/netvsc_init_buf() and get
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:50.463511598 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:50.459511549 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 10:19:14.711795168 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 10:19:14.707795220 -0800
 @@ -528,8 +528,8 @@ static int netvsc_start_xmit(struct sk_b
  
  	/* timestamp packet in software */
@@ -90,8 +90,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	if (likely(ret == 0))
  		return NETDEV_TX_OK;
  
---- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:50.463511598 -0700
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:50.459511549 -0700
+--- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 10:19:14.711795168 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 10:19:14.707795220 -0800
 @@ -243,7 +243,7 @@ static int rndis_filter_send_request(str
  			pb[0].len;
  	}

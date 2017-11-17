@@ -1,0 +1,69 @@
+From be75a156e3d8bafea70bb15ad15a6387df2baa6e Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 13 Oct 2017 12:28:03 -0700
+Subject: [PATCH 31/71] hv_netvsc: Rename ind_table to rx_table
+
+Rename this variable because it is the Receive indirection
+table.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/hyperv_net.h   |    2 +-
+ drivers/net/hyperv/netvsc_drv.c   |    4 ++--
+ drivers/net/hyperv/rndis_filter.c |    6 +++---
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+--- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:38.714864379 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:38.710864433 -0800
+@@ -179,7 +179,7 @@ struct rndis_device {
+ 
+ 	u8 hw_mac_adr[ETH_ALEN];
+ 	u8 rss_key[NETVSC_HASH_KEYLEN];
+-	u16 ind_table[ITAB_NUM];
++	u16 rx_table[ITAB_NUM];
+ };
+ 
+ 
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.714864379 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.710864433 -0800
+@@ -1434,7 +1434,7 @@ static int netvsc_get_rxfh(struct net_de
+ 	rndis_dev = ndev->extension;
+ 	if (indir) {
+ 		for (i = 0; i < ITAB_NUM; i++)
+-			indir[i] = rndis_dev->ind_table[i];
++			indir[i] = rndis_dev->rx_table[i];
+ 	}
+ 
+ 	if (key)
+@@ -1464,7 +1464,7 @@ static int netvsc_set_rxfh(struct net_de
+ 				return -EINVAL;
+ 
+ 		for (i = 0; i < ITAB_NUM; i++)
+-			rndis_dev->ind_table[i] = indir[i];
++			rndis_dev->rx_table[i] = indir[i];
+ 	}
+ 
+ 	if (!key) {
+--- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:38.714864379 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:38.710864433 -0800
+@@ -759,7 +759,7 @@ int rndis_filter_set_rss_param(struct rn
+ 	/* Set indirection table entries */
+ 	itab = (u32 *)(rssp + 1);
+ 	for (i = 0; i < ITAB_NUM; i++)
+-		itab[i] = rdev->ind_table[i];
++		itab[i] = rdev->rx_table[i];
+ 
+ 	/* Set hask key values */
+ 	keyp = (u8 *)((unsigned long)rssp + rssp->kashkey_offset);
+@@ -1284,8 +1284,8 @@ struct netvsc_device *rndis_filter_devic
+ 	net_device->num_chn = min(net_device->max_chn, device_info->num_chn);
+ 
+ 	for (i = 0; i < ITAB_NUM; i++)
+-		rndis_device->ind_table[i] = ethtool_rxfh_indir_default(i,
+-							net_device->num_chn);
++		rndis_device->rx_table[i] = ethtool_rxfh_indir_default(
++						i, net_device->num_chn);
+ 
+ 	atomic_set(&net_device->open_chn, 1);
+ 	vmbus_set_sc_create_callback(dev->channel, netvsc_sc_open);

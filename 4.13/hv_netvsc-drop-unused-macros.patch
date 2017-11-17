@@ -1,0 +1,45 @@
+From ace291feb914da444625fd2115fb03b5e7411da7 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Fri, 6 Oct 2017 10:00:01 -0700
+Subject: [PATCH 35/71] hv_netvsc: drop unused macros
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |   26 --------------------------
+ 1 file changed, 26 deletions(-)
+
+--- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 10:41:10.346710342 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 10:41:10.342710394 -0800
+@@ -1421,32 +1421,6 @@ struct rndis_message {
+ 	(sizeof(msg) + (sizeof(struct rndis_message) -	\
+ 	 sizeof(union rndis_message_container)))
+ 
+-/* get pointer to info buffer with message pointer */
+-#define MESSAGE_TO_INFO_BUFFER(msg)				\
+-	(((unsigned char *)(msg)) + msg->info_buf_offset)
+-
+-/* get pointer to status buffer with message pointer */
+-#define MESSAGE_TO_STATUS_BUFFER(msg)			\
+-	(((unsigned char *)(msg)) + msg->status_buf_offset)
+-
+-/* get pointer to OOBD buffer with message pointer */
+-#define MESSAGE_TO_OOBD_BUFFER(msg)				\
+-	(((unsigned char *)(msg)) + msg->oob_data_offset)
+-
+-/* get pointer to data buffer with message pointer */
+-#define MESSAGE_TO_DATA_BUFFER(msg)				\
+-	(((unsigned char *)(msg)) + msg->per_pkt_info_offset)
+-
+-/* get pointer to contained message from NDIS_MESSAGE pointer */
+-#define RNDIS_MESSAGE_PTR_TO_MESSAGE_PTR(rndis_msg)		\
+-	((void *) &rndis_msg->msg)
+-
+-/* get pointer to contained message from NDIS_MESSAGE pointer */
+-#define RNDIS_MESSAGE_RAW_PTR_TO_MESSAGE_PTR(rndis_msg)	\
+-	((void *) rndis_msg)
+-
+-
+-
+ #define RNDIS_HEADER_SIZE	(sizeof(struct rndis_message) - \
+ 				 sizeof(union rndis_message_container))
+ 

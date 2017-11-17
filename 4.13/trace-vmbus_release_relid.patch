@@ -1,0 +1,58 @@
+From e7a4a0b13463b83287a70ef9a5d0b95c134063fb Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 16:50:42 +0200
+Subject: [PATCH 22/71] hyper-v: trace vmbus_release_relid()
+
+Add tracepoint to CHANNELMSG_RELID_RELEASED sender.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/channel_mgmt.c |    7 +++++--
+ drivers/hv/hv_trace.h     |   16 ++++++++++++++++
+ 2 files changed, 21 insertions(+), 2 deletions(-)
+
+--- a/drivers/hv/channel_mgmt.c	2017-11-17 10:41:06.806755509 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-11-17 10:41:06.802755561 -0800
+@@ -373,12 +373,15 @@ static void percpu_channel_deq(void *arg
+ static void vmbus_release_relid(u32 relid)
+ {
+ 	struct vmbus_channel_relid_released msg;
++	int ret;
+ 
+ 	memset(&msg, 0, sizeof(struct vmbus_channel_relid_released));
+ 	msg.child_relid = relid;
+ 	msg.header.msgtype = CHANNELMSG_RELID_RELEASED;
+-	vmbus_post_msg(&msg, sizeof(struct vmbus_channel_relid_released),
+-		       true);
++	ret = vmbus_post_msg(&msg, sizeof(struct vmbus_channel_relid_released),
++			     true);
++
++	trace_vmbus_release_relid(&msg, ret);
+ }
+ 
+ void hv_process_channel_removal(u32 relid)
+--- a/drivers/hv/hv_trace.h	2017-11-17 10:41:06.806755509 -0800
++++ b/drivers/hv/hv_trace.h	2017-11-17 10:41:06.802755561 -0800
+@@ -258,6 +258,22 @@ TRACE_EVENT(vmbus_negotiate_version,
+ 		    )
+ 	);
+ 
++TRACE_EVENT(vmbus_release_relid,
++	    TP_PROTO(const struct vmbus_channel_relid_released *msg, int ret),
++	    TP_ARGS(msg, ret),
++	    TP_STRUCT__entry(
++		    __field(u32, child_relid)
++		    __field(int, ret)
++		    ),
++	    TP_fast_assign(
++		    __entry->child_relid = msg->child_relid;
++		    __entry->ret = ret;
++		    ),
++	    TP_printk("sending child_relid 0x%x, ret %d",
++		      __entry->child_relid, __entry->ret
++		    )
++	);
++
+ #undef TRACE_INCLUDE_PATH
+ #define TRACE_INCLUDE_PATH .
+ #undef TRACE_INCLUDE_FILE

@@ -20,9 +20,9 @@ Cc: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/hv/vmbus_drv.c |    2 ++
  1 file changed, 2 insertions(+)
 
---- a/drivers/hv/vmbus_drv.c	2017-10-05 14:20:54.919566497 -0700
-+++ b/drivers/hv/vmbus_drv.c	2017-10-05 14:20:54.915566449 -0700
-@@ -1171,6 +1171,8 @@ int vmbus_device_register(struct hv_devi
+--- a/drivers/hv/vmbus_drv.c	2017-11-17 10:27:58.764944718 -0800
++++ b/drivers/hv/vmbus_drv.c	2017-11-17 10:27:58.760944770 -0800
+@@ -1173,6 +1173,8 @@ int vmbus_device_register(struct hv_devi
  	child_device_obj->device.parent = &hv_acpi_dev->dev;
  	child_device_obj->device.release = vmbus_device_release;
  

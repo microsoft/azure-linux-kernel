@@ -16,9 +16,9 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  include/linux/hyperv.h    |   15 +--------------
  3 files changed, 4 insertions(+), 26 deletions(-)
 
---- a/drivers/hv/channel_mgmt.c	2017-10-05 14:20:48.455486859 -0700
-+++ b/drivers/hv/channel_mgmt.c	2017-10-05 14:20:48.451486809 -0700
-@@ -805,21 +805,12 @@ static void vmbus_onoffer(struct vmbus_c
+--- a/drivers/hv/channel_mgmt.c	2017-11-17 09:48:57.119301932 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-11-17 09:48:57.115301985 -0800
+@@ -817,21 +817,12 @@ static void vmbus_onoffer(struct vmbus_c
  	/*
  	 * Setup state for signalling the host.
  	 */
@@ -42,8 +42,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  	}
  
  	memcpy(&newchannel->offermsg, offer,
---- a/drivers/hv/connection.c	2017-10-05 14:20:48.455486859 -0700
-+++ b/drivers/hv/connection.c	2017-10-05 14:20:48.451486809 -0700
+--- a/drivers/hv/connection.c	2017-11-17 09:48:57.119301932 -0800
++++ b/drivers/hv/connection.c	2017-11-17 09:48:57.119301932 -0800
 @@ -408,6 +408,6 @@ void vmbus_set_event(struct vmbus_channe
  	if (!channel->is_dedicated_interrupt)
  		vmbus_send_interrupt(child_relid);
@@ -52,9 +52,9 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
 +	hv_do_fast_hypercall8(HVCALL_SIGNAL_EVENT, channel->sig_event);
  }
  EXPORT_SYMBOL_GPL(vmbus_set_event);
---- a/include/linux/hyperv.h	2017-10-05 14:20:48.455486859 -0700
-+++ b/include/linux/hyperv.h	2017-10-05 14:20:48.451486809 -0700
-@@ -677,18 +677,6 @@ union hv_connection_id {
+--- a/include/linux/hyperv.h	2017-11-17 09:48:57.119301932 -0800
++++ b/include/linux/hyperv.h	2017-11-17 09:48:57.119301932 -0800
+@@ -663,18 +663,6 @@ union hv_connection_id {
  	} u;
  };
  
@@ -73,7 +73,7 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  enum hv_numa_policy {
  	HV_BALANCED = 0,
  	HV_LOCALIZED,
-@@ -770,8 +758,7 @@ struct vmbus_channel {
+@@ -756,8 +744,7 @@ struct vmbus_channel {
  	} callback_mode;
  
  	bool is_dedicated_interrupt;

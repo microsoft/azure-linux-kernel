@@ -1,0 +1,100 @@
+From 2de3c3155a1445c4de7a31b3385a9fc0d23b07ff Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 8 Nov 2017 12:57:40 +0100
+Subject: [PATCH 45/71] hv_balloon: trace post_status
+
+Hyper-V balloon driver makes non-trivial calculations to convert Linux's
+representation of free/used memory to what Hyper-V host expects to see. Add
+a tracepoint to see what's being sent and where the data comes from.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/Makefile           |    1 
+ drivers/hv/hv_balloon.c       |    6 +++++
+ drivers/hv/hv_trace_balloon.h |   48 ++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 55 insertions(+)
+ create mode 100644 drivers/hv/hv_trace_balloon.h
+
+--- a/drivers/hv/Makefile	2017-11-17 10:41:12.926677422 -0800
++++ b/drivers/hv/Makefile	2017-11-17 10:41:12.922677472 -0800
+@@ -3,6 +3,7 @@ obj-$(CONFIG_HYPERV_UTILS)	+= hv_utils.o
+ obj-$(CONFIG_HYPERV_BALLOON)	+= hv_balloon.o
+ 
+ CFLAGS_hv_trace.o = -I$(src)
++CFLAGS_hv_balloon.o = -I$(src)
+ 
+ hv_vmbus-y := vmbus_drv.o \
+ 		 hv.o connection.o channel.o \
+--- a/drivers/hv/hv_balloon.c	2017-11-17 10:41:12.926677422 -0800
++++ b/drivers/hv/hv_balloon.c	2017-11-17 10:41:12.922677472 -0800
+@@ -34,6 +34,9 @@
+ 
+ #include <linux/hyperv.h>
+ 
++#define CREATE_TRACE_POINTS
++#include "hv_trace_balloon.h"
++
+ /*
+  * We begin with definitions supporting the Dynamic Memory protocol
+  * with the host.
+@@ -1159,6 +1162,9 @@ static void post_status(struct hv_dynmem
+ 		 dm->num_pages_added - dm->num_pages_onlined : 0) +
+ 		compute_balloon_floor();
+ 
++	trace_balloon_status(status.num_avail, status.num_committed,
++			     vm_memory_committed(), dm->num_pages_ballooned,
++			     dm->num_pages_added, dm->num_pages_onlined);
+ 	/*
+ 	 * If our transaction ID is no longer current, just don't
+ 	 * send the status. This can happen if we were interrupted
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ b/drivers/hv/hv_trace_balloon.h	2017-11-17 10:41:12.922677472 -0800
+@@ -0,0 +1,48 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM hyperv
++
++#if !defined(_HV_TRACE_BALLOON_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _HV_TRACE_BALLOON_H
++
++#include <linux/tracepoint.h>
++
++TRACE_EVENT(balloon_status,
++	    TP_PROTO(u64 available, u64 committed,
++		     unsigned long vm_memory_committed,
++		     unsigned long pages_ballooned,
++		     unsigned long pages_added,
++		     unsigned long pages_onlined),
++	    TP_ARGS(available, committed, vm_memory_committed,
++		    pages_ballooned, pages_added, pages_onlined),
++	    TP_STRUCT__entry(
++		    __field(u64, available)
++		    __field(u64, committed)
++		    __field(unsigned long, vm_memory_committed)
++		    __field(unsigned long, pages_ballooned)
++		    __field(unsigned long, pages_added)
++		    __field(unsigned long, pages_onlined)
++		    ),
++	    TP_fast_assign(
++		    __entry->available = available;
++		    __entry->committed = committed;
++		    __entry->vm_memory_committed = vm_memory_committed;
++		    __entry->pages_ballooned = pages_ballooned;
++		    __entry->pages_added = pages_added;
++		    __entry->pages_onlined = pages_onlined;
++		    ),
++	    TP_printk("available %lld, committed %lld; vm_memory_committed %ld;"
++		      " pages_ballooned %ld, pages_added %ld, pages_onlined %ld",
++		      __entry->available, __entry->committed,
++		      __entry->vm_memory_committed, __entry->pages_ballooned,
++		      __entry->pages_added, __entry->pages_onlined
++		    )
++	);
++
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH .
++#undef TRACE_INCLUDE_FILE
++#define TRACE_INCLUDE_FILE hv_trace_balloon
++#endif /* _HV_TRACE_BALLOON_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>

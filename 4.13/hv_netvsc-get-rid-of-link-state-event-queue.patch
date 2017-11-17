@@ -1,0 +1,305 @@
+From 15425cbc6e1beb68c8e431dec51fea0e508f9ae1 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Wed, 15 Nov 2017 10:43:13 -0800
+Subject: [PATCH 69/71] hv_netvsc: get rid of link state event queue
+
+The current netvsc driver uses a delayed work queue to simulate
+link events when host reports network change. Although it seemed
+like a good idea, it doesn't work because of the kernel link watch
+debouncing combined with how the most common ISC DHCP client which
+does not look for link status change events.
+
+Instead, just do link state events in the same manner as other
+drivers.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |  11 +--
+ drivers/net/hyperv/netvsc_drv.c   | 184 ++++++--------------------------------
+ drivers/net/hyperv/rndis_filter.c |   2 +-
+ 3 files changed, 28 insertions(+), 169 deletions(-)
+
+--- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 10:41:17.406620255 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 10:41:17.402620306 -0800
+@@ -198,7 +198,8 @@ int netvsc_send(struct net_device *ndev,
+ 		struct hv_page_buffer *page_buffer,
+ 		struct sk_buff *skb);
+ void netvsc_linkstatus_callback(struct net_device *net,
+-				struct rndis_message *resp);
++				struct rndis_device *rdev,
++				const struct rndis_message *resp);
+ int netvsc_recv_callback(struct net_device *net,
+ 			 struct netvsc_device *nvdev,
+ 			 struct vmbus_channel *channel,
+@@ -723,14 +724,6 @@ struct net_device_context {
+ 	struct hv_device *device_ctx;
+ 	/* netvsc_device */
+ 	struct netvsc_device __rcu *nvdev;
+-	/* reconfigure work */
+-	struct delayed_work dwork;
+-	/* last reconfig time */
+-	unsigned long last_reconfig;
+-	/* reconfig events */
+-	struct list_head reconfig_events;
+-	/* list protection */
+-	spinlock_t lock;
+ 
+ 	u32 msg_enable; /* debug level */
+ 
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 10:41:17.406620255 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 10:41:17.402620306 -0800
+@@ -51,7 +51,6 @@
+ #define NETVSC_MIN_RX_SECTIONS	10	/* ~64K */
+ #define NETVSC_DEFAULT_RX	2048	/* ~4M */
+ 
+-#define LINKCHANGE_INT (2 * HZ)
+ #define VF_TAKEOVER_INT (HZ / 10)
+ 
+ static int ring_size = 128;
+@@ -650,46 +649,35 @@ no_memory:
+ 	goto drop;
+ }
+ 
+-/*
+- * netvsc_linkstatus_callback - Link up/down notification
+- */
++/* netvsc_linkstatus_callback - Link up/down notification */
+ void netvsc_linkstatus_callback(struct net_device *net,
+-				struct rndis_message *resp)
++				struct rndis_device *rdev,
++				const struct rndis_message *resp)
+ {
+-	struct rndis_indicate_status *indicate = &resp->msg.indicate_status;
++	const struct rndis_indicate_status *indicate = &resp->msg.indicate_status;
+ 	struct net_device_context *ndev_ctx = netdev_priv(net);
+-	struct netvsc_reconfig *event;
+-	unsigned long flags;
+-
+-	/* Update the physical link speed when changing to another vSwitch */
+-	if (indicate->status == RNDIS_STATUS_LINK_SPEED_CHANGE) {
+-		u32 speed;
+-
+-		speed = *(u32 *)((void *)indicate
+-				 + indicate->status_buf_offset) / 10000;
+-		ndev_ctx->speed = speed;
+-		return;
+-	}
++	u32 speed;
+ 
+-	/* Handle these link change statuses below */
+-	if (indicate->status != RNDIS_STATUS_NETWORK_CHANGE &&
+-	    indicate->status != RNDIS_STATUS_MEDIA_CONNECT &&
+-	    indicate->status != RNDIS_STATUS_MEDIA_DISCONNECT)
+-		return;
+ 
+-	if (net->reg_state != NETREG_REGISTERED)
+-		return;
++	switch (indicate->status) {
++	case RNDIS_STATUS_MEDIA_DISCONNECT:
++		rdev->link_state = true;
++		netif_carrier_off(net);
++		break;
+ 
+-	event = kzalloc(sizeof(*event), GFP_ATOMIC);
+-	if (!event)
+-		return;
+-	event->event = indicate->status;
++	case RNDIS_STATUS_MEDIA_CONNECT:
++		rdev->link_state = false;
++		netif_carrier_on(net);
++		break;
+ 
+-	spin_lock_irqsave(&ndev_ctx->lock, flags);
+-	list_add_tail(&event->list, &ndev_ctx->reconfig_events);
+-	spin_unlock_irqrestore(&ndev_ctx->lock, flags);
++	case RNDIS_STATUS_LINK_SPEED_CHANGE:
++		speed = *(u32 *)((void *)indicate + indicate->status_buf_offset);
++		ndev_ctx->speed = speed  / 10000;
++		break;
+ 
+-	schedule_delayed_work(&ndev_ctx->dwork, 0);
++	case RNDIS_STATUS_NETWORK_CHANGE:
++		netdev_notify_peers(net);
++	}
+ }
+ 
+ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
+@@ -863,10 +851,6 @@ static int netvsc_set_channels(struct ne
+ 			netif_tx_start_all_queues(net);
+ 	}
+ 
+-	/* We may have missed link change notifications */
+-	net_device_ctx->last_reconfig = 0;
+-	schedule_delayed_work(&net_device_ctx->dwork, 0);
+-
+ 	return ret;
+ }
+ 
+@@ -992,10 +976,6 @@ static int netvsc_change_mtu(struct net_
+ 	}
+ 
+ 	netif_device_attach(ndev);
+-
+-	/* We may have missed link change notifications */
+-	schedule_delayed_work(&ndevctx->dwork, 0);
+-
+ 	return ret;
+ }
+ 
+@@ -1561,10 +1541,6 @@ static int netvsc_set_ringparam(struct n
+ 
+ 	netif_device_attach(ndev);
+ 
+-	/* We may have missed link change notifications */
+-	ndevctx->last_reconfig = 0;
+-	schedule_delayed_work(&ndevctx->dwork, 0);
+-
+ 	return ret;
+ }
+ 
+@@ -1604,114 +1580,6 @@ static const struct net_device_ops devic
+ #endif
+ };
+ 
+-/*
+- * Handle link status changes. For RNDIS_STATUS_NETWORK_CHANGE emulate link
+- * down/up sequence. In case of RNDIS_STATUS_MEDIA_CONNECT when carrier is
+- * present send GARP packet to network peers with netif_notify_peers().
+- */
+-static void netvsc_link_change(struct work_struct *w)
+-{
+-	struct net_device_context *ndev_ctx =
+-		container_of(w, struct net_device_context, dwork.work);
+-	struct hv_device *device_obj = ndev_ctx->device_ctx;
+-	struct net_device *net = hv_get_drvdata(device_obj);
+-	struct netvsc_device *net_device;
+-	struct rndis_device *rdev;
+-	struct netvsc_reconfig *event = NULL;
+-	bool notify = false, reschedule = false;
+-	unsigned long flags, next_reconfig, delay;
+-
+-	/* if changes are happening, comeback later */
+-	if (!rtnl_trylock()) {
+-		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
+-		return;
+-	}
+-
+-	net_device = rtnl_dereference(ndev_ctx->nvdev);
+-	if (!net_device)
+-		goto out_unlock;
+-
+-	rdev = net_device->extension;
+-
+-	next_reconfig = ndev_ctx->last_reconfig + LINKCHANGE_INT;
+-	if (time_is_after_jiffies(next_reconfig)) {
+-		/* link_watch only sends one notification with current state
+-		 * per second, avoid doing reconfig more frequently. Handle
+-		 * wrap around.
+-		 */
+-		delay = next_reconfig - jiffies;
+-		delay = delay < LINKCHANGE_INT ? delay : LINKCHANGE_INT;
+-		schedule_delayed_work(&ndev_ctx->dwork, delay);
+-		goto out_unlock;
+-	}
+-	ndev_ctx->last_reconfig = jiffies;
+-
+-	spin_lock_irqsave(&ndev_ctx->lock, flags);
+-	if (!list_empty(&ndev_ctx->reconfig_events)) {
+-		event = list_first_entry(&ndev_ctx->reconfig_events,
+-					 struct netvsc_reconfig, list);
+-		list_del(&event->list);
+-		reschedule = !list_empty(&ndev_ctx->reconfig_events);
+-	}
+-	spin_unlock_irqrestore(&ndev_ctx->lock, flags);
+-
+-	if (!event)
+-		goto out_unlock;
+-
+-	switch (event->event) {
+-		/* Only the following events are possible due to the check in
+-		 * netvsc_linkstatus_callback()
+-		 */
+-	case RNDIS_STATUS_MEDIA_CONNECT:
+-		if (rdev->link_state) {
+-			rdev->link_state = false;
+-			netif_carrier_on(net);
+-			netif_tx_wake_all_queues(net);
+-		} else {
+-			notify = true;
+-		}
+-		kfree(event);
+-		break;
+-	case RNDIS_STATUS_MEDIA_DISCONNECT:
+-		if (!rdev->link_state) {
+-			rdev->link_state = true;
+-			netif_carrier_off(net);
+-			netif_tx_stop_all_queues(net);
+-		}
+-		kfree(event);
+-		break;
+-	case RNDIS_STATUS_NETWORK_CHANGE:
+-		/* Only makes sense if carrier is present */
+-		if (!rdev->link_state) {
+-			rdev->link_state = true;
+-			netif_carrier_off(net);
+-			netif_tx_stop_all_queues(net);
+-			event->event = RNDIS_STATUS_MEDIA_CONNECT;
+-			spin_lock_irqsave(&ndev_ctx->lock, flags);
+-			list_add(&event->list, &ndev_ctx->reconfig_events);
+-			spin_unlock_irqrestore(&ndev_ctx->lock, flags);
+-			reschedule = true;
+-		}
+-		break;
+-	}
+-
+-	rtnl_unlock();
+-
+-	if (notify)
+-		netdev_notify_peers(net);
+-
+-	/* link_watch only sends one notification with current state per
+-	 * second, handle next reconfig event in 2 seconds.
+-	 */
+-	if (reschedule)
+-		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
+-
+-	return;
+-
+-out_unlock:
+-	rtnl_unlock();
+-}
+-
+ static struct net_device *get_netvsc_bymac(const u8 *mac)
+ {
+ 	struct net_device *dev;
+@@ -1960,10 +1828,6 @@ static int netvsc_probe(struct hv_device
+ 
+ 	hv_set_drvdata(dev, net);
+ 
+-	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
+-
+-	spin_lock_init(&net_device_ctx->lock);
+-	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
+ 	INIT_DELAYED_WORK(&net_device_ctx->vf_takeover, netvsc_vf_setup);
+ 
+ 	net_device_ctx->vf_stats
+@@ -2050,8 +1914,6 @@ static int netvsc_remove(struct hv_devic
+ 
+ 	netif_device_detach(net);
+ 
+-	cancel_delayed_work_sync(&ndev_ctx->dwork);
+-
+ 	/*
+ 	 * Call to the vsc driver to let it know that the device is being
+ 	 * removed. Also blocks mtu and channel changes.
+--- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 10:41:17.406620255 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 10:41:17.402620306 -0800
+@@ -437,7 +437,7 @@ int rndis_filter_receive(struct net_devi
+ 
+ 	case RNDIS_MSG_INDICATE:
+ 		/* notification msgs */
+-		netvsc_linkstatus_callback(ndev, rndis_msg);
++		netvsc_linkstatus_callback(ndev, rndis_dev, rndis_msg);
+ 		break;
+ 	default:
+ 		netdev_err(ndev,

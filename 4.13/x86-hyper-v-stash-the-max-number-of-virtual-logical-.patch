@@ -16,8 +16,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  arch/x86/kernel/cpu/mshyperv.c  |   12 +++++++++---
  2 files changed, 11 insertions(+), 3 deletions(-)
 
---- a/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.147483064 -0700
-+++ b/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.147483064 -0700
+--- a/arch/x86/include/asm/mshyperv.h	2017-11-17 09:48:32.043633268 -0800
++++ b/arch/x86/include/asm/mshyperv.h	2017-11-17 09:48:32.039633320 -0800
 @@ -28,6 +28,8 @@ struct ms_hyperv_info {
  	u32 features;
  	u32 misc_features;
@@ -27,8 +27,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  };
  
  extern struct ms_hyperv_info ms_hyperv;
---- a/arch/x86/kernel/cpu/mshyperv.c	2017-10-05 14:20:48.147483064 -0700
-+++ b/arch/x86/kernel/cpu/mshyperv.c	2017-10-05 14:20:48.147483064 -0700
+--- a/arch/x86/kernel/cpu/mshyperv.c	2017-11-17 09:48:32.043633268 -0800
++++ b/arch/x86/kernel/cpu/mshyperv.c	2017-11-17 09:48:32.039633320 -0800
 @@ -184,9 +184,15 @@ static void __init ms_hyperv_init_platfo
  	ms_hyperv.misc_features = cpuid_edx(HYPERV_CPUID_FEATURES);
  	ms_hyperv.hints    = cpuid_eax(HYPERV_CPUID_ENLIGHTMENT_INFO);
