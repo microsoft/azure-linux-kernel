@@ -1,0 +1,63 @@
+From ea78ce215f72cb10d9227b6f76309b44572149ce Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Thu, 5 Oct 2017 15:58:11 -0700
+Subject: [PATCH 39/71] hv_netvsc: avoid memset in setting up rndis header
+
+The memset of the whole maximum possible RNDIS header is unnecessary.
+For the main part of the header use a structure assignment, and for
+the PPI data clear as necessary.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:40.350842369 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:40.346842423 -0800
+@@ -174,7 +174,7 @@ out:
+ 	return ret;
+ }
+ 
+-static void *init_ppi_data(struct rndis_message *msg, u32 ppi_size,
++static inline void *init_ppi_data(struct rndis_message *msg, u32 ppi_size,
+ 			   int pkt_type)
+ {
+ 	struct rndis_packet *rndis_pkt;
+@@ -185,6 +185,7 @@ static void *init_ppi_data(struct rndis_
+ 
+ 	ppi = (struct rndis_per_packet_info *)((void *)rndis_pkt +
+ 		rndis_pkt->per_pkt_info_offset + rndis_pkt->per_pkt_info_len);
++	memset(ppi, 0, ppi_size);
+ 
+ 	ppi->size = ppi_size;
+ 	ppi->type = pkt_type;
+@@ -469,7 +470,6 @@ static int netvsc_start_xmit(struct sk_b
+ 	int ret;
+ 	unsigned int num_data_pgs;
+ 	struct rndis_message *rndis_msg;
+-	struct rndis_packet *rndis_pkt;
+ 	struct net_device *vf_netdev;
+ 	u32 rndis_msg_size;
+ 	struct rndis_per_packet_info *ppi;
+@@ -527,15 +527,15 @@ static int netvsc_start_xmit(struct sk_b
+ 
+ 	rndis_msg = (struct rndis_message *)skb->head;
+ 
+-	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
+-
+ 	/* Add the rndis header */
+ 	rndis_msg->ndis_msg_type = RNDIS_MSG_PACKET;
+ 	rndis_msg->msg_len = packet->total_data_buflen;
+-	rndis_pkt = &rndis_msg->msg.pkt;
+-	rndis_pkt->data_offset = sizeof(struct rndis_packet);
+-	rndis_pkt->data_len = packet->total_data_buflen;
+-	rndis_pkt->per_pkt_info_offset = sizeof(struct rndis_packet);
++
++	rndis_msg->msg.pkt = (struct rndis_packet) {
++		.data_offset = sizeof(struct rndis_packet),
++		.data_len = packet->total_data_buflen,
++		.per_pkt_info_offset = sizeof(struct rndis_packet),
++	};
+ 
+ 	rndis_msg_size = RNDIS_MESSAGE_SIZE(struct rndis_packet);
+ 

@@ -1,0 +1,131 @@
+From 5333a48d96b2e344faa6ed9a1c033c9cfd401663 Mon Sep 17 00:00:00 2001
+From: Cathy Avery <cavery@redhat.com>
+Date: Tue, 31 Oct 2017 08:52:06 -0400
+Subject: [PATCH 46/71] scsi: storvsc: Allow only one remove lun work item to
+ be issued per lun
+
+When running multipath on a VM if all available paths go down
+the driver can schedule large amounts of storvsc_remove_lun
+work items to the same lun. In response to the failing paths
+typically storvsc responds by taking host->scan_mutex and issuing
+a TUR per lun. If there has been heavy IO to the failed device
+all the failed IOs are returned from the host. A remove lun work
+item is issued per failed IO. If the outstanding TURs have not been
+completed in a timely manner the scan_mutex is never released or
+released too late. Consequently the many remove lun work items are
+not completed as scsi_remove_device also tries to take host->scan_mutex.
+This results in dragging the VM down and sometimes completely.
+
+This patch only allows one remove lun to be issued to a particular
+lun while it is an instantiated member of the scsi stack.
+
+Changes since v1:
+Use single threaded workqueue to serialize work in
+storvsc_handle_error [Christoph Hellwig]
+
+Changes since v2:
+Replaced create_singlethread_workqueue with
+alloc_ordered_workqueue [Christoph Hellwig]
+
+Added reviewed by's.
+
+Signed-off-by: Cathy Avery <cavery@redhat.com>
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Long Li <longli@microsoft.com>
+---
+ drivers/scsi/storvsc_drv.c |   26 +++++++++++++++++++++-----
+ 1 file changed, 21 insertions(+), 5 deletions(-)
+
+--- a/drivers/scsi/storvsc_drv.c	2017-11-17 09:03:41.698824232 -0800
++++ b/drivers/scsi/storvsc_drv.c	2017-11-17 09:03:41.694824287 -0800
+@@ -486,6 +486,7 @@ struct hv_host_device {
+ 	unsigned int port;
+ 	unsigned char path;
+ 	unsigned char target;
++	struct workqueue_struct *handle_error_wq;
+ };
+ 
+ struct storvsc_scan_work {
+@@ -922,6 +923,7 @@ static void storvsc_handle_error(struct
+ {
+ 	struct storvsc_scan_work *wrk;
+ 	void (*process_err_fn)(struct work_struct *work);
++	struct hv_host_device *host_dev = shost_priv(host);
+ 	bool do_work = false;
+ 
+ 	switch (SRB_STATUS(vm_srb->srb_status)) {
+@@ -988,7 +990,7 @@ static void storvsc_handle_error(struct
+ 	wrk->lun = vm_srb->lun;
+ 	wrk->tgt_id = vm_srb->target_id;
+ 	INIT_WORK(&wrk->work, process_err_fn);
+-	schedule_work(&wrk->work);
++	queue_work(host_dev->handle_error_wq, &wrk->work);
+ }
+ 
+ 
+@@ -1803,10 +1805,19 @@ static int storvsc_probe(struct hv_devic
+ 	if (stor_device->num_sc != 0)
+ 		host->nr_hw_queues = stor_device->num_sc + 1;
+ 
++	/*
++	 * Set the error handler work queue.
++	 */
++	host_dev->handle_error_wq =
++			alloc_ordered_workqueue("storvsc_error_wq_%d",
++						WQ_MEM_RECLAIM,
++						host->host_no);
++	if (!host_dev->handle_error_wq)
++		goto err_out2;
+ 	/* Register the HBA and start the scsi bus scan */
+ 	ret = scsi_add_host(host, &device->device);
+ 	if (ret != 0)
+-		goto err_out2;
++		goto err_out3;
+ 
+ 	if (!dev_is_ide) {
+ 		scsi_scan_host(host);
+@@ -1815,7 +1826,7 @@ static int storvsc_probe(struct hv_devic
+ 			 device->dev_instance.b[4]);
+ 		ret = scsi_add_device(host, 0, target, 0);
+ 		if (ret)
+-			goto err_out3;
++			goto err_out4;
+ 	}
+ #if IS_ENABLED(CONFIG_SCSI_FC_ATTRS)
+ 	if (host->transportt == fc_transport_template) {
+@@ -1827,14 +1838,17 @@ static int storvsc_probe(struct hv_devic
+ 		fc_host_port_name(host) = stor_device->port_name;
+ 		stor_device->rport = fc_remote_port_add(host, 0, &ids);
+ 		if (!stor_device->rport)
+-			goto err_out3;
++			goto err_out4;
+ 	}
+ #endif
+ 	return 0;
+ 
+-err_out3:
++err_out4:
+ 	scsi_remove_host(host);
+ 
++err_out3:
++	destroy_workqueue(host_dev->handle_error_wq);
++
+ err_out2:
+ 	/*
+ 	 * Once we have connected with the host, we would need to
+@@ -1858,6 +1872,7 @@ static int storvsc_remove(struct hv_devi
+ {
+ 	struct storvsc_device *stor_device = hv_get_drvdata(dev);
+ 	struct Scsi_Host *host = stor_device->host;
++	struct hv_host_device *host_dev = shost_priv(host);
+ 
+ #if IS_ENABLED(CONFIG_SCSI_FC_ATTRS)
+ 	if (host->transportt == fc_transport_template) {
+@@ -1865,6 +1880,7 @@ static int storvsc_remove(struct hv_devi
+ 		fc_remove_host(host);
+ 	}
+ #endif
++	destroy_workqueue(host_dev->handle_error_wq);
+ 	scsi_remove_host(host);
+ 	storvsc_dev_remove(dev);
+ 	scsi_host_put(host);

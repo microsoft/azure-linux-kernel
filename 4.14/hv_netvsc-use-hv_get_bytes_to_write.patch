@@ -1,0 +1,32 @@
+From a00b4f1ead7cd27ca1152ce8eb2a4b82c0e615fc Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Tue, 14 Nov 2017 10:42:32 -0800
+Subject: [PATCH 59/71] hv_netvsc: use hv_get_bytes_to_write
+
+Don't need to know bytes avail_to_read when computing space.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c |    9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:43.174804375 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:43.170804429 -0800
+@@ -586,14 +586,11 @@ void netvsc_device_remove(struct hv_devi
+  * Get the percentage of available bytes to write in the ring.
+  * The return value is in range from 0 to 100.
+  */
+-static inline u32 hv_ringbuf_avail_percent(
+-		struct hv_ring_buffer_info *ring_info)
++static inline u32 hv_ringbuf_avail_percent(const struct hv_ring_buffer_info *rbi)
+ {
+-	u32 avail_read, avail_write;
++	u32 avail_write = hv_get_bytes_to_write(rbi);
+ 
+-	hv_get_ringbuffer_availbytes(ring_info, &avail_read, &avail_write);
+-
+-	return avail_write * 100 / ring_info->ring_datasize;
++	return (avail_write * 100)/ rbi->ring_datasize;
+ }
+ 
+ static inline void netvsc_free_send_slot(struct netvsc_device *net_device,

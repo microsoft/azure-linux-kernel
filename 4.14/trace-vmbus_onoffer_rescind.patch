@@ -1,0 +1,41 @@
+From 860d6eadd907b6c4b111d35992d18a5d84cab681 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 16:50:31 +0200
+Subject: [PATCH 11/71] hyper-v: trace vmbus_onoffer_rescind()
+
+Add tracepoint to CHANNELMSG_RESCIND_CHANNELOFFER handler.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/channel_mgmt.c |    2 ++
+ drivers/hv/hv_trace.h     |    8 ++++++++
+ 2 files changed, 10 insertions(+)
+
+--- a/drivers/hv/channel_mgmt.c	2017-11-17 09:03:34.670918788 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-11-17 09:03:34.666918841 -0800
+@@ -856,6 +856,8 @@ static void vmbus_onoffer_rescind(struct
+ 
+ 	rescind = (struct vmbus_channel_rescind_offer *)hdr;
+ 
++	trace_vmbus_onoffer_rescind(rescind);
++
+ 	/*
+ 	 * The offer msg and the corresponding rescind msg
+ 	 * from the host are guranteed to be ordered -
+--- a/drivers/hv/hv_trace.h	2017-11-17 09:03:34.670918788 -0800
++++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:34.666918841 -0800
+@@ -61,6 +61,14 @@ TRACE_EVENT(vmbus_onoffer,
+ 		    )
+ 	);
+ 
++TRACE_EVENT(vmbus_onoffer_rescind,
++	    TP_PROTO(const struct vmbus_channel_rescind_offer *offer),
++	    TP_ARGS(offer),
++	    TP_STRUCT__entry(__field(u32, child_relid)),
++	    TP_fast_assign(__entry->child_relid = offer->child_relid),
++	    TP_printk("child_relid 0x%x", __entry->child_relid)
++	);
++
+ #undef TRACE_INCLUDE_PATH
+ #define TRACE_INCLUDE_PATH .
+ #undef TRACE_INCLUDE_FILE

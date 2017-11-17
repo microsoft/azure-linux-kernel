@@ -1,0 +1,114 @@
+From 7332c7d8ed0e96d50712b1742d39b8dadaed8727 Mon Sep 17 00:00:00 2001
+From: Michael Kelley <mikelley@microsoft.com>
+Date: Tue, 14 Nov 2017 10:14:57 -0800
+Subject: [PATCH 58/71] Drivers: hv: vmbus: Remove x86-isms from arch
+ independent
+
+hv_is_hypercall_page_setup() is used to check if Hyper-V is
+initialized, but a 'hypercall page' is an x86 implementation detail
+that isn't necessarily present on other architectures. Rename to the
+architecture independent hv_is_hyperv_initialized() and add check
+that x86_hyper is pointing to Hyper-V.  Use this function instead of
+direct references to x86-specific data structures in vmbus_drv.c,
+and remove now redundant call in hv_init(). Also remove 'x86' from
+the string name passed to cpuhp_setup_state().
+
+Signed-off-by: Michael Kelley <mikelley@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c       |   21 ++++++++++++++-------
+ arch/x86/include/asm/mshyperv.h |    4 ++--
+ drivers/hv/hv.c                 |    3 ---
+ drivers/hv/vmbus_drv.c          |    5 ++---
+ 4 files changed, 18 insertions(+), 15 deletions(-)
+
+--- a/arch/x86/hyperv/hv_init.c	2017-11-17 09:03:42.946807442 -0800
++++ b/arch/x86/hyperv/hv_init.c	2017-11-17 09:03:42.942807496 -0800
+@@ -236,17 +236,24 @@ void hyperv_report_panic(struct pt_regs
+ }
+ EXPORT_SYMBOL_GPL(hyperv_report_panic);
+ 
+-bool hv_is_hypercall_page_setup(void)
++bool hv_is_hyperv_initialized(void)
+ {
+ 	union hv_x64_msr_hypercall_contents hypercall_msr;
+ 
+-	/* Check if the hypercall page is setup */
++	/*
++	 * Ensure that we're really on Hyper-V, and not a KVM or Xen
++	 * emulation of Hyper-V
++	 */
++	if (x86_hyper != &x86_hyper_ms_hyperv)
++		return false;
++
++	/*
++	 * Verify that earlier initialization succeeded by checking
++	 * that the hypercall page is setup
++	 */
+ 	hypercall_msr.as_uint64 = 0;
+ 	rdmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+ 
+-	if (!hypercall_msr.enable)
+-		return false;
+-
+-	return true;
++	return hypercall_msr.enable;
+ }
+-EXPORT_SYMBOL_GPL(hv_is_hypercall_page_setup);
++EXPORT_SYMBOL_GPL(hv_is_hyperv_initialized);
+--- a/arch/x86/include/asm/mshyperv.h	2017-11-17 09:03:42.946807442 -0800
++++ b/arch/x86/include/asm/mshyperv.h	2017-11-17 09:03:42.942807496 -0800
+@@ -312,11 +312,11 @@ void hyperv_init(void);
+ void hyperv_setup_mmu_ops(void);
+ void hyper_alloc_mmu(void);
+ void hyperv_report_panic(struct pt_regs *regs);
+-bool hv_is_hypercall_page_setup(void);
++bool hv_is_hyperv_initialized(void);
+ void hyperv_cleanup(void);
+ #else /* CONFIG_HYPERV */
+ static inline void hyperv_init(void) {}
+-static inline bool hv_is_hypercall_page_setup(void) { return false; }
++static inline bool hv_is_hyperv_initialized(void) { return false; }
+ static inline void hyperv_cleanup(void) {}
+ static inline void hyperv_setup_mmu_ops(void) {}
+ #endif /* CONFIG_HYPERV */
+--- a/drivers/hv/hv.c	2017-11-17 09:03:42.946807442 -0800
++++ b/drivers/hv/hv.c	2017-11-17 09:03:42.942807496 -0800
+@@ -49,9 +49,6 @@ struct hv_context hv_context = {
+  */
+ int hv_init(void)
+ {
+-	if (!hv_is_hypercall_page_setup())
+-		return -ENOTSUPP;
+-
+ 	hv_context.cpu_context = alloc_percpu(struct hv_per_cpu_context);
+ 	if (!hv_context.cpu_context)
+ 		return -ENOMEM;
+--- a/drivers/hv/vmbus_drv.c	2017-11-17 09:03:42.946807442 -0800
++++ b/drivers/hv/vmbus_drv.c	2017-11-17 09:03:42.942807496 -0800
+@@ -37,7 +37,6 @@
+ #include <linux/sched/task_stack.h>
+ 
+ #include <asm/hyperv.h>
+-#include <asm/hypervisor.h>
+ #include <asm/mshyperv.h>
+ #include <linux/notifier.h>
+ #include <linux/ptrace.h>
+@@ -1051,7 +1050,7 @@ static int vmbus_bus_init(void)
+ 	 * Initialize the per-cpu interrupt state and
+ 	 * connect to the host.
+ 	 */
+-	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "x86/hyperv:online",
++	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "hyperv/vmbus:online",
+ 				hv_synic_init, hv_synic_cleanup);
+ 	if (ret < 0)
+ 		goto err_alloc;
+@@ -1701,7 +1700,7 @@ static int __init hv_acpi_init(void)
+ {
+ 	int ret, t;
+ 
+-	if (x86_hyper != &x86_hyper_ms_hyperv)
++	if (!hv_is_hyperv_initialized())
+ 		return -ENODEV;
+ 
+ 	init_completion(&probe_event);
