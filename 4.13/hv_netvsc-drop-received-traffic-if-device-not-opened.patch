@@ -1,0 +1,40 @@
+From ba44d002f65fed66549a9f7bc8792810ac476ea1 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Sat, 4 Nov 2017 07:20:58 +0100
+Subject: [PATCH 66/71] hv_netvsc: drop received traffic if device not opened
+
+If a packet is received from host but the network device is
+not up, then drop it. This also handles case where device is not
+fully registered yet.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c   |    3 ---
+ drivers/net/hyperv/rndis_filter.c |    4 ++++
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 10:41:16.602630515 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 10:41:16.602630515 -0800
+@@ -752,9 +752,6 @@ int netvsc_recv_callback(struct net_devi
+ 	struct sk_buff *skb;
+ 	struct netvsc_stats *rx_stats;
+ 
+-	if (net->reg_state != NETREG_REGISTERED)
+-		return NVSP_STAT_FAIL;
+-
+ 	/* Allocate a skb - TODO direct I/O to pages? */
+ 	skb = netvsc_alloc_recv_skb(net, &nvchan->napi,
+ 				    csum_info, vlan, data, len);
+--- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 10:41:16.602630515 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 10:41:16.602630515 -0800
+@@ -379,6 +379,10 @@ static int rndis_filter_receive_data(str
+ 		return NVSP_STAT_FAIL;
+ 	}
+ 
++	/* silently drop frame if not opened */
++	if (unlikely(dev->state != RNDIS_DEV_DATAINITIALIZED))
++		return 0;
++
+ 	vlan = rndis_get_ppi(rndis_pkt, IEEE_8021Q_INFO);
+ 
+ 	/*

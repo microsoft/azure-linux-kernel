@@ -1,0 +1,79 @@
+From acce7af720c6f82a185f95f00a5f1afb1d648bb8 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 14 Nov 2017 10:52:08 -0700
+Subject: [PATCH 60/71] vmbus: make hv_get_ringbuffer_availbytes local
+
+hv_get_ringbuffer_availbytes is only used by the debug info
+routine so make it static. Also, add READ_ONCE() to avoid any
+possible issues with potentially volatile index values.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/hv/ring_buffer.c |   23 +++++++++++++++++++++++
+ include/linux/hyperv.h   |   22 ----------------------
+ 2 files changed, 23 insertions(+), 22 deletions(-)
+
+--- a/drivers/hv/ring_buffer.c	2017-11-17 10:41:15.214648227 -0800
++++ b/drivers/hv/ring_buffer.c	2017-11-17 10:41:15.210648277 -0800
+@@ -140,6 +140,29 @@ static u32 hv_copyto_ringbuffer(
+ 	return start_write_offset;
+ }
+ 
++/*
++ *
++ * hv_get_ringbuffer_availbytes()
++ *
++ * Get number of bytes available to read and to write to
++ * for the specified ring buffer
++ */
++static void
++hv_get_ringbuffer_availbytes(const struct hv_ring_buffer_info *rbi,
++			     u32 *read, u32 *write)
++{
++	u32 read_loc, write_loc, dsize;
++
++	/* Capture the read/write indices before they changed */
++	read_loc = READ_ONCE(rbi->ring_buffer->read_index);
++	write_loc = READ_ONCE(rbi->ring_buffer->write_index);
++	dsize = rbi->ring_datasize;
++
++	*write = write_loc >= read_loc ? dsize - (write_loc - read_loc) :
++		read_loc - write_loc;
++	*read = dsize - *write;
++}
++
+ /* Get various debug metrics for the specified ring buffer. */
+ void hv_ringbuffer_get_debuginfo(const struct hv_ring_buffer_info *ring_info,
+ 				 struct hv_ring_buffer_debug_info *debug_info)
+--- a/include/linux/hyperv.h	2017-11-17 10:41:15.214648227 -0800
++++ b/include/linux/hyperv.h	2017-11-17 10:41:15.210648277 -0800
+@@ -129,28 +129,6 @@ struct hv_ring_buffer_info {
+ 	u32 priv_read_index;
+ };
+ 
+-/*
+- *
+- * hv_get_ringbuffer_availbytes()
+- *
+- * Get number of bytes available to read and to write to
+- * for the specified ring buffer
+- */
+-static inline void
+-hv_get_ringbuffer_availbytes(const struct hv_ring_buffer_info *rbi,
+-			     u32 *read, u32 *write)
+-{
+-	u32 read_loc, write_loc, dsize;
+-
+-	/* Capture the read/write indices before they changed */
+-	read_loc = rbi->ring_buffer->read_index;
+-	write_loc = rbi->ring_buffer->write_index;
+-	dsize = rbi->ring_datasize;
+-
+-	*write = write_loc >= read_loc ? dsize - (write_loc - read_loc) :
+-		read_loc - write_loc;
+-	*read = dsize - *write;
+-}
+ 
+ static inline u32 hv_get_bytes_to_read(const struct hv_ring_buffer_info *rbi)
+ {

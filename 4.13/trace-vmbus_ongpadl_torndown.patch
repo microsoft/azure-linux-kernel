@@ -1,0 +1,41 @@
+From a00bc680cbdbe99d8e0a9501c03eefa79c9703d1 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 16:50:34 +0200
+Subject: [PATCH 14/71] hyper-v: trace vmbus_ongpadl_torndown()
+
+Add tracepoint to CHANNELMSG_GPADL_TORNDOWN handler.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/channel_mgmt.c |    2 ++
+ drivers/hv/hv_trace.h     |    8 ++++++++
+ 2 files changed, 10 insertions(+)
+
+--- a/drivers/hv/channel_mgmt.c	2017-11-17 10:41:04.738781895 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-11-17 10:41:04.734781946 -0800
+@@ -1079,6 +1079,8 @@ static void vmbus_ongpadl_torndown(
+ 
+ 	gpadl_torndown = (struct vmbus_channel_gpadl_torndown *)hdr;
+ 
++	trace_vmbus_ongpadl_torndown(gpadl_torndown);
++
+ 	/*
+ 	 * Find the open msg, copy the result and signal/unblock the wait event
+ 	 */
+--- a/drivers/hv/hv_trace.h	2017-11-17 10:41:04.738781895 -0800
++++ b/drivers/hv/hv_trace.h	2017-11-17 10:41:04.734781946 -0800
+@@ -103,6 +103,14 @@ TRACE_EVENT(vmbus_ongpadl_created,
+ 		    )
+ 	);
+ 
++TRACE_EVENT(vmbus_ongpadl_torndown,
++	    TP_PROTO(const struct vmbus_channel_gpadl_torndown *gpadltorndown),
++	    TP_ARGS(gpadltorndown),
++	    TP_STRUCT__entry(__field(u32, gpadl)),
++	    TP_fast_assign(__entry->gpadl = gpadltorndown->gpadl),
++	    TP_printk("gpadl 0x%x", __entry->gpadl)
++	);
++
+ #undef TRACE_INCLUDE_PATH
+ #define TRACE_INCLUDE_PATH .
+ #undef TRACE_INCLUDE_FILE
