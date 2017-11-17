@@ -32,13 +32,13 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  6 files changed, 149 insertions(+), 1 deletion(-)
  create mode 100644 arch/x86/hyperv/mmu.c
 
---- a/arch/x86/hyperv/Makefile	2017-10-05 14:20:48.795491048 -0700
-+++ b/arch/x86/hyperv/Makefile	2017-10-05 14:20:48.795491048 -0700
+--- a/arch/x86/hyperv/Makefile	2017-11-17 09:49:08.315153977 -0800
++++ b/arch/x86/hyperv/Makefile	2017-11-17 09:49:08.311154030 -0800
 @@ -1 +1 @@
 -obj-y		:= hv_init.o
 +obj-y		:= hv_init.o mmu.o
---- a/arch/x86/hyperv/hv_init.c	2017-10-05 14:20:48.795491048 -0700
-+++ b/arch/x86/hyperv/hv_init.c	2017-10-05 14:20:48.795491048 -0700
+--- a/arch/x86/hyperv/hv_init.c	2017-11-17 09:49:08.315153977 -0800
++++ b/arch/x86/hyperv/hv_init.c	2017-11-17 09:49:08.311154030 -0800
 @@ -140,6 +140,8 @@ void hyperv_init(void)
  	hypercall_msr.guest_physical_address = vmalloc_to_pfn(hv_hypercall_pg);
  	wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
@@ -49,7 +49,7 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  	 * Register Hyper-V specific clocksource.
  	 */
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/arch/x86/hyperv/mmu.c	2017-10-05 14:20:48.795491048 -0700
++++ b/arch/x86/hyperv/mmu.c	2017-11-17 09:49:08.311154030 -0800
 @@ -0,0 +1,135 @@
 +#include <linux/hyperv.h>
 +#include <linux/log2.h>
@@ -186,8 +186,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
 +	if (ms_hyperv.hints & HV_X64_REMOTE_TLB_FLUSH_RECOMMENDED)
 +		pcpu_flush = __alloc_percpu(PAGE_SIZE, PAGE_SIZE);
 +}
---- a/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.795491048 -0700
-+++ b/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.795491048 -0700
+--- a/arch/x86/include/asm/mshyperv.h	2017-11-17 09:49:08.315153977 -0800
++++ b/arch/x86/include/asm/mshyperv.h	2017-11-17 09:49:08.311154030 -0800
 @@ -308,6 +308,8 @@ static inline int hv_cpu_number_to_vp_nu
  }
  
@@ -205,8 +205,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  #endif /* CONFIG_HYPERV */
  
  #ifdef CONFIG_HYPERV_TSCPAGE
---- a/arch/x86/include/uapi/asm/hyperv.h	2017-10-05 14:20:48.795491048 -0700
-+++ b/arch/x86/include/uapi/asm/hyperv.h	2017-10-05 14:20:48.795491048 -0700
+--- a/arch/x86/include/uapi/asm/hyperv.h	2017-11-17 09:49:08.315153977 -0800
++++ b/arch/x86/include/uapi/asm/hyperv.h	2017-11-17 09:49:08.311154030 -0800
 @@ -242,6 +242,8 @@
  		(~((1ull << HV_X64_MSR_HYPERCALL_PAGE_ADDRESS_SHIFT) - 1))
  
@@ -228,8 +228,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  /* hypercall status code */
  #define HV_STATUS_SUCCESS			0
  #define HV_STATUS_INVALID_HYPERCALL_CODE	2
---- a/arch/x86/kernel/cpu/mshyperv.c	2017-10-05 14:20:48.795491048 -0700
-+++ b/arch/x86/kernel/cpu/mshyperv.c	2017-10-05 14:20:48.795491048 -0700
+--- a/arch/x86/kernel/cpu/mshyperv.c	2017-11-17 09:49:08.315153977 -0800
++++ b/arch/x86/kernel/cpu/mshyperv.c	2017-11-17 09:49:08.311154030 -0800
 @@ -255,6 +255,7 @@ static void __init ms_hyperv_init_platfo
  	 * Setup the hook to get control post apic initialization.
  	 */

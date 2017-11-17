@@ -11,33 +11,3 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/hv/ring_buffer.c |    7 ++++++-
  1 file changed, 6 insertions(+), 1 deletion(-)
 
---- a/drivers/hv/ring_buffer.c	2017-10-05 14:20:47.751478185 -0700
-+++ b/drivers/hv/ring_buffer.c	2017-10-05 14:20:47.751478185 -0700
-@@ -29,6 +29,7 @@
- #include <linux/uio.h>
- #include <linux/vmalloc.h>
- #include <linux/slab.h>
-+#include <linux/prefetch.h>
- 
- #include "hyperv_vmbus.h"
- 
-@@ -356,6 +357,7 @@ static u32 hv_pkt_iter_avail(const struc
- struct vmpacket_descriptor *hv_pkt_iter_first(struct vmbus_channel *channel)
- {
- 	struct hv_ring_buffer_info *rbi = &channel->inbound;
-+	struct vmpacket_descriptor *desc;
- 
- 	/* set state for later hv_signal_on_read() */
- 	rbi->cached_read_index = rbi->ring_buffer->read_index;
-@@ -363,7 +365,10 @@ struct vmpacket_descriptor *hv_pkt_iter_
- 	if (hv_pkt_iter_avail(rbi) < sizeof(struct vmpacket_descriptor))
- 		return NULL;
- 
--	return hv_get_ring_buffer(rbi) + rbi->priv_read_index;
-+	desc = hv_get_ring_buffer(rbi) + rbi->priv_read_index;
-+	prefetch((char *)desc + (desc->len8 << 3));
-+
-+	return desc;
- }
- EXPORT_SYMBOL_GPL(hv_pkt_iter_first);
- 

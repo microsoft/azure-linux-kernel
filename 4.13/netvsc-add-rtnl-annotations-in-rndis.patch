@@ -16,8 +16,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/rndis_filter.c |   12 ++++++++++--
  4 files changed, 15 insertions(+), 10 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:50.679514259 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:50.675514210 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 10:20:16.106993729 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 10:20:16.102993782 -0800
 @@ -788,12 +788,6 @@ struct netvsc_device {
  	struct rcu_head rcu;
  };
@@ -31,9 +31,9 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  /* NdisInitialize message */
  struct rndis_initialize_request {
  	u32 req_id;
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:50.679514259 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:50.675514210 -0700
-@@ -107,7 +107,8 @@ static void netvsc_destroy_buf(struct hv
+--- a/drivers/net/hyperv/netvsc.c	2017-11-17 10:20:16.106993729 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-11-17 10:20:16.102993782 -0800
+@@ -108,7 +108,8 @@ static void netvsc_destroy_buf(struct hv
  {
  	struct nvsp_message *revoke_packet;
  	struct net_device *ndev = hv_get_drvdata(device);
@@ -43,7 +43,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	int ret;
  
  	/*
-@@ -830,7 +831,8 @@ int netvsc_send(struct net_device_contex
+@@ -831,7 +832,8 @@ int netvsc_send(struct net_device_contex
  		struct hv_page_buffer **pb,
  		struct sk_buff *skb)
  {
@@ -53,8 +53,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	struct hv_device *device = ndev_ctx->device_ctx;
  	int ret = 0;
  	struct netvsc_channel *nvchan;
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:50.679514259 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:50.675514210 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 10:20:16.106993729 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 10:20:16.102993782 -0800
 @@ -1576,6 +1576,7 @@ static int netvsc_probe(struct hv_device
  
  	netif_set_real_num_tx_queues(net, nvdev->num_chn);
@@ -63,8 +63,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
  	netdev_lockdep_set_classes(net);
  
---- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:50.679514259 -0700
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:50.675514210 -0700
+--- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 10:20:16.106993729 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 10:20:16.102993782 -0800
 @@ -84,6 +84,14 @@ static struct rndis_device *get_rndis_de
  	return device;
  }

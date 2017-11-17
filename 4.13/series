@@ -1,9 +1,7 @@
 Adding-file-to-support-building-user-level-daemon.patch
 pci-hyperv-Use-only-16-bit-integer-for-PCI-domain.patch
-vmbus-simplify-hv_ringbuffer_read.patch
 vmbus-remove-unused-vmbus_sendpacket_multipagebuffer.patch
 vmbus-remove-unused-vmbus_sendpacket_ctl.patch
-vmbus-add-prefetch-to-ring-buffer-iterator.patch
 vmbus-vmbus_open-reset-onchannel_callback-on-error.patch
 vmbus-remove-goto-error_clean_msglist-in-vmbus_open.patch
 x86-hyper-v-include-hyperv-only-when-CONFIG_HYPERV-i.patch
@@ -22,7 +20,6 @@ hv_sock-add-the-support-of-auto-loading.patch
 hv_sock-fix-a-race-in-hvs_stream_dequeue.patch
 vsock-fix-vsock_dequeue-enqueue_accept-race.patch
 hv_sock-avoid-double-FINs-if-shutdown-is-called.patch
-vmbus-don-t-acquire-the-mutex-in-vmbus_hvsock_device.patch
 netvsc-prefetch-the-first-incoming-ring-element.patch
 netvsc-force-link-update-after-MTU-change.patch
 netvsc-add-some-rtnl_dereference-annotations.patch
@@ -35,7 +32,6 @@ netvsc-add-rtnl-annotations-in-rndis.patch
 netvsc-fix-ptr_ret.cocci-warnings.patch
 netvsc-remove-bogus-rtnl_unlock.patch
 netvsc-Remove-redundant-use-of-ipv6_hdr.patch
-0041-netvsc-prefetch-the-first-incoming-ring-element.patch
 netvsc-fix-netvsc_set_channels.patch
 netvsc-include-rtnetlink.h.patch
 netvsc-remove-no-longer-used-max_num_rss-queues.patch
@@ -61,9 +57,7 @@ hv-balloon-Show-the-max-dynamic-memory-assig.patch
 hv-balloon-Initialize-last_post_time-on-star.patch
 hv-kvp-Use-MAX_ADAPTER_ID_SIZE-for-translati.patch
 netvsc-don-t-signal-host-twice-if-empty.patch
-vmbus-simplify-packet-iterator.patch
 netvsc-make-sure-and-unregister-datapath.patch
-vmbus-fix-performance-regression.patch
 netvsc-fix-rtnl-deadlock-on-unregister-of-vf.patch
 netvsc-delay-setup-of-VF-device.patch
 netvsc-propagate-MAC-address-change-to-VF-slave.patch

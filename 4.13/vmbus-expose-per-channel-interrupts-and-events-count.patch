@@ -16,8 +16,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  include/linux/hyperv.h  |    5 +++++
  4 files changed, 31 insertions(+)
 
---- a/drivers/hv/channel.c	2017-10-05 14:20:55.423572707 -0700
-+++ b/drivers/hv/channel.c	2017-10-05 14:20:55.419572657 -0700
+--- a/drivers/hv/channel.c	2017-11-17 10:28:34.924471300 -0800
++++ b/drivers/hv/channel.c	2017-11-17 10:28:34.920471352 -0800
 @@ -48,6 +48,8 @@ void vmbus_setevent(struct vmbus_channel
  	 * bypass the monitor page mechanism.
  	 */
@@ -27,8 +27,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  		vmbus_send_interrupt(channel->offermsg.child_relid);
  
  		/* Get the child to parent monitor page */
---- a/drivers/hv/connection.c	2017-10-05 14:20:55.423572707 -0700
-+++ b/drivers/hv/connection.c	2017-10-05 14:20:55.419572657 -0700
+--- a/drivers/hv/connection.c	2017-11-17 10:28:34.924471300 -0800
++++ b/drivers/hv/connection.c	2017-11-17 10:28:34.920471352 -0800
 @@ -409,6 +409,7 @@ void vmbus_set_event(struct vmbus_channe
  	if (!channel->is_dedicated_interrupt)
  		vmbus_send_interrupt(child_relid);
@@ -37,10 +37,10 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	hv_do_fast_hypercall8(HVCALL_SIGNAL_EVENT, channel->sig_event);
  }
  EXPORT_SYMBOL_GPL(vmbus_set_event);
---- a/drivers/hv/vmbus_drv.c	2017-10-05 14:20:55.423572707 -0700
-+++ b/drivers/hv/vmbus_drv.c	2017-10-05 14:20:55.419572657 -0700
-@@ -942,6 +942,8 @@ static void vmbus_chan_sched(struct hv_p
- 			if (channel->offermsg.child_relid != relid)
+--- a/drivers/hv/vmbus_drv.c	2017-11-17 10:28:34.924471300 -0800
++++ b/drivers/hv/vmbus_drv.c	2017-11-17 10:28:34.920471352 -0800
+@@ -944,6 +944,8 @@ static void vmbus_chan_sched(struct hv_p
+ 			if (channel->rescind)
  				continue;
  
 +			++channel->interrupts_in;
@@ -48,7 +48,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  			switch (channel->callback_mode) {
  			case HV_CALL_ISR:
  				vmbus_channel_isr(channel);
-@@ -1235,6 +1237,24 @@ static ssize_t channel_latency_show(cons
+@@ -1237,6 +1239,24 @@ static ssize_t channel_latency_show(cons
  }
  VMBUS_CHAN_ATTR(lantency, S_IRUGO, channel_latency_show, NULL);
  
@@ -73,7 +73,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  static struct attribute *vmbus_chan_attrs[] = {
  	&chan_attr_out_mask.attr,
  	&chan_attr_in_mask.attr,
-@@ -1243,6 +1263,9 @@ static struct attribute *vmbus_chan_attr
+@@ -1245,6 +1265,9 @@ static struct attribute *vmbus_chan_attr
  	&chan_attr_cpu.attr,
  	&chan_attr_pending.attr,
  	&chan_attr_lantency.attr,
@@ -83,9 +83,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	NULL
  };
  
---- a/include/linux/hyperv.h	2017-10-05 14:20:55.423572707 -0700
-+++ b/include/linux/hyperv.h	2017-10-05 14:20:55.419572657 -0700
-@@ -719,6 +719,11 @@ struct vmbus_channel {
+--- a/include/linux/hyperv.h	2017-11-17 10:28:34.924471300 -0800
++++ b/include/linux/hyperv.h	2017-11-17 10:28:34.920471352 -0800
+@@ -721,6 +721,11 @@ struct vmbus_channel {
  
  	struct vmbus_close_msg close_msg;
  
