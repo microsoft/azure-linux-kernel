@@ -1,0 +1,256 @@
+From 5a13b0530c25d81ec151dd13b385f21ebe34b7da Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Mon, 16 Oct 2017 08:54:15 -0700
+Subject: [PATCH 34/71] hv_netvsc: add trace event hooks
+
+Add some tracing hooks to allow diagnosing performance
+issues in send path.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/Makefile       |    4 +-
+ drivers/net/hyperv/hyperv_net.h   |    4 +-
+ drivers/net/hyperv/netvsc.c       |   14 ++++++-
+ drivers/net/hyperv/netvsc_drv.c   |    2 -
+ drivers/net/hyperv/netvsc_trace.c |   19 +++++++++
+ drivers/net/hyperv/netvsc_trace.h |   74 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/hyperv/rndis_filter.c |    3 -
+ 7 files changed, 113 insertions(+), 7 deletions(-)
+ create mode 100644 drivers/net/hyperv/netvsc_trace.c
+ create mode 100644 drivers/net/hyperv/netvsc_trace.h
+
+--- a/drivers/net/hyperv/Makefile	2017-11-17 09:03:39.342855931 -0800
++++ b/drivers/net/hyperv/Makefile	2017-11-17 09:03:39.338855984 -0800
+@@ -1,3 +1,5 @@
+ obj-$(CONFIG_HYPERV_NET) += hv_netvsc.o
+ 
+-hv_netvsc-y := netvsc_drv.o netvsc.o rndis_filter.o
++CFLAGS_netvsc_trace.o = -I$(src)
++
++hv_netvsc-y := netvsc_drv.o netvsc.o  netvsc_trace.o rndis_filter.o
+--- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:39.342855931 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:39.338855984 -0800
+@@ -142,6 +142,8 @@ struct hv_netvsc_packet {
+ 	u32 total_bytes;
+ 	u32 send_buf_index;
+ 	u32 total_data_buflen;
++
++	ktime_t sent_at;
+ };
+ 
+ struct netvsc_device_info {
+@@ -192,7 +194,7 @@ struct netvsc_device *netvsc_device_add(
+ 					const struct netvsc_device_info *info);
+ int netvsc_alloc_recv_comp_ring(struct netvsc_device *net_device, u32 q_idx);
+ void netvsc_device_remove(struct hv_device *device);
+-int netvsc_send(struct net_device_context *ndc,
++int netvsc_send(struct net_device *ndev,
+ 		struct hv_netvsc_packet *packet,
+ 		struct rndis_message *rndis_msg,
+ 		struct hv_page_buffer *page_buffer,
+--- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:39.342855931 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:39.338855984 -0800
+@@ -35,6 +35,7 @@
+ #include <asm/sync_bitops.h>
+ 
+ #include "hyperv_net.h"
++#include "netvsc_trace.h"
+ 
+ /*
+  * Switch the data path from the synthetic interface to the VF
+@@ -621,6 +622,8 @@ static void netvsc_send_tx_complete(stru
+ 		u32 send_index = packet->send_buf_index;
+ 		struct netvsc_stats *tx_stats;
+ 
++		trace_netvsc_send_complete(ndev, packet, skb);
++
+ 		if (send_index != NETVSC_INVALID_INDEX)
+ 			netvsc_free_send_slot(net_device, send_index);
+ 		q_idx = packet->q_idx;
+@@ -738,7 +741,7 @@ static u32 netvsc_copy_to_send_buf(struc
+ 	return msg_size;
+ }
+ 
+-static inline int netvsc_send_pkt(
++static int netvsc_send_pkt(
+ 	struct hv_device *device,
+ 	struct hv_netvsc_packet *packet,
+ 	struct netvsc_device *net_device,
+@@ -770,6 +773,8 @@ static inline int netvsc_send_pkt(
+ 	else
+ 		rpkt->send_buf_section_size = packet->total_data_buflen;
+ 
++	trace_netvsc_send_packet(ndev, packet, skb);
++
+ 	req_id = (ulong)skb;
+ 
+ 	if (out_channel->rescind)
+@@ -828,12 +833,13 @@ static inline void move_pkt_msd(struct h
+ }
+ 
+ /* RCU already held by caller */
+-int netvsc_send(struct net_device_context *ndev_ctx,
++int netvsc_send(struct net_device *ndev,
+ 		struct hv_netvsc_packet *packet,
+ 		struct rndis_message *rndis_msg,
+ 		struct hv_page_buffer *pb,
+ 		struct sk_buff *skb)
+ {
++	struct net_device_context *ndev_ctx = netdev_priv(ndev);
+ 	struct netvsc_device *net_device
+ 		= rcu_dereference_bh(ndev_ctx->nvdev);
+ 	struct hv_device *device = ndev_ctx->device_ctx;
+@@ -861,6 +867,7 @@ int netvsc_send(struct net_device_contex
+ 	nvchan = &net_device->chan_table[packet->q_idx];
+ 	packet->send_buf_index = NETVSC_INVALID_INDEX;
+ 	packet->cp_partial = false;
++	packet->sent_at = ktime_get();
+ 
+ 	/* Send control message directly without accessing msd (Multi-Send
+ 	 * Data) field which may be changed during data packet processing.
+@@ -977,6 +984,7 @@ static int send_recv_completions(struct
+ 		msg.status = rcd->status;
+ 		ret = vmbus_sendpacket(nvchan->channel, &msg, sizeof(msg),
+ 				       rcd->tid, VM_PKT_COMP, 0);
++
+ 		if (unlikely(ret)) {
+ 			struct net_device_context *ndev_ctx = netdev_priv(ndev);
+ 
+@@ -1084,6 +1092,8 @@ static int netvsc_receive(struct net_dev
+ 		/* Pass it to the upper layer */
+ 		status = rndis_filter_receive(ndev, net_device, device,
+ 					      channel, data, buflen);
++
++		trace_netvsc_receive(ndev, q_idx, buflen);
+ 	}
+ 
+ 	enq_receive_complete(ndev, net_device, q_idx,
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:39.342855931 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:39.338855984 -0800
+@@ -632,7 +632,7 @@ static int netvsc_start_xmit(struct sk_b
+ 	/* timestamp packet in software */
+ 	skb_tx_timestamp(skb);
+ 
+-	ret = netvsc_send(net_device_ctx, packet, rndis_msg, pb, skb);
++	ret = netvsc_send(net, packet, rndis_msg, pb, skb);
+ 	if (likely(ret == 0))
+ 		return NETDEV_TX_OK;
+ 
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ b/drivers/net/hyperv/netvsc_trace.c	2017-11-17 09:03:39.338855984 -0800
+@@ -0,0 +1,19 @@
++#include <linux/kernel.h>
++#include <linux/sched.h>
++#include <linux/wait.h>
++#include <linux/mm.h>
++#include <linux/delay.h>
++#include <linux/io.h>
++#include <linux/slab.h>
++#include <linux/netdevice.h>
++#include <linux/if_ether.h>
++#include <linux/vmalloc.h>
++#include <linux/rtnetlink.h>
++#include <linux/prefetch.h>
++
++#include <asm/sync_bitops.h>
++
++#include "hyperv_net.h"
++
++#define CREATE_TRACE_POINTS
++#include "netvsc_trace.h"
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ b/drivers/net/hyperv/netvsc_trace.h	2017-11-17 09:03:39.338855984 -0800
+@@ -0,0 +1,74 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM netvsc
++
++#if !defined(_NETVSC_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _NETVSC_TRACE_H
++
++#include <linux/tracepoint.h>
++
++DECLARE_EVENT_CLASS(netvsc_send,
++	TP_PROTO(const struct net_device *ndev,
++		 const struct hv_netvsc_packet *packet,
++		 const struct sk_buff *skb),
++	TP_ARGS(ndev, packet, skb),
++	TP_STRUCT__entry(
++		__string(dev_name, ndev->name)
++		__field(const void *, skb)
++		__field(u16, queue)
++		__field(u16, packets)
++		__field(u32, send_index)
++		__field(u32, bytes)
++	),
++	TP_fast_assign(
++		__assign_str(dev_name, ndev->name);
++		__entry->skb = skb;
++		__entry->queue = packet->q_idx;
++		__entry->send_index = packet->send_buf_index;
++		__entry->packets = packet->total_packets;
++		__entry->bytes = packet->total_bytes;
++	),
++	TP_printk("%s:[%u] id=%p snd=%u packets=%u bytes=%u",
++		  __get_str(dev_name), __entry->queue,
++		  __entry->skb, __entry->send_index,
++		  __entry->packets, __entry->bytes)
++);
++
++DEFINE_EVENT(netvsc_send, netvsc_send_complete,
++	TP_PROTO(const struct net_device *ndev,
++		 const struct hv_netvsc_packet *packet,
++		 const struct sk_buff *skb),
++	TP_ARGS(ndev, packet, skb)
++);
++
++DEFINE_EVENT(netvsc_send, netvsc_send_packet,
++	TP_PROTO(const struct net_device *ndev,
++		 const struct hv_netvsc_packet *packet,
++		 const struct sk_buff *skb),
++	TP_ARGS(ndev, packet, skb)
++);
++
++TRACE_EVENT(netvsc_receive,
++	TP_PROTO(const struct net_device *ndev, u16 qidx, u32 len),
++	TP_ARGS(ndev, qidx, len),
++	TP_STRUCT__entry(
++		__field(u32, len)
++		__field(u16, index)
++		__string(dev_name, ndev->name)
++	),
++	TP_fast_assign(
++	 	__assign_str(dev_name, ndev->name);
++		__entry->index = qidx;
++		__entry->len = len;
++	),
++	TP_printk("%s: receive queue %u len %u",
++		  __get_str(dev_name), __entry->index, __entry->len)
++);
++
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH .
++#undef TRACE_INCLUDE_FILE
++#define TRACE_INCLUDE_FILE netvsc_trace
++#endif /* _NETVSC_TRACE_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+--- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:39.342855931 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:39.338855984 -0800
+@@ -217,7 +217,6 @@ static int rndis_filter_send_request(str
+ 	struct hv_netvsc_packet *packet;
+ 	struct hv_page_buffer page_buf[2];
+ 	struct hv_page_buffer *pb = page_buf;
+-	struct net_device_context *net_device_ctx = netdev_priv(dev->ndev);
+ 	int ret;
+ 
+ 	/* Setup the packet to send it */
+@@ -245,7 +244,7 @@ static int rndis_filter_send_request(str
+ 	}
+ 
+ 	rcu_read_lock_bh();
+-	ret = netvsc_send(net_device_ctx, packet, NULL, pb, NULL);
++	ret = netvsc_send(dev->ndev, packet, NULL, pb, NULL);
+ 	rcu_read_unlock_bh();
+ 
+ 	return ret;

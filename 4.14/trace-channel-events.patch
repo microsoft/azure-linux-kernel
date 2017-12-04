@@ -1,0 +1,82 @@
+From 0c3e8244ee29f39387221fe2948ade766d20942d Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 16:50:44 +0200
+Subject: [PATCH 24/71] hyper-v: trace channel events
+
+Added an additional set of trace points for when channel gets notified
+or signals host.
+
+Suggested-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/channel.c    |    2 ++
+ drivers/hv/connection.c |    2 ++
+ drivers/hv/hv_trace.h   |   23 +++++++++++++++++++++++
+ drivers/hv/vmbus_drv.c  |    2 ++
+ 4 files changed, 29 insertions(+)
+
+--- a/drivers/hv/channel.c	2017-11-17 09:03:37.298883431 -0800
++++ b/drivers/hv/channel.c	2017-11-17 09:03:37.294883485 -0800
+@@ -43,6 +43,8 @@ void vmbus_setevent(struct vmbus_channel
+ {
+ 	struct hv_monitor_page *monitorpage;
+ 
++	trace_vmbus_setevent(channel);
++
+ 	/*
+ 	 * For channels marked as in "low latency" mode
+ 	 * bypass the monitor page mechanism.
+--- a/drivers/hv/connection.c	2017-11-17 09:03:37.298883431 -0800
++++ b/drivers/hv/connection.c	2017-11-17 09:03:37.294883485 -0800
+@@ -322,6 +322,8 @@ void vmbus_on_event(unsigned long data)
+ 	struct vmbus_channel *channel = (void *) data;
+ 	unsigned long time_limit = jiffies + 2;
+ 
++	trace_vmbus_on_event(channel);
++
+ 	do {
+ 		void (*callback_fn)(void *);
+ 
+--- a/drivers/hv/hv_trace.h	2017-11-17 09:03:37.298883431 -0800
++++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:37.294883485 -0800
+@@ -294,6 +294,29 @@ TRACE_EVENT(vmbus_send_tl_connect_reques
+ 		    )
+ 	);
+ 
++DECLARE_EVENT_CLASS(vmbus_channel,
++	TP_PROTO(const struct vmbus_channel *channel),
++	TP_ARGS(channel),
++	TP_STRUCT__entry(__field(u32, relid)),
++	TP_fast_assign(__entry->relid = channel->offermsg.child_relid),
++	TP_printk("relid 0x%x", __entry->relid)
++);
++
++DEFINE_EVENT(vmbus_channel, vmbus_chan_sched,
++	    TP_PROTO(const struct vmbus_channel *channel),
++	    TP_ARGS(channel)
++);
++
++DEFINE_EVENT(vmbus_channel, vmbus_setevent,
++	    TP_PROTO(const struct vmbus_channel *channel),
++	    TP_ARGS(channel)
++);
++
++DEFINE_EVENT(vmbus_channel, vmbus_on_event,
++	    TP_PROTO(const struct vmbus_channel *channel),
++	    TP_ARGS(channel)
++);
++
+ #undef TRACE_INCLUDE_PATH
+ #define TRACE_INCLUDE_PATH .
+ #undef TRACE_INCLUDE_FILE
+--- a/drivers/hv/vmbus_drv.c	2017-11-17 09:03:37.298883431 -0800
++++ b/drivers/hv/vmbus_drv.c	2017-11-17 09:03:37.298883431 -0800
+@@ -946,6 +946,8 @@ static void vmbus_chan_sched(struct hv_p
+ 			if (channel->rescind)
+ 				continue;
+ 
++			trace_vmbus_chan_sched(channel);
++
+ 			switch (channel->callback_mode) {
+ 			case HV_CALL_ISR:
+ 				vmbus_channel_isr(channel);

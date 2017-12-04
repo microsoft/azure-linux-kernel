@@ -1,0 +1,50 @@
+From b97c57b2c377072b3ddb42796746a001eb2e83be Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 13 Oct 2017 12:28:04 -0700
+Subject: [PATCH 32/71] hv_netvsc: Rename tx_send_table to tx_table
+
+Simplify the variable name: tx_send_table
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/hyperv_net.h |    2 +-
+ drivers/net/hyperv/netvsc.c     |    2 +-
+ drivers/net/hyperv/netvsc_drv.c |    4 ++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+--- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:38.930861473 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:38.926861527 -0800
+@@ -731,7 +731,7 @@ struct net_device_context {
+ 
+ 	u32 tx_checksum_mask;
+ 
+-	u32 tx_send_table[VRSS_SEND_TAB_SIZE];
++	u32 tx_table[VRSS_SEND_TAB_SIZE];
+ 
+ 	/* Ethtool settings */
+ 	u8 duplex;
+--- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:38.930861473 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:38.926861527 -0800
+@@ -1110,7 +1110,7 @@ static void netvsc_send_table(struct hv_
+ 		      nvmsg->msg.v5_msg.send_table.offset);
+ 
+ 	for (i = 0; i < count; i++)
+-		net_device_ctx->tx_send_table[i] = tab[i];
++		net_device_ctx->tx_table[i] = tab[i];
+ }
+ 
+ static void netvsc_send_vf(struct net_device_context *net_device_ctx,
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.930861473 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.926861527 -0800
+@@ -252,8 +252,8 @@ static inline int netvsc_get_tx_queue(st
+ 	struct sock *sk = skb->sk;
+ 	int q_idx;
+ 
+-	q_idx = ndc->tx_send_table[netvsc_get_hash(skb, ndc) &
+-				   (VRSS_SEND_TAB_SIZE - 1)];
++	q_idx = ndc->tx_table[netvsc_get_hash(skb, ndc) &
++			      (VRSS_SEND_TAB_SIZE - 1)];
+ 
+ 	/* If queue index changed record the new value */
+ 	if (q_idx != old_idx &&

@@ -1,0 +1,34 @@
+From 28ffdb87d60a8ba3c9b4cf6c4dfb2bb948d1eff3 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 6 Oct 2017 08:33:59 -0700
+Subject: [PATCH 30/71] hv_netvsc: Update netvsc Document for TCP hash level
+ setting
+
+Update Documentation/networking/netvsc.txt for TCP hash level setting
+and related info.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ Documentation/networking/netvsc.txt |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+--- a/Documentation/networking/netvsc.txt	2017-11-17 09:03:38.526866908 -0800
++++ b/Documentation/networking/netvsc.txt	2017-11-17 09:03:38.522866962 -0800
+@@ -19,12 +19,12 @@ Features
+ 
+   Receive Side Scaling
+   --------------------
+-  Hyper-V supports receive side scaling. For TCP, packets are
+-  distributed among available queues based on IP address and port
++  Hyper-V supports receive side scaling. For TCP & UDP, packets can
++  be distributed among available queues based on IP address and port
+   number.
+ 
+-  For UDP, we can switch UDP hash level between L3 and L4 by ethtool
+-  command. UDP over IPv4 and v6 can be set differently. The default
++  For TCP & UDP, we can switch hash level between L3 and L4 by ethtool
++  command. TCP/UDP over IPv4 and v6 can be set differently. The default
+   hash level is L4. We currently only allow switching TX hash level
+   from within the guests.
+ 

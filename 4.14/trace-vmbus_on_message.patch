@@ -1,0 +1,39 @@
+From 4c595020c7e550219b90c7943e225813c02c269c Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 16:50:29 +0200
+Subject: [PATCH 09/71] hyper-v: trace vmbus_on_message()
+
+Add tracepoint to vmbus_on_message() which is called when we start
+processing a blocking from work context.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/channel_mgmt.c |    2 ++
+ drivers/hv/hv_trace.h     |    5 +++++
+ 2 files changed, 7 insertions(+)
+
+--- a/drivers/hv/channel_mgmt.c	2017-11-17 09:03:34.270924170 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-11-17 09:03:34.266924224 -0800
+@@ -1176,6 +1176,8 @@ void vmbus_onmessage(void *context)
+ 	hdr = (struct vmbus_channel_message_header *)msg->u.payload;
+ 	size = msg->header.payload_size;
+ 
++	trace_vmbus_on_message(hdr);
++
+ 	if (hdr->msgtype >= CHANNELMSG_COUNT) {
+ 		pr_err("Received invalid channel message type %d size %d\n",
+ 			   hdr->msgtype, size);
+--- a/drivers/hv/hv_trace.h	2017-11-17 09:03:34.270924170 -0800
++++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:34.266924224 -0800
+@@ -19,6 +19,11 @@ DEFINE_EVENT(vmbus_hdr_msg, vmbus_on_msg
+ 	TP_ARGS(hdr)
+ );
+ 
++DEFINE_EVENT(vmbus_hdr_msg, vmbus_on_message,
++	TP_PROTO(const struct vmbus_channel_message_header *hdr),
++	TP_ARGS(hdr)
++);
++
+ #undef TRACE_INCLUDE_PATH
+ #define TRACE_INCLUDE_PATH .
+ #undef TRACE_INCLUDE_FILE
