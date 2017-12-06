@@ -73,6 +73,7 @@ hv_netvsc-Clean-up-unsed-parameter-from-netvsc_get_hash.patch
 hv_netvsc-Clean-up-unused-parameter-from-netvsc_get_rss_hash_opts.patch
 hv_netvsc-Add-ethtool-handler-to-set-and-get-UDP-has.patch
 vmbus-add-per-channel-sysfs-info.patch
+vmbus-unregister-device_obj-channels_kset.patch
 vmbus-expose-per-channel-interrupts-and-events-count.patch
 vmbus-make-vmbus_set_event-local.patch
 hv_netvsc-Fix-rndis_filter_close-error-during-netvsc.patch
