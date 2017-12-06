@@ -23,8 +23,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc_drv.c |    2 ++
  3 files changed, 14 insertions(+), 2 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:37.914875143 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:37.910875196 -0800
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:50.495500129 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:50.487500231 -0800
 @@ -686,6 +686,8 @@ struct netvsc_ethtool_stats {
  	unsigned long tx_busy;
  	unsigned long tx_send_full;
@@ -34,8 +34,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  };
  
  struct netvsc_vf_pcpu_stats {
---- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:37.914875143 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:37.910875196 -0800
+--- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:50.495500129 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:50.487500231 -0800
 @@ -609,6 +609,7 @@ static void netvsc_send_tx_complete(stru
  {
  	struct sk_buff *skb = (struct sk_buff *)(unsigned long)desc->trans_id;
@@ -82,8 +82,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  			ret = -ENOSPC;
  		}
  	} else {
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:37.914875143 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:37.914875143 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:50.495500129 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:50.491500181 -0800
 @@ -1126,6 +1126,8 @@ static const struct {
  	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
  	{ "tx_send_full", offsetof(struct netvsc_ethtool_stats, tx_send_full) },

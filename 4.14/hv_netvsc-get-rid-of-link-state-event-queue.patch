@@ -19,8 +19,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/rndis_filter.c |   2 +-
  3 files changed, 28 insertions(+), 169 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:01:16.744775235 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:01:16.740775289 -0800
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:09.903251336 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:09.895251439 -0800
 @@ -200,7 +200,8 @@ int netvsc_send(struct net_device *ndev,
  		struct hv_page_buffer *page_buffer,
  		struct sk_buff *skb);
@@ -46,8 +46,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  
  	u32 msg_enable; /* debug level */
  
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:01:16.744775235 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:02:28.067815064 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:09.903251336 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:09.899251387 -0800
 @@ -51,7 +51,6 @@
  #define NETVSC_MIN_RX_SECTIONS	10	/* ~64K */
  #define NETVSC_DEFAULT_RX	10485   /* Max ~16M */
@@ -292,8 +292,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	/*
  	 * Call to the vsc driver to let it know that the device is being
  	 * removed. Also blocks mtu and channel changes.
---- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:01:16.744775235 -0800
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:01:16.740775289 -0800
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:09.903251336 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:09.899251387 -0800
 @@ -437,7 +437,7 @@ int rndis_filter_receive(struct net_devi
  
  	case RNDIS_MSG_INDICATE:

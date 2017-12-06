@@ -10,8 +10,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc.c |   22 ++++++++--------------
  1 file changed, 8 insertions(+), 14 deletions(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:39.786849957 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:39.782850011 -0800
+--- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:52.303476952 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:52.299477004 -0800
 @@ -698,19 +698,18 @@ static u32 netvsc_get_next_send_section(
  	return NETVSC_INVALID_INDEX;
  }

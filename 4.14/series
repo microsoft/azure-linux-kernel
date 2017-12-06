@@ -36,7 +36,6 @@ hv_netvsc-don-t-need-local-xmit_more.patch
 hv_netvsc-replace-divide-with-mask-when-computing-pa.patch
 hv_netvsc-avoid-memset-in-setting-up-rndis-header.patch
 hv_netvsc-optimize-init_ppi_data.patch
-PCI-hv-Use-effective-affinity-mask.patch
 hv_balloon-fix-printk-loglevel.patch
 hv_balloon-simplify-hv_online_page-hv_page_online_on.patch
 hv_balloon-fix-bugs-in-num_pages_onlined-accounting.patch

@@ -16,8 +16,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/rndis_filter.c |    9 +++------
  4 files changed, 7 insertions(+), 19 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:43.974793612 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:43.970793666 -0800
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:05.719304971 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:05.711305074 -0800
 @@ -199,7 +199,7 @@ int netvsc_send(struct net_device *ndev,
  		struct rndis_message *rndis_msg,
  		struct hv_page_buffer *page_buffer,
@@ -35,8 +35,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  			 struct vmbus_channel *channel,
  			 void *data, u32 buflen);
  
---- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:43.974793612 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:43.970793666 -0800
+--- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:46:05.719304971 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:46:05.715305023 -0800
 @@ -1081,7 +1081,7 @@ static int netvsc_receive(struct net_dev
  		u32 buflen = vmxferpage_packet->ranges[i].byte_count;
  
@@ -46,8 +46,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  					      channel, data, buflen);
  
  		trace_netvsc_receive(ndev, q_idx, buflen);
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:43.974793612 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:43.970793666 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:05.719304971 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:05.715305023 -0800
 @@ -653,22 +653,14 @@ no_memory:
  /*
   * netvsc_linkstatus_callback - Link up/down notification
@@ -73,8 +73,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	/* Update the physical link speed when changing to another vSwitch */
  	if (indicate->status == RNDIS_STATUS_LINK_SPEED_CHANGE) {
  		u32 speed;
---- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:43.974793612 -0800
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:43.970793666 -0800
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:05.719304971 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:05.715305023 -0800
 @@ -134,11 +134,9 @@ static void put_rndis_request(struct rnd
  	kfree(req);
  }

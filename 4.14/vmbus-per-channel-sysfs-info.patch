@@ -23,8 +23,8 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  include/linux/hyperv.h                   |    6 +
  5 files changed, 246 insertions(+), 13 deletions(-)
 
---- a/Documentation/ABI/stable/sysfs-bus-vmbus	2017-11-17 09:03:33.598933211 -0800
-+++ b/Documentation/ABI/stable/sysfs-bus-vmbus	2017-11-17 09:03:33.594933265 -0800
+--- a/Documentation/ABI/stable/sysfs-bus-vmbus	2017-12-06 14:45:46.335553456 -0800
++++ b/Documentation/ABI/stable/sysfs-bus-vmbus	2017-12-06 14:45:46.331553507 -0800
 @@ -41,3 +41,59 @@ KernelVersion:	4.5
  Contact:	K. Y. Srinivasan <kys@microsoft.com>
  Description:	The 16 bit vendor ID of the device
@@ -85,8 +85,8 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 +Contact:	Stephen Hemminger <sthemmin@microsoft.com>
 +Description:	Bytes availabble to write
 +Users:		Debuggig tools
---- a/drivers/hv/channel_mgmt.c	2017-11-17 09:03:33.598933211 -0800
-+++ b/drivers/hv/channel_mgmt.c	2017-11-17 09:03:33.594933265 -0800
+--- a/drivers/hv/channel_mgmt.c	2017-12-06 14:45:46.335553456 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-12-06 14:45:46.331553507 -0800
 @@ -350,7 +350,7 @@ static void free_channel(struct vmbus_ch
  {
  	tasklet_kill(&channel->callback_event);
@@ -111,8 +111,8 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  		if (channel->sc_creation_callback != NULL)
  			channel->sc_creation_callback(newchannel);
  		newchannel->probe_done = true;
---- a/drivers/hv/hyperv_vmbus.h	2017-11-17 09:03:33.598933211 -0800
-+++ b/drivers/hv/hyperv_vmbus.h	2017-11-17 09:03:33.594933265 -0800
+--- a/drivers/hv/hyperv_vmbus.h	2017-12-06 14:45:46.335553456 -0800
++++ b/drivers/hv/hyperv_vmbus.h	2017-12-06 14:45:46.331553507 -0800
 @@ -373,6 +373,8 @@ struct hv_device *vmbus_device_create(co
  
  int vmbus_device_register(struct hv_device *child_device_obj);
@@ -122,8 +122,8 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  
  struct vmbus_channel *relid2channel(u32 relid);
  
---- a/drivers/hv/vmbus_drv.c	2017-11-17 09:03:33.598933211 -0800
-+++ b/drivers/hv/vmbus_drv.c	2017-11-17 09:03:33.594933265 -0800
+--- a/drivers/hv/vmbus_drv.c	2017-12-06 14:45:46.335553456 -0800
++++ b/drivers/hv/vmbus_drv.c	2017-12-06 14:45:46.331553507 -0800
 @@ -107,28 +107,30 @@ static void print_alias_name(struct hv_d
  		sprintf(&alias_name[i], "%02x", hv_dev->dev_type.b[i/2]);
  }
@@ -355,8 +355,8 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  	return ret;
  }
  
---- a/include/linux/hyperv.h	2017-11-17 09:03:33.598933211 -0800
-+++ b/include/linux/hyperv.h	2017-11-17 09:03:33.598933211 -0800
+--- a/include/linux/hyperv.h	2017-12-06 14:45:46.335553456 -0800
++++ b/include/linux/hyperv.h	2017-12-06 14:45:46.331553507 -0800
 @@ -829,6 +829,11 @@ struct vmbus_channel {
  	struct rcu_head rcu;
  

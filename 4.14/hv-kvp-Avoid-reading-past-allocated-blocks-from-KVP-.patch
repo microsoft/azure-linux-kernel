@@ -19,8 +19,8 @@ Signed-off-by: Long Li <longli@microsoft.com>
  tools/hv/hv_kvp_daemon.c |   66 +++++++----------------------------------------
  1 file changed, 10 insertions(+), 56 deletions(-)
 
---- a/tools/hv/hv_kvp_daemon.c	2017-11-17 09:03:42.082819066 -0800
-+++ b/tools/hv/hv_kvp_daemon.c	2017-11-17 09:03:42.078819120 -0800
+--- a/tools/hv/hv_kvp_daemon.c	2017-12-06 14:45:54.355450648 -0800
++++ b/tools/hv/hv_kvp_daemon.c	2017-12-06 14:45:54.351450699 -0800
 @@ -193,11 +193,13 @@ static void kvp_update_mem_state(int poo
  	for (;;) {
  		readp = &record[records_read];

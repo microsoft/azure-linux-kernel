@@ -11,8 +11,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/hv/ring_buffer.c |   40 ++++++++++++++++++++++++++--------------
  1 file changed, 26 insertions(+), 14 deletions(-)
 
---- a/drivers/hv/ring_buffer.c	2017-11-17 09:03:33.410935741 -0800
-+++ b/drivers/hv/ring_buffer.c	2017-11-17 09:03:33.406935794 -0800
+--- a/drivers/hv/ring_buffer.c	2017-12-06 14:45:46.147555866 -0800
++++ b/drivers/hv/ring_buffer.c	2017-12-06 14:45:46.143555918 -0800
 @@ -396,11 +396,22 @@ EXPORT_SYMBOL_GPL(__hv_pkt_iter_next);
  
  /*

@@ -11,8 +11,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h |   27 +++++++++++++++++++++++++++
  2 files changed, 29 insertions(+)
 
---- a/drivers/hv/channel.c	2017-11-17 09:03:35.882902482 -0800
-+++ b/drivers/hv/channel.c	2017-11-17 09:03:35.878902536 -0800
+--- a/drivers/hv/channel.c	2017-12-06 14:45:48.547525100 -0800
++++ b/drivers/hv/channel.c	2017-12-06 14:45:48.547525100 -0800
 @@ -185,6 +185,8 @@ int vmbus_open(struct vmbus_channel *new
  	ret = vmbus_post_msg(open_msg,
  			     sizeof(struct vmbus_channel_open_channel), true);
@@ -22,8 +22,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	if (ret != 0) {
  		err = ret;
  		goto error_clean_msglist;
---- a/drivers/hv/hv_trace.h	2017-11-17 09:03:35.882902482 -0800
-+++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:35.878902536 -0800
+--- a/drivers/hv/hv_trace.h	2017-12-06 14:45:48.547525100 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:48.547525100 -0800
 @@ -130,6 +130,33 @@ TRACE_EVENT(vmbus_request_offers,
  	    TP_printk("sending ret %d", __entry->ret)
  	);

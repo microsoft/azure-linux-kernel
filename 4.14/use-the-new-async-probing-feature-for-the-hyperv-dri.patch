@@ -18,8 +18,8 @@ Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
  drivers/video/fbdev/hyperv_fb.c       |    6 ++++++
  7 files changed, 25 insertions(+), 1 deletion(-)
 
---- a/drivers/hid/hid-hyperv.c	2017-11-17 09:03:42.682810994 -0800
-+++ b/drivers/hid/hid-hyperv.c	2017-11-17 09:03:42.674811102 -0800
+--- a/drivers/hid/hid-hyperv.c	2017-12-06 14:45:54.743445674 -0800
++++ b/drivers/hid/hid-hyperv.c	2017-12-06 14:45:54.735445777 -0800
 @@ -598,7 +598,10 @@ static struct  hv_driver mousevsc_drv =
  	.id_table = id_table,
  	.probe = mousevsc_probe,
@@ -32,8 +32,8 @@ Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
  
  static int __init mousevsc_init(void)
  {
---- a/drivers/hv/hv_balloon.c	2017-11-17 09:03:42.682810994 -0800
-+++ b/drivers/hv/hv_balloon.c	2017-11-17 09:03:42.674811102 -0800
+--- a/drivers/hv/hv_balloon.c	2017-12-06 14:45:54.743445674 -0800
++++ b/drivers/hv/hv_balloon.c	2017-12-06 14:45:54.735445777 -0800
 @@ -1765,6 +1765,9 @@ static  struct hv_driver balloon_drv = {
  	.id_table = id_table,
  	.probe =  balloon_probe,
@@ -44,8 +44,8 @@ Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
  };
  
  static int __init init_balloon_drv(void)
---- a/drivers/hv/hv_util.c	2017-11-17 09:03:42.682810994 -0800
-+++ b/drivers/hv/hv_util.c	2017-11-17 09:03:42.674811102 -0800
+--- a/drivers/hv/hv_util.c	2017-12-06 14:45:54.743445674 -0800
++++ b/drivers/hv/hv_util.c	2017-12-06 14:45:54.739445725 -0800
 @@ -487,6 +487,9 @@ static  struct hv_driver util_drv = {
  	.id_table = id_table,
  	.probe =  util_probe,
@@ -56,8 +56,8 @@ Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
  };
  
  static int hv_ptp_enable(struct ptp_clock_info *info,
---- a/drivers/input/serio/hyperv-keyboard.c	2017-11-17 09:03:42.682810994 -0800
-+++ b/drivers/input/serio/hyperv-keyboard.c	2017-11-17 09:03:42.674811102 -0800
+--- a/drivers/input/serio/hyperv-keyboard.c	2017-12-06 14:45:54.743445674 -0800
++++ b/drivers/input/serio/hyperv-keyboard.c	2017-12-06 14:45:54.739445725 -0800
 @@ -424,6 +424,9 @@ static struct  hv_driver hv_kbd_drv = {
  	.id_table = id_table,
  	.probe = hv_kbd_probe,
@@ -68,8 +68,8 @@ Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
  };
  
  static int __init hv_kbd_init(void)
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:42.682810994 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:42.678811048 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:54.743445674 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:54.739445725 -0800
 @@ -2094,6 +2094,9 @@ static struct  hv_driver netvsc_drv = {
  	.id_table = id_table,
  	.probe = netvsc_probe,
@@ -80,8 +80,8 @@ Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
  };
  
  /*
---- a/drivers/scsi/storvsc_drv.c	2017-11-17 09:03:42.682810994 -0800
-+++ b/drivers/scsi/storvsc_drv.c	2017-11-17 09:03:42.678811048 -0800
+--- a/drivers/scsi/storvsc_drv.c	2017-12-06 14:45:54.743445674 -0800
++++ b/drivers/scsi/storvsc_drv.c	2017-12-06 14:45:54.739445725 -0800
 @@ -1889,6 +1889,9 @@ static struct hv_driver storvsc_drv = {
  	.id_table = id_table,
  	.probe = storvsc_probe,
@@ -92,8 +92,8 @@ Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
  };
  
  #if IS_ENABLED(CONFIG_SCSI_FC_ATTRS)
---- a/drivers/video/fbdev/hyperv_fb.c	2017-11-17 09:03:42.682810994 -0800
-+++ b/drivers/video/fbdev/hyperv_fb.c	2017-11-17 09:03:42.678811048 -0800
+--- a/drivers/video/fbdev/hyperv_fb.c	2017-12-06 14:45:54.743445674 -0800
++++ b/drivers/video/fbdev/hyperv_fb.c	2017-12-06 14:45:54.739445725 -0800
 @@ -912,6 +912,9 @@ static struct hv_driver hvfb_drv = {
  	.id_table = id_table,
  	.probe = hvfb_probe,

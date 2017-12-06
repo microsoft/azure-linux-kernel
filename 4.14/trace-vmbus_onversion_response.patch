@@ -11,8 +11,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h     |   11 +++++++++++
  2 files changed, 14 insertions(+)
 
---- a/drivers/hv/channel_mgmt.c	2017-11-17 09:03:35.478907917 -0800
-+++ b/drivers/hv/channel_mgmt.c	2017-11-17 09:03:35.474907971 -0800
+--- a/drivers/hv/channel_mgmt.c	2017-12-06 14:45:48.155530126 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-12-06 14:45:48.151530177 -0800
 @@ -1127,6 +1127,9 @@ static void vmbus_onversion_response(
  	unsigned long flags;
  
@@ -23,8 +23,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	spin_lock_irqsave(&vmbus_connection.channelmsg_lock, flags);
  
  	list_for_each_entry(msginfo, &vmbus_connection.chn_msg_list,
---- a/drivers/hv/hv_trace.h	2017-11-17 09:03:35.478907917 -0800
-+++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:35.474907971 -0800
+--- a/drivers/hv/hv_trace.h	2017-12-06 14:45:48.155530126 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:48.151530177 -0800
 @@ -111,6 +111,17 @@ TRACE_EVENT(vmbus_ongpadl_torndown,
  	    TP_printk("gpadl 0x%x", __entry->gpadl)
  	);

@@ -11,8 +11,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h |   42 ++++++++++++++++++++++++++++++++++++++++++
  2 files changed, 48 insertions(+)
 
---- a/drivers/hv/channel.c	2017-11-17 09:03:36.286897046 -0800
-+++ b/drivers/hv/channel.c	2017-11-17 09:03:36.282897099 -0800
+--- a/drivers/hv/channel.c	2017-12-06 14:45:48.931520178 -0800
++++ b/drivers/hv/channel.c	2017-12-06 14:45:48.927520229 -0800
 @@ -435,6 +435,9 @@ int vmbus_establish_gpadl(struct vmbus_c
  
  	ret = vmbus_post_msg(gpadlmsg, msginfo->msgsize -
@@ -33,8 +33,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  		if (ret != 0)
  			goto cleanup;
  
---- a/drivers/hv/hv_trace.h	2017-11-17 09:03:36.286897046 -0800
-+++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:36.282897099 -0800
+--- a/drivers/hv/hv_trace.h	2017-12-06 14:45:48.931520178 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:48.927520229 -0800
 @@ -172,6 +172,48 @@ TRACE_EVENT(vmbus_close_internal,
  		    __entry->ret)
  	);

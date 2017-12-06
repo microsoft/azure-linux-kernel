@@ -13,8 +13,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc_drv.c |   73 +++++++++++++++++++++++++++-------------
  2 files changed, 59 insertions(+), 25 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:38.130872237 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:38.126872291 -0800
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:50.703497463 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:50.699497514 -0800
 @@ -704,6 +704,14 @@ struct netvsc_reconfig {
  	u32 event;
  };
@@ -42,8 +42,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	struct netvsc_ethtool_stats eth_stats;
  
  	/* State to manage the associated VF interface. */
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.130872237 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.126872291 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:50.703497463 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:50.699497514 -0800
 @@ -203,7 +203,7 @@ static inline u32 netvsc_get_hash(
  	const struct net_device_context *ndc)
  {

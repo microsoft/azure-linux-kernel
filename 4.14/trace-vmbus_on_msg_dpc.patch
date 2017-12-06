@@ -17,8 +17,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  create mode 100644 drivers/hv/hv_trace.c
  create mode 100644 drivers/hv/hv_trace.h
 
---- a/drivers/hv/Makefile	2017-11-17 09:03:34.034927345 -0800
-+++ b/drivers/hv/Makefile	2017-11-17 09:03:34.030927399 -0800
+--- a/drivers/hv/Makefile	2017-12-06 14:45:46.759548021 -0800
++++ b/drivers/hv/Makefile	2017-12-06 14:45:46.755548072 -0800
 @@ -3,7 +3,9 @@ obj-$(CONFIG_HYPERV)		+= hv_vmbus.o
  obj-$(CONFIG_HYPERV_UTILS)	+= hv_utils.o
  obj-$(CONFIG_HYPERV_BALLOON)	+= hv_balloon.o
@@ -31,14 +31,14 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 +		 channel_mgmt.o ring_buffer.o hv_trace.o
  hv_utils-y := hv_util.o hv_kvp.o hv_snapshot.o hv_fcopy.o hv_utils_transport.o
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/drivers/hv/hv_trace.c	2017-11-17 09:03:34.030927399 -0800
++++ b/drivers/hv/hv_trace.c	2017-12-06 14:45:46.755548072 -0800
 @@ -0,0 +1,4 @@
 +#include "hyperv_vmbus.h"
 +
 +#define CREATE_TRACE_POINTS
 +#include "hv_trace.h"
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:34.030927399 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:46.755548072 -0800
 @@ -0,0 +1,29 @@
 +#undef TRACE_SYSTEM
 +#define TRACE_SYSTEM hyperv
@@ -69,8 +69,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 +
 +/* This part must be outside protection */
 +#include <trace/define_trace.h>
---- a/drivers/hv/hyperv_vmbus.h	2017-11-17 09:03:34.034927345 -0800
-+++ b/drivers/hv/hyperv_vmbus.h	2017-11-17 09:03:34.030927399 -0800
+--- a/drivers/hv/hyperv_vmbus.h	2017-12-06 14:45:46.759548021 -0800
++++ b/drivers/hv/hyperv_vmbus.h	2017-12-06 14:45:46.755548072 -0800
 @@ -31,6 +31,8 @@
  #include <linux/hyperv.h>
  #include <linux/interrupt.h>
@@ -80,8 +80,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  /*
   * Timeout for services such as KVP and fcopy.
   */
---- a/drivers/hv/vmbus_drv.c	2017-11-17 09:03:34.034927345 -0800
-+++ b/drivers/hv/vmbus_drv.c	2017-11-17 09:03:34.030927399 -0800
+--- a/drivers/hv/vmbus_drv.c	2017-12-06 14:45:46.759548021 -0800
++++ b/drivers/hv/vmbus_drv.c	2017-12-06 14:45:46.755548072 -0800
 @@ -835,6 +835,8 @@ void vmbus_on_msg_dpc(unsigned long data
  
  	hdr = (struct vmbus_channel_message_header *)msg->u.payload;

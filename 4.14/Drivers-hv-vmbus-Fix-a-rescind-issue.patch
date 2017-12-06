@@ -17,8 +17,8 @@ Cc: stable@vger.kernel.org
  include/linux/hyperv.h    |    1 +
  3 files changed, 13 insertions(+), 5 deletions(-)
 
---- a/drivers/hv/channel.c	2017-11-17 09:03:42.274816483 -0800
-+++ b/drivers/hv/channel.c	2017-11-17 09:03:42.270816537 -0800
+--- a/drivers/hv/channel.c	2017-12-06 14:45:54.535448340 -0800
++++ b/drivers/hv/channel.c	2017-12-06 14:45:54.531448392 -0800
 @@ -659,22 +659,28 @@ void vmbus_close(struct vmbus_channel *c
  		 */
  		return;
@@ -50,8 +50,8 @@ Cc: stable@vger.kernel.org
  	vmbus_close_internal(channel);
  	mutex_unlock(&vmbus_connection.channel_mutex);
  }
---- a/drivers/hv/channel_mgmt.c	2017-11-17 09:03:42.274816483 -0800
-+++ b/drivers/hv/channel_mgmt.c	2017-11-17 09:03:42.270816537 -0800
+--- a/drivers/hv/channel_mgmt.c	2017-12-06 14:45:54.535448340 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-12-06 14:45:54.531448392 -0800
 @@ -333,6 +333,7 @@ static struct vmbus_channel *alloc_chann
  		return NULL;
  
@@ -100,8 +100,8 @@ Cc: stable@vger.kernel.org
  		}
  		mutex_unlock(&vmbus_connection.channel_mutex);
  	}
---- a/include/linux/hyperv.h	2017-11-17 09:03:42.274816483 -0800
-+++ b/include/linux/hyperv.h	2017-11-17 09:03:42.270816537 -0800
+--- a/include/linux/hyperv.h	2017-12-06 14:45:54.535448340 -0800
++++ b/include/linux/hyperv.h	2017-12-06 14:45:54.535448340 -0800
 @@ -708,6 +708,7 @@ struct vmbus_channel {
  	u8 monitor_bit;
  

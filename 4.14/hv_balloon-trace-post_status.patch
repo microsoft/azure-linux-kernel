@@ -15,8 +15,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  3 files changed, 55 insertions(+)
  create mode 100644 drivers/hv/hv_trace_balloon.h
 
---- a/drivers/hv/Makefile	2017-11-17 09:03:41.486827085 -0800
-+++ b/drivers/hv/Makefile	2017-11-17 09:03:41.482827139 -0800
+--- a/drivers/hv/Makefile	2017-12-06 14:45:53.779458031 -0800
++++ b/drivers/hv/Makefile	2017-12-06 14:45:53.775458083 -0800
 @@ -4,6 +4,7 @@ obj-$(CONFIG_HYPERV_UTILS)	+= hv_utils.o
  obj-$(CONFIG_HYPERV_BALLOON)	+= hv_balloon.o
  
@@ -25,8 +25,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  
  hv_vmbus-y := vmbus_drv.o \
  		 hv.o connection.o channel.o \
---- a/drivers/hv/hv_balloon.c	2017-11-17 09:03:41.486827085 -0800
-+++ b/drivers/hv/hv_balloon.c	2017-11-17 09:03:41.486827085 -0800
+--- a/drivers/hv/hv_balloon.c	2017-12-06 14:45:53.779458031 -0800
++++ b/drivers/hv/hv_balloon.c	2017-12-06 14:45:53.775458083 -0800
 @@ -34,6 +34,9 @@
  
  #include <linux/hyperv.h>
@@ -48,7 +48,7 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	 * If our transaction ID is no longer current, just don't
  	 * send the status. This can happen if we were interrupted
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/drivers/hv/hv_trace_balloon.h	2017-11-17 09:03:41.486827085 -0800
++++ b/drivers/hv/hv_trace_balloon.h	2017-12-06 14:45:53.775458083 -0800
 @@ -0,0 +1,48 @@
 +#undef TRACE_SYSTEM
 +#define TRACE_SYSTEM hyperv

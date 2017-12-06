@@ -15,8 +15,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/vmbus_drv.c  |    2 ++
  4 files changed, 29 insertions(+)
 
---- a/drivers/hv/channel.c	2017-11-17 09:03:37.298883431 -0800
-+++ b/drivers/hv/channel.c	2017-11-17 09:03:37.294883485 -0800
+--- a/drivers/hv/channel.c	2017-12-06 14:45:49.907507667 -0800
++++ b/drivers/hv/channel.c	2017-12-06 14:45:49.903507718 -0800
 @@ -43,6 +43,8 @@ void vmbus_setevent(struct vmbus_channel
  {
  	struct hv_monitor_page *monitorpage;
@@ -26,8 +26,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	/*
  	 * For channels marked as in "low latency" mode
  	 * bypass the monitor page mechanism.
---- a/drivers/hv/connection.c	2017-11-17 09:03:37.298883431 -0800
-+++ b/drivers/hv/connection.c	2017-11-17 09:03:37.294883485 -0800
+--- a/drivers/hv/connection.c	2017-12-06 14:45:49.907507667 -0800
++++ b/drivers/hv/connection.c	2017-12-06 14:45:49.903507718 -0800
 @@ -322,6 +322,8 @@ void vmbus_on_event(unsigned long data)
  	struct vmbus_channel *channel = (void *) data;
  	unsigned long time_limit = jiffies + 2;
@@ -37,8 +37,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	do {
  		void (*callback_fn)(void *);
  
---- a/drivers/hv/hv_trace.h	2017-11-17 09:03:37.298883431 -0800
-+++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:37.294883485 -0800
+--- a/drivers/hv/hv_trace.h	2017-12-06 14:45:49.907507667 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:49.903507718 -0800
 @@ -294,6 +294,29 @@ TRACE_EVENT(vmbus_send_tl_connect_reques
  		    )
  	);
@@ -69,8 +69,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  #undef TRACE_INCLUDE_PATH
  #define TRACE_INCLUDE_PATH .
  #undef TRACE_INCLUDE_FILE
---- a/drivers/hv/vmbus_drv.c	2017-11-17 09:03:37.298883431 -0800
-+++ b/drivers/hv/vmbus_drv.c	2017-11-17 09:03:37.298883431 -0800
+--- a/drivers/hv/vmbus_drv.c	2017-12-06 14:45:49.907507667 -0800
++++ b/drivers/hv/vmbus_drv.c	2017-12-06 14:45:49.903507718 -0800
 @@ -946,6 +946,8 @@ static void vmbus_chan_sched(struct hv_p
  			if (channel->rescind)
  				continue;

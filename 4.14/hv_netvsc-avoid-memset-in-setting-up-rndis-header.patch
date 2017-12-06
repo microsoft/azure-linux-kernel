@@ -12,8 +12,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc_drv.c |   16 ++++++++--------
  1 file changed, 8 insertions(+), 8 deletions(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:40.350842369 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:40.346842423 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:52.859469825 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:52.855469877 -0800
 @@ -174,7 +174,7 @@ out:
  	return ret;
  }

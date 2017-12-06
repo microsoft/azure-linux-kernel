@@ -11,8 +11,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h     |    8 ++++++++
  2 files changed, 10 insertions(+)
 
---- a/drivers/hv/channel_mgmt.c	2017-11-17 09:03:35.270910715 -0800
-+++ b/drivers/hv/channel_mgmt.c	2017-11-17 09:03:35.266910769 -0800
+--- a/drivers/hv/channel_mgmt.c	2017-12-06 14:45:47.959532638 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-12-06 14:45:47.955532689 -0800
 @@ -1082,6 +1082,8 @@ static void vmbus_ongpadl_torndown(
  
  	gpadl_torndown = (struct vmbus_channel_gpadl_torndown *)hdr;
@@ -22,8 +22,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	/*
  	 * Find the open msg, copy the result and signal/unblock the wait event
  	 */
---- a/drivers/hv/hv_trace.h	2017-11-17 09:03:35.270910715 -0800
-+++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:35.266910769 -0800
+--- a/drivers/hv/hv_trace.h	2017-12-06 14:45:47.959532638 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:47.955532689 -0800
 @@ -103,6 +103,14 @@ TRACE_EVENT(vmbus_ongpadl_created,
  		    )
  	);

@@ -22,8 +22,8 @@ Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
  drivers/scsi/storvsc_drv.c |   26 +++++++++++---------------
  1 file changed, 11 insertions(+), 15 deletions(-)
 
---- a/drivers/scsi/storvsc_drv.c	2017-11-17 09:03:41.886821704 -0800
-+++ b/drivers/scsi/storvsc_drv.c	2017-11-17 09:03:41.882821758 -0800
+--- a/drivers/scsi/storvsc_drv.c	2017-12-06 14:45:54.167453058 -0800
++++ b/drivers/scsi/storvsc_drv.c	2017-12-06 14:45:54.163453109 -0800
 @@ -487,6 +487,8 @@ struct hv_host_device {
  	unsigned char path;
  	unsigned char target;

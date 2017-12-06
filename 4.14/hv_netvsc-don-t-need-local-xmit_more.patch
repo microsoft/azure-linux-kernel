@@ -11,8 +11,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc.c |    3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:39.974847427 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:39.970847481 -0800
+--- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:52.495474491 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:52.491474542 -0800
 @@ -845,7 +845,6 @@ int netvsc_send(struct net_device *ndev,
  	struct hv_netvsc_packet *msd_send = NULL, *cur_send = NULL;
  	struct sk_buff *msd_skb = NULL;
