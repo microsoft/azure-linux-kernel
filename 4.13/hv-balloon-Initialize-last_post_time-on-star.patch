@@ -20,8 +20,8 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  drivers/hv/hv_balloon.c |    1 +
  1 file changed, 1 insertion(+)
 
---- a/drivers/hv/hv_balloon.c	2017-10-05 14:20:53.435548214 -0700
-+++ b/drivers/hv/hv_balloon.c	2017-10-05 14:20:53.435548214 -0700
+--- a/drivers/hv/hv_balloon.c	2017-12-05 16:23:17.723916202 -0800
++++ b/drivers/hv/hv_balloon.c	2017-12-05 16:23:17.719916254 -0800
 @@ -1655,6 +1655,7 @@ static int balloon_probe(struct hv_devic
  	}
  

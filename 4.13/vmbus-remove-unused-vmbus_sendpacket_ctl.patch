@@ -10,9 +10,9 @@ The only usage of vmbus_sendpacket_ctl was by vmbus_sendpacket.
  include/linux/hyperv.h      |    7 -------
  3 files changed, 21 insertions(+), 38 deletions(-)
 
---- a/drivers/hv/channel.c	2017-10-05 14:20:47.647476904 -0700
-+++ b/drivers/hv/channel.c	2017-10-05 14:20:47.643476854 -0700
-@@ -647,9 +647,23 @@ void vmbus_close(struct vmbus_channel *c
+--- a/drivers/hv/channel.c	2017-12-05 16:08:07.439508595 -0800
++++ b/drivers/hv/channel.c	2017-12-05 16:08:07.435508645 -0800
+@@ -661,9 +661,23 @@ void vmbus_close(struct vmbus_channel *c
  }
  EXPORT_SYMBOL_GPL(vmbus_close);
  
@@ -39,7 +39,7 @@ The only usage of vmbus_sendpacket_ctl was by vmbus_sendpacket.
  {
  	struct vmpacket_descriptor desc;
  	u32 packetlen = sizeof(struct vmpacket_descriptor) + bufferlen;
-@@ -676,29 +690,6 @@ int vmbus_sendpacket_ctl(struct vmbus_ch
+@@ -690,29 +704,6 @@ int vmbus_sendpacket_ctl(struct vmbus_ch
  
  	return hv_ringbuffer_write(channel, bufferlist, num_vecs);
  }
@@ -69,8 +69,8 @@ The only usage of vmbus_sendpacket_ctl was by vmbus_sendpacket.
  EXPORT_SYMBOL(vmbus_sendpacket);
  
  /*
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:47.647476904 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:47.643476854 -0700
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:08:07.439508595 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:08:07.435508645 -0800
 @@ -782,11 +782,10 @@ static inline int netvsc_send_pkt(
  						      req_id,
  						      VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
@@ -87,9 +87,9 @@ The only usage of vmbus_sendpacket_ctl was by vmbus_sendpacket.
  	}
  
  	if (ret == 0) {
---- a/include/linux/hyperv.h	2017-10-05 14:20:47.647476904 -0700
-+++ b/include/linux/hyperv.h	2017-10-05 14:20:47.643476854 -0700
-@@ -1030,13 +1030,6 @@ extern int vmbus_sendpacket(struct vmbus
+--- a/include/linux/hyperv.h	2017-12-05 16:08:07.439508595 -0800
++++ b/include/linux/hyperv.h	2017-12-05 16:08:07.439508595 -0800
+@@ -1018,13 +1018,6 @@ extern int vmbus_sendpacket(struct vmbus
  				  enum vmbus_packet_type type,
  				  u32 flags);
  

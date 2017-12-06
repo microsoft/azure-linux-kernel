@@ -19,9 +19,9 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc.c |   25 +++++++++++--------------
  1 file changed, 11 insertions(+), 14 deletions(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.631538309 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.627538259 -0700
-@@ -749,8 +749,10 @@ static inline int netvsc_send_pkt(
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:48.708285404 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:48.704285456 -0800
+@@ -747,8 +747,10 @@ static inline int netvsc_send_pkt(
  	struct sk_buff *skb)
  {
  	struct nvsp_message nvmsg;
@@ -34,7 +34,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	struct vmbus_channel *out_channel = nvchan->channel;
  	struct net_device *ndev = hv_get_drvdata(device);
  	struct netdev_queue *txq = netdev_get_tx_queue(ndev, packet->q_idx);
-@@ -759,21 +761,16 @@ static inline int netvsc_send_pkt(
+@@ -757,21 +759,16 @@ static inline int netvsc_send_pkt(
  	u32 ring_avail = hv_ringbuf_avail_percent(&out_channel->outbound);
  
  	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;

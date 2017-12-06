@@ -20,8 +20,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc_drv.c |   26 +++++++++++++++-----------
  1 file changed, 15 insertions(+), 11 deletions(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.223557922 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.223557922 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:23.219846273 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:23.215846323 -0800
 @@ -1073,27 +1073,31 @@ static void netvsc_get_stats64(struct ne
  static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
  {

@@ -16,8 +16,8 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  drivers/hv/hv_balloon.c |    7 +++----
  1 file changed, 3 insertions(+), 4 deletions(-)
 
---- a/drivers/hv/hv_balloon.c	2017-10-05 14:20:53.239545799 -0700
-+++ b/drivers/hv/hv_balloon.c	2017-10-05 14:20:53.239545799 -0700
+--- a/drivers/hv/hv_balloon.c	2017-12-05 16:23:16.115936662 -0800
++++ b/drivers/hv/hv_balloon.c	2017-12-05 16:23:16.111936714 -0800
 @@ -584,10 +584,6 @@ static int hv_memory_notifier(struct not
  
  	switch (val) {

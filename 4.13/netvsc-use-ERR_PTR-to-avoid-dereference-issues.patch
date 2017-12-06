@@ -18,8 +18,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/rndis_filter.c |   43 +++++++++++++++-----------------------
  4 files changed, 48 insertions(+), 49 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:50.351510218 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:50.347510169 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:19:11.811045641 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:19:11.803045742 -0800
 @@ -183,8 +183,8 @@ struct rndis_device {
  /* Interface */
  struct rndis_message;
@@ -42,17 +42,17 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  void rndis_filter_update(struct netvsc_device *nvdev);
  void rndis_filter_device_remove(struct hv_device *dev,
  				struct netvsc_device *nvdev);
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:50.351510218 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:50.347510169 -0700
-@@ -30,6 +30,7 @@
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:19:11.811045641 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:20:13.466260939 -0800
+@@ -29,6 +29,7 @@
+ #include <linux/netdevice.h>
  #include <linux/if_ether.h>
  #include <linux/vmalloc.h>
- #include <linux/prefetch.h>
 +#include <linux/rtnetlink.h>
- 
  #include <asm/sync_bitops.h>
  
-@@ -1279,8 +1280,8 @@ void netvsc_channel_cb(void *context)
+ #include "hyperv_net.h"
+@@ -1272,8 +1273,8 @@ void netvsc_channel_cb(void *context)
   * netvsc_device_add - Callback when the device belonging to this
   * driver is added
   */
@@ -63,7 +63,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  {
  	int i, ret = 0;
  	int ring_size = device_info->ring_size;
-@@ -1290,7 +1291,7 @@ int netvsc_device_add(struct hv_device *
+@@ -1283,7 +1284,7 @@ int netvsc_device_add(struct hv_device *
  
  	net_device = alloc_net_device();
  	if (!net_device)
@@ -72,7 +72,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
  	net_device->ring_size = ring_size;
  
-@@ -1348,7 +1349,7 @@ int netvsc_device_add(struct hv_device *
+@@ -1341,7 +1342,7 @@ int netvsc_device_add(struct hv_device *
  		goto close;
  	}
  
@@ -81,7 +81,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
  close:
  	netif_napi_del(&net_device->chan_table[0].napi);
-@@ -1359,6 +1360,5 @@ close:
+@@ -1352,6 +1353,5 @@ close:
  cleanup:
  	free_netvsc_device(&net_device->rcu);
  
@@ -89,8 +89,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 -
 +	return ERR_PTR(ret);
  }
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:50.351510218 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:50.347510169 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:19:11.811045641 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:19:11.807045692 -0800
 @@ -740,6 +740,7 @@ static int netvsc_set_queues(struct net_
  			     u32 num_chn)
  {
@@ -181,8 +181,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	/* MTU range: 68 - 1500 or 65521 */
  	net->min_mtu = NETVSC_MTU_MIN;
  	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
---- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:50.351510218 -0700
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:50.347510169 -0700
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:19:11.811045641 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:19:11.807045692 -0800
 @@ -658,9 +658,9 @@ cleanup:
  
  static int

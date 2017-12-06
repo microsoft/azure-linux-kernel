@@ -17,8 +17,8 @@ that gets triggered (if necessary) after primary channel is setup.
  drivers/net/hyperv/rndis_filter.c |  106 +++++++++++++++++++++++++-------------
  3 files changed, 74 insertions(+), 41 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:56.371584387 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:56.371584387 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:44.815571491 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:44.807571594 -0800
 @@ -172,6 +172,7 @@ struct rndis_device {
  	struct list_head req_list;
  
@@ -27,8 +27,8 @@ that gets triggered (if necessary) after primary channel is setup.
  
  	bool link_state;        /* 0 - link up, 1 - link down */
  
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:56.371584387 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:56.371584387 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:44.815571491 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:44.811571541 -0800
 @@ -853,10 +853,7 @@ static int netvsc_set_channels(struct ne
  	rndis_filter_device_remove(dev, nvdev);
  
@@ -51,8 +51,8 @@ that gets triggered (if necessary) after primary channel is setup.
  	netdev_lockdep_set_classes(net);
  
  	/* MTU range: 68 - 1500 or 65521 */
---- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:56.371584387 -0700
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:56.371584387 -0700
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:23:44.815571491 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:23:44.811571541 -0800
 @@ -33,6 +33,7 @@
  #include "hyperv_net.h"
  

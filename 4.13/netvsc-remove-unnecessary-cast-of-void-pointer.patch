@@ -11,8 +11,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc_drv.c |    9 ++++-----
  1 file changed, 4 insertions(+), 5 deletions(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.423560386 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.419560338 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:24.971823981 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:24.967824031 -0800
 @@ -527,9 +527,9 @@ static int netvsc_start_xmit(struct sk_b
  
  		rndis_msg_size += NDIS_VLAN_PPI_SIZE;

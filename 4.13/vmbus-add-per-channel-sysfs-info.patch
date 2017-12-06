@@ -20,8 +20,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  include/linux/hyperv.h    |    6 +
  4 files changed, 190 insertions(+), 13 deletions(-)
 
---- a/drivers/hv/channel_mgmt.c	2017-10-05 14:20:55.311571327 -0700
-+++ b/drivers/hv/channel_mgmt.c	2017-10-05 14:20:55.307571278 -0700
+--- a/drivers/hv/channel_mgmt.c	2017-12-05 16:23:33.775711960 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-12-05 16:23:33.771712011 -0800
 @@ -350,7 +350,7 @@ static void free_channel(struct vmbus_ch
  {
  	tasklet_kill(&channel->callback_event);
@@ -31,7 +31,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  }
  
  static void percpu_channel_enq(void *arg)
-@@ -508,6 +508,14 @@ static void vmbus_process_offer(struct v
+@@ -520,6 +520,14 @@ static void vmbus_process_offer(struct v
  	newchannel->state = CHANNEL_OPEN_STATE;
  
  	if (!fnew) {
@@ -45,9 +45,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 +
  		if (channel->sc_creation_callback != NULL)
  			channel->sc_creation_callback(newchannel);
- 		atomic_dec(&vmbus_connection.offer_in_progress);
---- a/drivers/hv/hyperv_vmbus.h	2017-10-05 14:20:55.311571327 -0700
-+++ b/drivers/hv/hyperv_vmbus.h	2017-10-05 14:20:55.307571278 -0700
+ 		newchannel->probe_done = true;
+--- a/drivers/hv/hyperv_vmbus.h	2017-12-05 16:23:33.775711960 -0800
++++ b/drivers/hv/hyperv_vmbus.h	2017-12-05 16:23:33.771712011 -0800
 @@ -373,6 +373,8 @@ struct hv_device *vmbus_device_create(co
  
  int vmbus_device_register(struct hv_device *child_device_obj);
@@ -57,8 +57,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  
  struct vmbus_channel *relid2channel(u32 relid);
  
---- a/drivers/hv/vmbus_drv.c	2017-10-05 14:20:55.311571327 -0700
-+++ b/drivers/hv/vmbus_drv.c	2017-10-05 14:20:55.307571278 -0700
+--- a/drivers/hv/vmbus_drv.c	2017-12-05 16:23:33.775711960 -0800
++++ b/drivers/hv/vmbus_drv.c	2017-12-05 16:23:33.771712011 -0800
 @@ -107,28 +107,30 @@ static void print_alias_name(struct hv_d
  		sprintf(&alias_name[i], "%02x", hv_dev->dev_type.b[i/2]);
  }
@@ -96,7 +96,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	return monitor_page->latency[monitor_group][monitor_offset];
  }
  
-@@ -1131,6 +1133,145 @@ void vmbus_driver_unregister(struct hv_d
+@@ -1133,6 +1135,145 @@ void vmbus_driver_unregister(struct hv_d
  }
  EXPORT_SYMBOL_GPL(vmbus_driver_unregister);
  
@@ -242,7 +242,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  /*
   * vmbus_device_create - Creates and registers a new child device
   * on the vmbus.
-@@ -1162,7 +1303,8 @@ struct hv_device *vmbus_device_create(co
+@@ -1164,7 +1305,8 @@ struct hv_device *vmbus_device_create(co
   */
  int vmbus_device_register(struct hv_device *child_device_obj)
  {
@@ -252,7 +252,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  
  	dev_set_name(&child_device_obj->device, "%pUl",
  		     child_device_obj->channel->offermsg.offer.if_instance.b);
-@@ -1178,13 +1320,32 @@ int vmbus_device_register(struct hv_devi
+@@ -1180,13 +1322,32 @@ int vmbus_device_register(struct hv_devi
  	 * binding...which will eventually call vmbus_match() and vmbus_probe()
  	 */
  	ret = device_register(&child_device_obj->device);
@@ -290,9 +290,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	return ret;
  }
  
---- a/include/linux/hyperv.h	2017-10-05 14:20:55.311571327 -0700
-+++ b/include/linux/hyperv.h	2017-10-05 14:20:55.307571278 -0700
-@@ -829,6 +829,11 @@ struct vmbus_channel {
+--- a/include/linux/hyperv.h	2017-12-05 16:23:33.775711960 -0800
++++ b/include/linux/hyperv.h	2017-12-05 16:23:33.771712011 -0800
+@@ -831,6 +831,11 @@ struct vmbus_channel {
  	struct rcu_head rcu;
  
  	/*
@@ -304,7 +304,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	 * For performance critical channels (storage, networking
  	 * etc,), Hyper-V has a mechanism to enhance the throughput
  	 * at the expense of latency:
-@@ -1095,6 +1100,7 @@ struct hv_device {
+@@ -1099,6 +1104,7 @@ struct hv_device {
  	struct device device;
  
  	struct vmbus_channel *channel;

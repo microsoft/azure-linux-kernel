@@ -13,8 +13,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/rndis_filter.c |    6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
---- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:56.067580641 -0700
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:56.063580591 -0700
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:23:41.875608898 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:23:41.875608898 -0800
 @@ -1067,7 +1067,7 @@ struct netvsc_device *rndis_filter_devic
  	struct ndis_recv_scale_cap rsscap;
  	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);

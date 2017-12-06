@@ -19,8 +19,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc_drv.c |  118 ++++++++++++++++++++++++++++++++++++++--
  3 files changed, 157 insertions(+), 38 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:52.931542005 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:52.931542005 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:01.352124521 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:01.348124571 -0800
 @@ -148,6 +148,8 @@ struct netvsc_device_info {
  	unsigned char mac_adr[ETH_ALEN];
  	int  ring_size;
@@ -55,9 +55,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	u32 send_buf_gpadl_handle;
  	u32 send_section_cnt;
  	u32 send_section_size;
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.931542005 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.931542005 -0700
-@@ -78,6 +78,10 @@ static struct netvsc_device *alloc_net_d
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:23:01.352124521 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:23:01.348124571 -0800
+@@ -76,6 +76,10 @@ static struct netvsc_device *alloc_net_d
  	atomic_set(&net_device->open_cnt, 0);
  	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
  	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
@@ -68,7 +68,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	init_completion(&net_device->channel_init_wait);
  	init_waitqueue_head(&net_device->subchan_open);
  
-@@ -146,6 +150,7 @@ static void netvsc_destroy_buf(struct hv
+@@ -144,6 +148,7 @@ static void netvsc_destroy_buf(struct hv
  				"revoke receive buffer to netvsp\n");
  			return;
  		}
@@ -76,7 +76,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	}
  
  	/* Teardown the gpadl on the vsp end */
-@@ -176,7 +181,7 @@ static void netvsc_destroy_buf(struct hv
+@@ -174,7 +179,7 @@ static void netvsc_destroy_buf(struct hv
  	 * NVSP_MSG1_TYPE_SEND_SEND_BUF msg) therefore, we need
  	 * to send a revoke msg here
  	 */
@@ -85,7 +85,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  		/* Send the revoke receive buffer */
  		revoke_packet = &net_device->revoke_packet;
  		memset(revoke_packet, 0, sizeof(struct nvsp_message));
-@@ -208,6 +213,7 @@ static void netvsc_destroy_buf(struct hv
+@@ -206,6 +211,7 @@ static void netvsc_destroy_buf(struct hv
  				   "revoke send buffer to netvsp\n");
  			return;
  		}
@@ -93,7 +93,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	}
  	/* Teardown the gpadl on the vsp end */
  	if (net_device->send_buf_gpadl_handle) {
-@@ -247,18 +253,25 @@ int netvsc_alloc_recv_comp_ring(struct n
+@@ -245,18 +251,25 @@ int netvsc_alloc_recv_comp_ring(struct n
  }
  
  static int netvsc_init_buf(struct hv_device *device,
@@ -123,7 +123,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  		ret = -ENOMEM;
  		goto cleanup;
  	}
-@@ -269,7 +282,7 @@ static int netvsc_init_buf(struct hv_dev
+@@ -267,7 +280,7 @@ static int netvsc_init_buf(struct hv_dev
  	 * than the channel to establish the gpadl handle.
  	 */
  	ret = vmbus_establish_gpadl(device->channel, net_device->recv_buf,
@@ -132,7 +132,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  				    &net_device->recv_buf_gpadl_handle);
  	if (ret != 0) {
  		netdev_err(ndev,
-@@ -315,31 +328,31 @@ static int netvsc_init_buf(struct hv_dev
+@@ -313,31 +326,31 @@ static int netvsc_init_buf(struct hv_dev
  		   resp->num_sections, resp->sections[0].sub_alloc_size,
  		   resp->sections[0].num_sub_allocs);
  
@@ -176,7 +176,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  		ret = -ENOMEM;
  		goto cleanup;
  	}
-@@ -349,7 +362,7 @@ static int netvsc_init_buf(struct hv_dev
+@@ -347,7 +360,7 @@ static int netvsc_init_buf(struct hv_dev
  	 * than the channel to establish the gpadl handle.
  	 */
  	ret = vmbus_establish_gpadl(device->channel, net_device->send_buf,
@@ -185,7 +185,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  				    &net_device->send_buf_gpadl_handle);
  	if (ret != 0) {
  		netdev_err(ndev,
-@@ -394,10 +407,8 @@ static int netvsc_init_buf(struct hv_dev
+@@ -392,10 +405,8 @@ static int netvsc_init_buf(struct hv_dev
  	net_device->send_section_size = init_packet->msg.
  				v1_msg.send_send_buf_complete.section_size;
  
@@ -198,7 +198,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  
  	netdev_dbg(ndev, "Send section size: %d, Section count:%d\n",
  		   net_device->send_section_size, net_device->send_section_cnt);
-@@ -475,7 +486,8 @@ static int negotiate_nvsp_ver(struct hv_
+@@ -473,7 +484,8 @@ static int negotiate_nvsp_ver(struct hv_
  }
  
  static int netvsc_connect_vsp(struct hv_device *device,
@@ -208,7 +208,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  {
  	const u32 ver_list[] = {
  		NVSP_PROTOCOL_VERSION_1, NVSP_PROTOCOL_VERSION_2,
-@@ -525,14 +537,8 @@ static int netvsc_connect_vsp(struct hv_
+@@ -523,14 +535,8 @@ static int netvsc_connect_vsp(struct hv_
  	if (ret != 0)
  		goto cleanup;
  
@@ -224,7 +224,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  
  cleanup:
  	return ret;
-@@ -1292,7 +1298,7 @@ struct netvsc_device *netvsc_device_add(
+@@ -1285,7 +1291,7 @@ struct netvsc_device *netvsc_device_add(
  	rcu_assign_pointer(net_device_ctx->nvdev, net_device);
  
  	/* Connect with the NetVsp */
@@ -233,8 +233,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	if (ret != 0) {
  		netdev_err(ndev,
  			"unable to connect to NetVSP - %d\n", ret);
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:52.931542005 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:52.931542005 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:01.352124521 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:01.348124571 -0800
 @@ -45,8 +45,12 @@
  
  #include "hyperv_net.h"

@@ -18,8 +18,8 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  drivers/hv/hv_kvp.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
---- a/drivers/hv/hv_kvp.c	2017-10-05 14:20:53.531549397 -0700
-+++ b/drivers/hv/hv_kvp.c	2017-10-05 14:20:53.531549397 -0700
+--- a/drivers/hv/hv_kvp.c	2017-12-05 16:23:18.467906736 -0800
++++ b/drivers/hv/hv_kvp.c	2017-12-05 16:23:18.463906786 -0800
 @@ -304,7 +304,7 @@ static int process_ob_ipinfo(void *in_ms
  				strlen((char *)in->body.kvp_ip_val.adapter_id),
  				UTF16_HOST_ENDIAN,

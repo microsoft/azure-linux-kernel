@@ -13,9 +13,9 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc.c |    9 +++++++--
  1 file changed, 7 insertions(+), 2 deletions(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.143532296 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.143532296 -0700
-@@ -1195,10 +1195,15 @@ int netvsc_poll(struct napi_struct *napi
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:39.716399822 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:39.712399872 -0800
+@@ -1193,10 +1193,15 @@ int netvsc_poll(struct napi_struct *napi
  		nvchan->desc = hv_pkt_iter_next(channel, nvchan->desc);
  	}
  

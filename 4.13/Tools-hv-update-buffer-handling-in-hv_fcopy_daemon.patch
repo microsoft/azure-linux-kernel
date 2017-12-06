@@ -18,8 +18,8 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  tools/hv/hv_fcopy_daemon.c |   32 +++++++++++++++++---------------
  1 file changed, 17 insertions(+), 15 deletions(-)
 
---- a/tools/hv/hv_fcopy_daemon.c	2017-10-05 14:20:54.823565314 -0700
-+++ b/tools/hv/hv_fcopy_daemon.c	2017-10-05 14:20:54.819565265 -0700
+--- a/tools/hv/hv_fcopy_daemon.c	2017-12-05 16:23:28.831774867 -0800
++++ b/tools/hv/hv_fcopy_daemon.c	2017-12-05 16:23:28.827774917 -0800
 @@ -138,14 +138,17 @@ void print_usage(char *argv[])
  
  int main(int argc, char *argv[])

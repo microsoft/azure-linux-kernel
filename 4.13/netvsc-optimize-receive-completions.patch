@@ -21,8 +21,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/rndis_filter.c |   20 +-
  3 files changed, 127 insertions(+), 176 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:51.927529635 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:51.923529586 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:22:32.344493626 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:22:32.336493727 -0800
 @@ -186,6 +186,7 @@ struct net_device_context;
  
  struct netvsc_device *netvsc_device_add(struct hv_device *device,
@@ -66,9 +66,9 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	atomic_t open_cnt;
  
  	struct netvsc_channel chan_table[VRSS_CHANNEL_MAX];
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:51.927529635 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:51.923529586 -0700
-@@ -73,9 +73,6 @@ static struct netvsc_device *alloc_net_d
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:32.344493626 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:32.340493676 -0800
+@@ -71,9 +71,6 @@ static struct netvsc_device *alloc_net_d
  	if (!net_device)
  		return NULL;
  
@@ -78,7 +78,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	init_waitqueue_head(&net_device->wait_drain);
  	net_device->destroy = false;
  	atomic_set(&net_device->open_cnt, 0);
-@@ -94,7 +91,7 @@ static void free_netvsc_device(struct rc
+@@ -92,7 +89,7 @@ static void free_netvsc_device(struct rc
  	int i;
  
  	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
@@ -87,7 +87,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
  	kfree(nvdev);
  }
-@@ -173,12 +170,6 @@ static void netvsc_destroy_buf(struct hv
+@@ -171,12 +168,6 @@ static void netvsc_destroy_buf(struct hv
  		net_device->recv_buf = NULL;
  	}
  
@@ -100,7 +100,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	/* Deal with the send buffer we may have setup.
  	 * If we got a  send section size, it means we received a
  	 * NVSP_MSG1_TYPE_SEND_SEND_BUF_COMPLETE msg (ie sent
-@@ -241,11 +232,26 @@ static void netvsc_destroy_buf(struct hv
+@@ -239,11 +230,26 @@ static void netvsc_destroy_buf(struct hv
  	kfree(net_device->send_section_map);
  }
  
@@ -127,7 +127,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	struct net_device *ndev;
  	size_t map_words;
  	int node;
-@@ -302,43 +308,41 @@ static int netvsc_init_buf(struct hv_dev
+@@ -300,43 +306,41 @@ static int netvsc_init_buf(struct hv_dev
  	wait_for_completion(&net_device->channel_init_wait);
  
  	/* Check the response */
@@ -190,7 +190,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	net_device->send_buf = vzalloc_node(net_device->send_buf_size, node);
  	if (!net_device->send_buf)
  		net_device->send_buf = vzalloc(net_device->send_buf_size);
-@@ -951,130 +955,94 @@ send_now:
+@@ -949,130 +953,94 @@ send_now:
  	return ret;
  }
  
@@ -385,7 +385,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  {
  	const struct vmtransfer_page_packet_header *vmxferpage_packet
  		= container_of(desc, const struct vmtransfer_page_packet_header, d);
-@@ -1083,7 +1051,6 @@ static int netvsc_receive(struct net_dev
+@@ -1081,7 +1049,6 @@ static int netvsc_receive(struct net_dev
  	u32 status = NVSP_STAT_SUCCESS;
  	int i;
  	int count = 0;
@@ -393,7 +393,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
  	/* Make sure this is a valid nvsp packet */
  	if (unlikely(nvsp->hdr.msg_type != NVSP_MSG1_TYPE_SEND_RNDIS_PKT)) {
-@@ -1114,25 +1081,9 @@ static int netvsc_receive(struct net_dev
+@@ -1112,25 +1079,9 @@ static int netvsc_receive(struct net_dev
  					      channel, data, buflen);
  	}
  
@@ -421,7 +421,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	return count;
  }
  
-@@ -1231,7 +1182,6 @@ int netvsc_poll(struct napi_struct *napi
+@@ -1229,7 +1180,6 @@ int netvsc_poll(struct napi_struct *napi
  	struct netvsc_device *net_device = nvchan->net_device;
  	struct vmbus_channel *channel = nvchan->channel;
  	struct hv_device *device = netvsc_channel_to_device(channel);
@@ -429,7 +429,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	struct net_device *ndev = hv_get_drvdata(device);
  	int work_done = 0;
  
-@@ -1245,17 +1195,18 @@ int netvsc_poll(struct napi_struct *napi
+@@ -1243,17 +1193,18 @@ int netvsc_poll(struct napi_struct *napi
  		nvchan->desc = hv_pkt_iter_next(channel, nvchan->desc);
  	}
  
@@ -456,8 +456,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
  	/* Driver may overshoot since multiple packets per descriptor */
  	return min(work_done, budget);
---- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:51.927529635 -0700
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:51.923529586 -0700
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:22:32.344493626 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:22:32.340493676 -0800
 @@ -928,12 +928,12 @@ static bool netvsc_device_idle(const str
  {
  	int i;

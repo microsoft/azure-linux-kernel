@@ -14,9 +14,9 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc.c |    3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.039531016 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.039531016 -0700
-@@ -1309,7 +1309,8 @@ struct netvsc_device *netvsc_device_add(
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:34.968460237 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:34.964460287 -0800
+@@ -1302,7 +1302,8 @@ struct netvsc_device *netvsc_device_add(
  	return net_device;
  
  close:

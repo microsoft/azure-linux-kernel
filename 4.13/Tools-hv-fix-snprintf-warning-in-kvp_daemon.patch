@@ -12,8 +12,8 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  tools/hv/hv_kvp_daemon.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
---- a/tools/hv/hv_kvp_daemon.c	2017-10-05 14:20:54.719564034 -0700
-+++ b/tools/hv/hv_kvp_daemon.c	2017-10-05 14:20:54.719564034 -0700
+--- a/tools/hv/hv_kvp_daemon.c	2017-12-05 16:23:28.091784281 -0800
++++ b/tools/hv/hv_kvp_daemon.c	2017-12-05 16:23:28.087784334 -0800
 @@ -1136,7 +1136,7 @@ static int process_ip_string(FILE *f, ch
  	int i = 0;
  	int j = 0;

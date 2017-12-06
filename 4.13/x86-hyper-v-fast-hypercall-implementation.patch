@@ -14,8 +14,8 @@ Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
  arch/x86/include/asm/mshyperv.h |   34 ++++++++++++++++++++++++++++++++++
  1 file changed, 34 insertions(+)
 
---- a/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.359485675 -0700
-+++ b/arch/x86/include/asm/mshyperv.h	2017-10-05 14:20:48.355485627 -0700
+--- a/arch/x86/include/asm/mshyperv.h	2017-12-05 16:15:00.998238671 -0800
++++ b/arch/x86/include/asm/mshyperv.h	2017-12-05 16:15:00.994238723 -0800
 @@ -210,6 +210,40 @@ static inline u64 hv_do_hypercall(u64 co
  	return hv_status;
  }
