@@ -1,6 +1,5 @@
 Adding-file-to-support-building-user-level-daemon.patch
 pci-hyperv-Use-only-16-bit-integer-for-PCI-domain.patch
-vmbus-simplify-hv_ringbuffer_read.patch
 vmbus-remove-unused-vmbus_sendpacket_multipagebuffer.patch
 vmbus-remove-unused-vmbus_sendpacket_ctl.patch
 vmbus-add-prefetch-to-ring-buffer-iterator.patch
@@ -22,8 +21,6 @@ hv_sock-add-the-support-of-auto-loading.patch
 hv_sock-fix-a-race-in-hvs_stream_dequeue.patch
 vsock-fix-vsock_dequeue-enqueue_accept-race.patch
 hv_sock-avoid-double-FINs-if-shutdown-is-called.patch
-vmbus-don-t-acquire-the-mutex-in-vmbus_hvsock_device.patch
-netvsc-prefetch-the-first-incoming-ring-element.patch
 netvsc-force-link-update-after-MTU-change.patch
 netvsc-add-some-rtnl_dereference-annotations.patch
 netvsc-change-order-of-steps-in-setting-queues.patch
@@ -61,9 +58,7 @@ hv-balloon-Show-the-max-dynamic-memory-assig.patch
 hv-balloon-Initialize-last_post_time-on-star.patch
 hv-kvp-Use-MAX_ADAPTER_ID_SIZE-for-translati.patch
 netvsc-don-t-signal-host-twice-if-empty.patch
-vmbus-simplify-packet-iterator.patch
 netvsc-make-sure-and-unregister-datapath.patch
-vmbus-fix-performance-regression.patch
 netvsc-fix-rtnl-deadlock-on-unregister-of-vf.patch
 netvsc-delay-setup-of-VF-device.patch
 netvsc-propagate-MAC-address-change-to-VF-slave.patch
