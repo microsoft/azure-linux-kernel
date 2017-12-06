@@ -7,13 +7,12 @@ Subject: [PATCH 95/98] hv_netvsc: correct module removal problems from
 Followon to previous patch, aligns code with current net-next
 ---
  drivers/net/hyperv/hyperv_net.h   |    8 +--
- drivers/net/hyperv/netvsc.c       |    4 +
  drivers/net/hyperv/netvsc_drv.c   |    3 -
  drivers/net/hyperv/rndis_filter.c |   80 +++++++++++++++++++++-----------------
- 4 files changed, 54 insertions(+), 41 deletions(-)
+ 3 files changed, 51 insertions(+), 40 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:56.487585816 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:56.483585766 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:24:07.851278393 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:24:07.847278444 -0800
 @@ -172,7 +172,6 @@ struct rndis_device {
  	struct list_head req_list;
  
@@ -54,35 +53,8 @@ Followon to previous patch, aligns code with current net-next
  	wait_queue_head_t subchan_open;
  
  	struct rndis_device *extension;
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:56.487585816 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:56.483585766 -0700
-@@ -29,7 +29,6 @@
- #include <linux/netdevice.h>
- #include <linux/if_ether.h>
- #include <linux/vmalloc.h>
--#include <linux/prefetch.h>
- #include <linux/rtnetlink.h>
- #include <linux/prefetch.h>
- 
-@@ -82,6 +81,7 @@ static struct netvsc_device *alloc_net_d
- 
- 	init_completion(&net_device->channel_init_wait);
- 	init_waitqueue_head(&net_device->subchan_open);
-+	INIT_WORK(&net_device->subchan_work, rndis_set_subchannel);
- 
- 	return net_device;
- }
-@@ -558,6 +558,8 @@ void netvsc_device_remove(struct hv_devi
- 		= rtnl_dereference(net_device_ctx->nvdev);
- 	int i;
- 
-+	cancel_work_sync(&net_device->subchan_work);
-+
- 	netvsc_disconnect_vsp(device);
- 
- 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:56.487585816 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:56.483585766 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:24:07.851278393 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:24:07.847278444 -0800
 @@ -2006,9 +2006,10 @@ static int netvsc_remove(struct hv_devic
  	if (vf_netdev)
  		netvsc_unregister_vf(vf_netdev);
@@ -95,8 +67,8 @@ Followon to previous patch, aligns code with current net-next
  	rtnl_unlock();
  
  	hv_set_drvdata(dev, NULL);
---- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:56.487585816 -0700
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:56.483585766 -0700
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:24:07.851278393 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:24:07.847278444 -0800
 @@ -33,7 +33,6 @@
  #include "hyperv_net.h"
  

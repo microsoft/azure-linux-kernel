@@ -15,8 +15,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc.c     |    3 ++-
  2 files changed, 3 insertions(+), 1 deletion(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:50.579513027 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:50.575512978 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:20:40.689914476 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:20:40.685914528 -0800
 @@ -727,6 +727,7 @@ struct net_device_context {
  /* Per channel data */
  struct netvsc_channel {
@@ -25,9 +25,9 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	const struct vmpacket_descriptor *desc;
  	struct napi_struct napi;
  	struct multi_send_data msd;
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:50.579513027 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:50.575512978 -0700
-@@ -1225,11 +1225,11 @@ int netvsc_poll(struct napi_struct *napi
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:20:40.689914476 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:20:40.685914528 -0800
+@@ -1223,11 +1223,11 @@ int netvsc_poll(struct napi_struct *napi
  {
  	struct netvsc_channel *nvchan
  		= container_of(napi, struct netvsc_channel, napi);
@@ -40,7 +40,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	int work_done = 0;
  
  	/* If starting a new interval */
-@@ -1313,6 +1313,7 @@ struct netvsc_device *netvsc_device_add(
+@@ -1306,6 +1306,7 @@ struct netvsc_device *netvsc_device_add(
  		struct netvsc_channel *nvchan = &net_device->chan_table[i];
  
  		nvchan->channel = device->channel;

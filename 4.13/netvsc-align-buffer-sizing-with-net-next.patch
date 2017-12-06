@@ -8,8 +8,8 @@ Submission to net-next had different send buffer size.
  drivers/net/hyperv/netvsc_drv.c |    5 +++--
  1 file changed, 3 insertions(+), 2 deletions(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.623562850 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.623562850 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:27.227795276 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:27.223795326 -0800
 @@ -47,10 +47,11 @@
  
  #define RING_SIZE_MIN		64

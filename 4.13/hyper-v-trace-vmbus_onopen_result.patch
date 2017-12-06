@@ -1,0 +1,50 @@
+From 8cf06a2f6776114ab763def52aaa0e75a874e490 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 16:50:32 +0200
+Subject: [PATCH 110/156] hyper-v: trace vmbus_onopen_result()
+
+Add tracepoint to CHANNELMSG_OPENCHANNEL_RESULT handler.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/channel_mgmt.c |  2 ++
+ drivers/hv/hv_trace.h     | 17 +++++++++++++++++
+ 2 files changed, 19 insertions(+)
+
+--- a/drivers/hv/channel_mgmt.c	2017-12-05 16:55:47.878655327 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-12-05 16:55:47.874655378 -0800
+@@ -983,6 +983,8 @@ static void vmbus_onopen_result(struct v
+ 
+ 	result = (struct vmbus_channel_open_result *)hdr;
+ 
++	trace_vmbus_onopen_result(result);
++
+ 	/*
+ 	 * Find the open msg, copy the result and signal/unblock the wait event
+ 	 */
+--- a/drivers/hv/hv_trace.h	2017-12-05 16:55:47.878655327 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-05 16:55:47.874655378 -0800
+@@ -69,6 +69,23 @@ TRACE_EVENT(vmbus_onoffer_rescind,
+ 	    TP_printk("child_relid 0x%x", __entry->child_relid)
+ 	);
+ 
++TRACE_EVENT(vmbus_onopen_result,
++	    TP_PROTO(const struct vmbus_channel_open_result *result),
++	    TP_ARGS(result),
++	    TP_STRUCT__entry(
++		    __field(u32, child_relid)
++		    __field(u32, openid)
++		    __field(u32, status)
++		    ),
++	    TP_fast_assign(__entry->child_relid = result->child_relid;
++			   __entry->openid = result->openid;
++			   __entry->status = result->status;
++		    ),
++	    TP_printk("child_relid 0x%x, openid %d, status %d",
++		      __entry->child_relid,  __entry->openid,  __entry->status
++		    )
++	);
++
+ #undef TRACE_INCLUDE_PATH
+ #define TRACE_INCLUDE_PATH .
+ #undef TRACE_INCLUDE_FILE

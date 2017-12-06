@@ -15,8 +15,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/rndis_filter.c |    5 ++---
  3 files changed, 4 insertions(+), 5 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:55.947579162 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:55.947579162 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:40.699623862 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:40.695623912 -0800
 @@ -213,7 +213,7 @@ void rndis_filter_update(struct netvsc_d
  void rndis_filter_device_remove(struct hv_device *dev,
  				struct netvsc_device *nvdev);
@@ -26,8 +26,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  int rndis_filter_receive(struct net_device *ndev,
  			 struct netvsc_device *net_dev,
  			 struct hv_device *dev,
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.947579162 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.947579162 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:40.699623862 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:40.695623912 -0800
 @@ -1424,7 +1424,7 @@ static int netvsc_set_rxfh(struct net_de
  		key = rndis_dev->rss_key;
  	}
@@ -37,8 +37,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  }
  
  /* Hyper-V RNDIS protocol does not have ring in the HW sense.
---- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:55.947579162 -0700
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:55.947579162 -0700
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:23:40.699623862 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:23:40.695623912 -0800
 @@ -717,7 +717,7 @@ cleanup:
  }
  

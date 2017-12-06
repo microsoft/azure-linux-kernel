@@ -1,0 +1,45 @@
+From 8e809cc53a65340f1365a688b12f572def240dec Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 16:50:36 +0200
+Subject: [PATCH 114/156] hyper-v: trace vmbus_request_offers()
+
+Add tracepoint to CHANNELMSG_REQUESTOFFERS sender.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/channel_mgmt.c | 4 +++-
+ drivers/hv/hv_trace.h     | 8 ++++++++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+--- a/drivers/hv/channel_mgmt.c	2017-12-05 16:55:48.670645161 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-12-05 16:55:48.666645213 -0800
+@@ -1221,9 +1221,11 @@ int vmbus_request_offers(void)
+ 
+ 	msg->msgtype = CHANNELMSG_REQUESTOFFERS;
+ 
+-
+ 	ret = vmbus_post_msg(msg, sizeof(struct vmbus_channel_message_header),
+ 			     true);
++
++	trace_vmbus_request_offers(ret);
++
+ 	if (ret != 0) {
+ 		pr_err("Unable to request offers - %d\n", ret);
+ 
+--- a/drivers/hv/hv_trace.h	2017-12-05 16:55:48.670645161 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-05 16:55:48.666645213 -0800
+@@ -122,6 +122,14 @@ TRACE_EVENT(vmbus_onversion_response,
+ 	    TP_printk("version_supported %d", __entry->ver)
+ 	);
+ 
++TRACE_EVENT(vmbus_request_offers,
++	    TP_PROTO(int ret),
++	    TP_ARGS(ret),
++	    TP_STRUCT__entry(__field(int, ret)),
++	    TP_fast_assign(__entry->ret = ret),
++	    TP_printk("sending ret %d", __entry->ret)
++	);
++
+ #undef TRACE_INCLUDE_PATH
+ #define TRACE_INCLUDE_PATH .
+ #undef TRACE_INCLUDE_FILE

@@ -16,8 +16,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/rndis_filter.c |    4 ++--
  4 files changed, 18 insertions(+), 22 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:51.815528255 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:51.811528206 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:22:25.548580101 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:22:25.544580152 -0800
 @@ -190,7 +190,7 @@ void netvsc_device_remove(struct hv_devi
  int netvsc_send(struct net_device_context *ndc,
  		struct hv_netvsc_packet *packet,
@@ -27,9 +27,9 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  		struct sk_buff *skb);
  void netvsc_linkstatus_callback(struct hv_device *device_obj,
  				struct rndis_message *resp);
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:51.815528255 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:51.811528206 -0700
-@@ -699,7 +699,7 @@ static u32 netvsc_copy_to_send_buf(struc
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:25.548580101 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:25.548580101 -0800
+@@ -697,7 +697,7 @@ static u32 netvsc_copy_to_send_buf(struc
  				   u32 pend_size,
  				   struct hv_netvsc_packet *packet,
  				   struct rndis_message *rndis_msg,
@@ -38,7 +38,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  				   struct sk_buff *skb)
  {
  	char *start = net_device->send_buf;
-@@ -720,9 +720,9 @@ static u32 netvsc_copy_to_send_buf(struc
+@@ -718,9 +718,9 @@ static u32 netvsc_copy_to_send_buf(struc
  	}
  
  	for (i = 0; i < page_count; i++) {
@@ -51,7 +51,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
  		memcpy(dest, (src + offset), len);
  		msg_size += len;
-@@ -741,7 +741,7 @@ static inline int netvsc_send_pkt(
+@@ -739,7 +739,7 @@ static inline int netvsc_send_pkt(
  	struct hv_device *device,
  	struct hv_netvsc_packet *packet,
  	struct netvsc_device *net_device,
@@ -60,7 +60,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	struct sk_buff *skb)
  {
  	struct nvsp_message nvmsg;
-@@ -752,7 +752,6 @@ static inline int netvsc_send_pkt(
+@@ -750,7 +750,6 @@ static inline int netvsc_send_pkt(
  	struct netdev_queue *txq = netdev_get_tx_queue(ndev, packet->q_idx);
  	u64 req_id;
  	int ret;
@@ -68,7 +68,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	u32 ring_avail = hv_ringbuf_avail_percent(&out_channel->outbound);
  
  	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
-@@ -778,13 +777,12 @@ static inline int netvsc_send_pkt(
+@@ -776,13 +775,12 @@ static inline int netvsc_send_pkt(
  		return -ENODEV;
  
  	if (packet->page_buf_cnt) {
@@ -87,7 +87,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  						      req_id,
  						      VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
  	} else {
-@@ -831,7 +829,7 @@ static inline void move_pkt_msd(struct h
+@@ -829,7 +827,7 @@ static inline void move_pkt_msd(struct h
  int netvsc_send(struct net_device_context *ndev_ctx,
  		struct hv_netvsc_packet *packet,
  		struct rndis_message *rndis_msg,
@@ -96,8 +96,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  		struct sk_buff *skb)
  {
  	struct netvsc_device *net_device
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:51.815528255 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:51.811528206 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:22:25.548580101 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:22:25.548580101 -0800
 @@ -282,9 +282,8 @@ static u32 fill_pg_buf(struct page *page
  
  static u32 init_page_array(void *hdr, u32 len, struct sk_buff *skb,
@@ -134,8 +134,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	if (likely(ret == 0))
  		return NETDEV_TX_OK;
  
---- a/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:51.815528255 -0700
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-10-05 14:20:51.811528206 -0700
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:22:25.548580101 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:22:25.548580101 -0800
 @@ -214,11 +214,11 @@ static void dump_rndis_message(struct hv
  static int rndis_filter_send_request(struct rndis_device *dev,
  				  struct rndis_request *req)

@@ -15,9 +15,9 @@ Cc: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/hv/channel.c |   18 +++++++-----------
  1 file changed, 7 insertions(+), 11 deletions(-)
 
---- a/drivers/hv/channel.c	2017-10-05 14:20:47.951480649 -0700
-+++ b/drivers/hv/channel.c	2017-10-05 14:20:47.951480649 -0700
-@@ -180,17 +180,18 @@ int vmbus_open(struct vmbus_channel *new
+--- a/drivers/hv/channel.c	2017-12-05 16:14:49.486385267 -0800
++++ b/drivers/hv/channel.c	2017-12-05 16:14:49.482385318 -0800
+@@ -185,17 +185,18 @@ int vmbus_open(struct vmbus_channel *new
  	ret = vmbus_post_msg(open_msg,
  			     sizeof(struct vmbus_channel_open_channel), true);
  
@@ -42,7 +42,7 @@ Cc: Stephen Hemminger <sthemmin@microsoft.com>
  	if (newchannel->rescind) {
  		err = -ENODEV;
  		goto error_free_gpadl;
-@@ -205,11 +206,6 @@ int vmbus_open(struct vmbus_channel *new
+@@ -210,11 +211,6 @@ int vmbus_open(struct vmbus_channel *new
  	kfree(open_info);
  	return 0;
  

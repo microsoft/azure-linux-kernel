@@ -22,8 +22,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc_drv.c |    3 ---
  1 file changed, 3 deletions(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:56.167581873 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:56.163581823 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:42.919595615 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:42.915595665 -0800
 @@ -830,9 +830,6 @@ static int netvsc_set_channels(struct ne
  	    channels->rx_count || channels->tx_count || channels->other_count)
  		return -EINVAL;

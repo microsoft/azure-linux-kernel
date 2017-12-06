@@ -1,0 +1,116 @@
+From 66fa1c61a08fc56bbc3fed1132839d4326c0ce33 Mon Sep 17 00:00:00 2001
+From: Arjan van de Ven <arjan@linux.intel.com>
+Date: Thu, 21 Jul 2016 13:52:56 -0500
+Subject: [PATCH 146/156] use the new async probing feature for the hyperv
+ drivers
+
+Recent kernels support asynchronous probing; most hyperv drivers
+can be probed async easily so set the required flag for this.
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+---
+ drivers/hid/hid-hyperv.c              | 5 ++++-
+ drivers/hv/hv_balloon.c               | 3 +++
+ drivers/hv/hv_util.c                  | 3 +++
+ drivers/input/serio/hyperv-keyboard.c | 3 +++
+ drivers/net/hyperv/netvsc_drv.c       | 3 +++
+ drivers/scsi/storvsc_drv.c            | 3 +++
+ drivers/video/fbdev/hyperv_fb.c       | 6 ++++++
+ 7 files changed, 25 insertions(+), 1 deletion(-)
+
+--- a/drivers/hid/hid-hyperv.c	2017-12-05 16:55:55.122562353 -0800
++++ b/drivers/hid/hid-hyperv.c	2017-12-05 16:55:55.114562455 -0800
+@@ -598,7 +598,10 @@ static struct  hv_driver mousevsc_drv =
+ 	.id_table = id_table,
+ 	.probe = mousevsc_probe,
+ 	.remove = mousevsc_remove,
+-};
++        .driver = {
++               .probe_type = PROBE_PREFER_ASYNCHRONOUS,
++        },
++ };
+ 
+ static int __init mousevsc_init(void)
+ {
+--- a/drivers/hv/hv_balloon.c	2017-12-05 16:55:55.122562353 -0800
++++ b/drivers/hv/hv_balloon.c	2017-12-05 16:55:55.118562405 -0800
+@@ -1765,6 +1765,9 @@ static  struct hv_driver balloon_drv = {
+ 	.id_table = id_table,
+ 	.probe =  balloon_probe,
+ 	.remove =  balloon_remove,
++	.driver = {
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++	},
+ };
+ 
+ static int __init init_balloon_drv(void)
+--- a/drivers/hv/hv_util.c	2017-12-05 16:55:55.122562353 -0800
++++ b/drivers/hv/hv_util.c	2017-12-05 16:55:55.118562405 -0800
+@@ -487,6 +487,9 @@ static  struct hv_driver util_drv = {
+ 	.id_table = id_table,
+ 	.probe =  util_probe,
+ 	.remove =  util_remove,
++	.driver = {
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++	},
+ };
+ 
+ static int hv_ptp_enable(struct ptp_clock_info *info,
+--- a/drivers/input/serio/hyperv-keyboard.c	2017-12-05 16:55:55.122562353 -0800
++++ b/drivers/input/serio/hyperv-keyboard.c	2017-12-05 16:55:55.118562405 -0800
+@@ -424,6 +424,9 @@ static struct  hv_driver hv_kbd_drv = {
+ 	.id_table = id_table,
+ 	.probe = hv_kbd_probe,
+ 	.remove = hv_kbd_remove,
++        .driver = {
++               .probe_type = PROBE_PREFER_ASYNCHRONOUS,
++        },
+ };
+ 
+ static int __init hv_kbd_init(void)
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:55:55.122562353 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:55:55.118562405 -0800
+@@ -2086,6 +2086,9 @@ static struct  hv_driver netvsc_drv = {
+ 	.id_table = id_table,
+ 	.probe = netvsc_probe,
+ 	.remove = netvsc_remove,
++        .driver = {
++               .probe_type = PROBE_PREFER_ASYNCHRONOUS,
++        },
+ };
+ 
+ /*
+--- a/drivers/scsi/storvsc_drv.c	2017-12-05 16:55:55.122562353 -0800
++++ b/drivers/scsi/storvsc_drv.c	2017-12-05 16:55:55.118562405 -0800
+@@ -1889,6 +1889,9 @@ static struct hv_driver storvsc_drv = {
+ 	.id_table = id_table,
+ 	.probe = storvsc_probe,
+ 	.remove = storvsc_remove,
++	.driver = {
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++	},
+ };
+ 
+ #if IS_ENABLED(CONFIG_SCSI_FC_ATTRS)
+--- a/drivers/video/fbdev/hyperv_fb.c	2017-12-05 16:55:55.122562353 -0800
++++ b/drivers/video/fbdev/hyperv_fb.c	2017-12-05 16:55:55.118562405 -0800
+@@ -912,6 +912,9 @@ static struct hv_driver hvfb_drv = {
+ 	.id_table = id_table,
+ 	.probe = hvfb_probe,
+ 	.remove = hvfb_remove,
++	.driver = {
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++        },
+ };
+ 
+ static int hvfb_pci_stub_probe(struct pci_dev *pdev,
+@@ -929,6 +932,9 @@ static struct pci_driver hvfb_pci_stub_d
+ 	.id_table =	pci_stub_id_table,
+ 	.probe =	hvfb_pci_stub_probe,
+ 	.remove =	hvfb_pci_stub_remove,
++	.driver = {
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++	}
+ };
+ 
+ static int __init hvfb_drv_init(void)

@@ -14,9 +14,9 @@ Cc: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/hv/channel.c |    2 ++
  1 file changed, 2 insertions(+)
 
---- a/drivers/hv/channel.c	2017-10-05 14:20:47.859479516 -0700
-+++ b/drivers/hv/channel.c	2017-10-05 14:20:47.855479466 -0700
-@@ -220,6 +220,8 @@ error_free_pages:
+--- a/drivers/hv/channel.c	2017-12-05 16:14:45.402437274 -0800
++++ b/drivers/hv/channel.c	2017-12-05 16:14:45.402437274 -0800
+@@ -225,6 +225,8 @@ error_free_pages:
  		     get_order(send_ringbuffer_size + recv_ringbuffer_size));
  error_set_chnstate:
  	newchannel->state = CHANNEL_OPEN_STATE;

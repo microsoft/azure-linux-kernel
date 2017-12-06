@@ -15,8 +15,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc_drv.c |    2 ++
  3 files changed, 17 insertions(+), 6 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:53.039543335 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:53.035543286 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:04.072089910 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:04.064090013 -0800
 @@ -682,6 +682,8 @@ struct netvsc_ethtool_stats {
  	unsigned long tx_no_space;
  	unsigned long tx_too_big;
@@ -26,9 +26,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  };
  
  struct netvsc_vf_pcpu_stats {
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:53.039543335 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:53.035543286 -0700
-@@ -884,7 +884,9 @@ int netvsc_send(struct net_device_contex
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:23:04.072089910 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:23:04.068089961 -0800
+@@ -882,7 +882,9 @@ int netvsc_send(struct net_device_contex
  	} else if (pktlen + net_device->pkt_align <
  		   net_device->send_section_size) {
  		section_index = netvsc_get_next_send_section(net_device);
@@ -39,7 +39,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  			move_pkt_msd(&msd_send, &msd_skb, msdp);
  			msd_len = 0;
  		}
-@@ -950,9 +952,10 @@ send_now:
+@@ -948,9 +950,10 @@ send_now:
  }
  
  /* Send pending recv completions */
@@ -52,7 +52,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	struct multi_recv_comp *mrc = &nvchan->mrc;
  	struct recv_comp_msg {
  		struct nvsp_message_header hdr;
-@@ -970,8 +973,12 @@ static int send_recv_completions(struct
+@@ -968,8 +971,12 @@ static int send_recv_completions(struct
  		msg.status = rcd->status;
  		ret = vmbus_sendpacket(nvchan->channel, &msg, sizeof(msg),
  				       rcd->tid, VM_PKT_COMP, 0);
@@ -66,7 +66,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  
  		if (++mrc->first == nvdev->recv_completion_cnt)
  			mrc->first = 0;
-@@ -1012,7 +1019,7 @@ static void enq_receive_complete(struct
+@@ -1010,7 +1017,7 @@ static void enq_receive_complete(struct
  	recv_comp_slot_avail(nvdev, mrc, &filled, &avail);
  
  	if (unlikely(filled > NAPI_POLL_WEIGHT)) {
@@ -75,7 +75,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  		recv_comp_slot_avail(nvdev, mrc, &filled, &avail);
  	}
  
-@@ -1199,7 +1206,7 @@ int netvsc_poll(struct napi_struct *napi
+@@ -1197,7 +1204,7 @@ int netvsc_poll(struct napi_struct *napi
  	 * then re-enable host interrupts
  	 *     and reschedule if ring is not empty.
  	 */
@@ -84,8 +84,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	    work_done < budget &&
  	    napi_complete_done(napi, work_done) &&
  	    hv_end_read(&channel->inbound) != 0) {
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:53.039543335 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:53.035543286 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:04.072089910 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:04.068089961 -0800
 @@ -1107,6 +1107,8 @@ static const struct {
  	{ "tx_no_space",  offsetof(struct netvsc_ethtool_stats, tx_no_space) },
  	{ "tx_too_big",	  offsetof(struct netvsc_ethtool_stats, tx_too_big) },

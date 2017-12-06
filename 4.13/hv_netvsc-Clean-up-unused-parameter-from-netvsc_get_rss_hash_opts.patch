@@ -12,8 +12,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc_drv.c |    5 ++---
  1 file changed, 2 insertions(+), 3 deletions(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.111568863 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.111568863 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:31.731737967 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:31.727738019 -0800
 @@ -1228,8 +1228,7 @@ static void netvsc_get_strings(struct ne
  }
  

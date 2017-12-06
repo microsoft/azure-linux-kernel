@@ -1,0 +1,60 @@
+From dc1cf888bcdbf8d39ce0342c6aa58fbbcad3ae04 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 16:50:37 +0200
+Subject: [PATCH 115/156] hyper-v: trace vmbus_open()
+
+Add tracepoint to CHANNELMSG_OPENCHANNEL sender.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/channel.c  |  2 ++
+ drivers/hv/hv_trace.h | 27 +++++++++++++++++++++++++++
+ 2 files changed, 29 insertions(+)
+
+--- a/drivers/hv/channel.c	2017-12-05 16:55:48.870642594 -0800
++++ b/drivers/hv/channel.c	2017-12-05 16:55:48.870642594 -0800
+@@ -206,6 +206,8 @@ int vmbus_open(struct vmbus_channel *new
+ 	list_del(&open_info->msglistentry);
+ 	spin_unlock_irqrestore(&vmbus_connection.channelmsg_lock, flags);
+ 
++	trace_vmbus_open(open_msg, ret);
++
+ 	if (ret != 0) {
+ 		err = ret;
+ 		goto error_free_gpadl;
+--- a/drivers/hv/hv_trace.h	2017-12-05 16:55:48.870642594 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-05 16:55:48.870642594 -0800
+@@ -130,6 +130,33 @@ TRACE_EVENT(vmbus_request_offers,
+ 	    TP_printk("sending ret %d", __entry->ret)
+ 	);
+ 
++TRACE_EVENT(vmbus_open,
++	    TP_PROTO(const struct vmbus_channel_open_channel *msg, int ret),
++	    TP_ARGS(msg, ret),
++	    TP_STRUCT__entry(
++		    __field(u32, child_relid)
++		    __field(u32, openid)
++		    __field(u32, gpadlhandle)
++		    __field(u32, target_vp)
++		    __field(u32, offset)
++		    __field(int, ret)
++		    ),
++	    TP_fast_assign(
++		    __entry->child_relid = msg->child_relid;
++		    __entry->openid = msg->openid;
++		    __entry->gpadlhandle = msg->ringbuffer_gpadlhandle;
++		    __entry->target_vp = msg->target_vp;
++		    __entry->offset = msg->downstream_ringbuffer_pageoffset;
++		    __entry->ret = ret;
++		    ),
++	    TP_printk("sending child_relid 0x%x, openid %d, "
++		      "gpadlhandle 0x%x, target_vp 0x%x, offset 0x%x, ret %d",
++		      __entry->child_relid,  __entry->openid,
++		      __entry->gpadlhandle, __entry->target_vp,
++		      __entry->offset, __entry->ret
++		    )
++	);
++
+ #undef TRACE_INCLUDE_PATH
+ #define TRACE_INCLUDE_PATH .
+ #undef TRACE_INCLUDE_FILE

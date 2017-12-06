@@ -11,9 +11,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  include/linux/hyperv.h |    6 -----
  2 files changed, 62 deletions(-)
 
---- a/drivers/hv/channel.c	2017-10-05 14:20:47.539475573 -0700
-+++ b/drivers/hv/channel.c	2017-10-05 14:20:47.539475573 -0700
-@@ -814,62 +814,6 @@ int vmbus_sendpacket_mpb_desc(struct vmb
+--- a/drivers/hv/channel.c	2017-12-05 16:08:02.943565937 -0800
++++ b/drivers/hv/channel.c	2017-12-05 16:08:02.939565990 -0800
+@@ -828,62 +828,6 @@ int vmbus_sendpacket_mpb_desc(struct vmb
  }
  EXPORT_SYMBOL_GPL(vmbus_sendpacket_mpb_desc);
  
@@ -76,9 +76,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  /**
   * vmbus_recvpacket() - Retrieve the user packet on the specified channel
   * @channel: Pointer to vmbus_channel structure.
---- a/include/linux/hyperv.h	2017-10-05 14:20:47.539475573 -0700
-+++ b/include/linux/hyperv.h	2017-10-05 14:20:47.539475573 -0700
-@@ -1052,12 +1052,6 @@ extern int vmbus_sendpacket_pagebuffer_c
+--- a/include/linux/hyperv.h	2017-12-05 16:08:02.943565937 -0800
++++ b/include/linux/hyperv.h	2017-12-05 16:08:02.939565990 -0800
+@@ -1040,12 +1040,6 @@ extern int vmbus_sendpacket_pagebuffer_c
  					   u64 requestid,
  					   u32 flags);
  

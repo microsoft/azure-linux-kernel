@@ -1,0 +1,151 @@
+From a4c5558c46b8237cb9af983d61c950875dcac35f Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Thu, 9 Nov 2017 10:46:22 +0900
+Subject: [PATCH 155/156] hv_netvsc: safely order shutdown
+
+Several types of control operations require that the underlying RNDIS
+infrastructure be restarted. This patch changes the ordering of the
+shutdown to avoid race conditions.
+Stop all transmits before doing RNDIS halt. This involves stopping the
+network device transmit queues, then waiting for all outstanding
+sends before informing host to halt.
+
+Also, check for sucessful restart of the device when after the
+change is done.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c   | 40 ++++++++++++++++++++++++++++++---------
+ drivers/net/hyperv/rndis_filter.c | 23 +++++++++++-----------
+ 2 files changed, 42 insertions(+), 21 deletions(-)
+
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:55:57.018538019 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:55:57.014538071 -0800
+@@ -829,8 +829,10 @@ static int netvsc_set_channels(struct ne
+ 
+ 	orig = nvdev->num_chn;
+ 	was_opened = rndis_filter_opened(nvdev);
+-	if (was_opened)
++	if (was_opened) {
++		netif_tx_disable(net);
+ 		rndis_filter_close(nvdev);
++	}
+ 
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.num_chn = count;
+@@ -853,8 +855,13 @@ static int netvsc_set_channels(struct ne
+ 		}
+ 	}
+ 
+-	if (was_opened)
+-		rndis_filter_open(nvdev);
++	if (was_opened) {
++		ret = rndis_filter_open(nvdev);
++		if (ret)
++			netdev_err(net, "reopening device failed: %d\n", ret);
++		else
++			netif_tx_start_all_queues(net);
++	}
+ 
+ 	/* We may have missed link change notifications */
+ 	net_device_ctx->last_reconfig = 0;
+@@ -943,8 +950,10 @@ static int netvsc_change_mtu(struct net_
+ 
+ 	netif_device_detach(ndev);
+ 	was_opened = rndis_filter_opened(nvdev);
+-	if (was_opened)
++	if (was_opened) {
++		netif_tx_disable(ndev);
+ 		rndis_filter_close(nvdev);
++	}
+ 
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+@@ -974,8 +983,13 @@ static int netvsc_change_mtu(struct net_
+ 		}
+ 	}
+ 
+-	if (was_opened)
+-		rndis_filter_open(nvdev);
++	if (was_opened) {
++		ret = rndis_filter_open(nvdev);
++		if (ret)
++			netdev_err(ndev, "reopening device failed: %d\n", ret);
++		else
++			netif_tx_start_all_queues(ndev);
++	}
+ 
+ 	netif_device_attach(ndev);
+ 
+@@ -1516,8 +1530,10 @@ static int netvsc_set_ringparam(struct n
+ 
+ 	netif_device_detach(ndev);
+ 	was_opened = rndis_filter_opened(nvdev);
+-	if (was_opened)
++	if (was_opened) {
++		netif_tx_disable(ndev);
+ 		rndis_filter_close(nvdev);
++	}
+ 
+ 	rndis_filter_device_remove(hdev, nvdev);
+ 
+@@ -1535,8 +1551,14 @@ static int netvsc_set_ringparam(struct n
+ 		}
+ 	}
+ 
+-	if (was_opened)
+-		rndis_filter_open(nvdev);
++	if (was_opened) {
++		ret = rndis_filter_open(nvdev);
++		if (ret)
++			netdev_err(ndev, "reopening device failed: %d\n", ret);
++		else
++			netif_tx_start_all_queues(ndev);
++	}
++
+ 	netif_device_attach(ndev);
+ 
+ 	/* We may have missed link change notifications */
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:55:57.018538019 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-05 16:55:57.014538071 -0800
+@@ -951,11 +951,20 @@ static void rndis_filter_halt_device(str
+ 	struct net_device_context *net_device_ctx = netdev_priv(dev->ndev);
+ 	struct netvsc_device *nvdev = rtnl_dereference(net_device_ctx->nvdev);
+ 
++	/* tell bottom half that deice is being closed */
++	nvdev->destroy = true;
++
++	/* Force flag to be ordered before waiting */
++	wmb();
++
++	/* Wait for all send completions */
++	wait_event(nvdev->wait_drain, netvsc_device_idle(nvdev));
++
+ 	/* Attempt to do a rndis device halt */
+ 	request = get_rndis_request(dev, RNDIS_MSG_HALT,
+ 				RNDIS_MESSAGE_SIZE(struct rndis_halt_request));
+ 	if (!request)
+-		goto cleanup;
++		return;
+ 
+ 	/* Setup the rndis set */
+ 	halt = &request->request_msg.msg.halt_req;
+@@ -966,17 +975,7 @@ static void rndis_filter_halt_device(str
+ 
+ 	dev->state = RNDIS_DEV_UNINITIALIZED;
+ 
+-cleanup:
+-	nvdev->destroy = true;
+-
+-	/* Force flag to be ordered before waiting */
+-	wmb();
+-
+-	/* Wait for all send completions */
+-	wait_event(nvdev->wait_drain, netvsc_device_idle(nvdev));
+-
+-	if (request)
+-		put_rndis_request(dev, request);
++	put_rndis_request(dev, request);
+ }
+ 
+ static int rndis_filter_open_device(struct rndis_device *dev)

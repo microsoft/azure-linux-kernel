@@ -16,8 +16,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc_drv.c |   65 ++++++++++++++++------------------------
  3 files changed, 27 insertions(+), 43 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:53.823552995 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:53.819552945 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:20.159885208 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:30:13.000000000 -0800
 @@ -730,14 +730,11 @@ struct net_device_context {
  	struct net_device __rcu *vf_netdev;
  	struct netvsc_vf_pcpu_stats __percpu *vf_stats;
@@ -33,9 +33,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  };
  
  /* Per channel data */
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:53.823552995 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:53.819552945 -0700
-@@ -61,8 +61,6 @@ void netvsc_switch_datapath(struct net_d
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:23:20.159885208 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:24:55.582654298 -0800
+@@ -59,8 +59,6 @@ void netvsc_switch_datapath(struct net_d
  			       sizeof(struct nvsp_message),
  			       (unsigned long)init_pkt,
  			       VM_PKT_DATA_INBAND, 0);
@@ -44,8 +44,17 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  }
  
  static struct netvsc_device *alloc_net_device(void)
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:53.823552995 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:53.819552945 -0700
+@@ -558,6 +556,8 @@ void netvsc_device_remove(struct hv_devi
+ 		= rtnl_dereference(net_device_ctx->nvdev);
+ 	int i;
+ 
++	cancel_work_sync(&net_device->subchan_work);
++
+ 	netvsc_disconnect_vsp(device);
+ 
+ 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:20.159885208 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:30:13.000000000 -0800
 @@ -1772,51 +1772,35 @@ static int netvsc_register_vf(struct net
  	return NOTIFY_OK;
  }

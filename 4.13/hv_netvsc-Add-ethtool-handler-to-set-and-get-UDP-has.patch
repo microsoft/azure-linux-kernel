@@ -27,8 +27,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc_drv.c |   78 +++++++++++++++++++++++++++++++++++-----
  2 files changed, 72 insertions(+), 8 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:55.207570046 -0700
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-10-05 14:20:55.203569996 -0700
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:32.819724124 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-05 16:23:32.815724174 -0800
 @@ -722,6 +722,8 @@ struct net_device_context {
  	u32 tx_send_table[VRSS_SEND_TAB_SIZE];
  
@@ -38,8 +38,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	u8 duplex;
  	u32 speed;
  	struct netvsc_ethtool_stats eth_stats;
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.207570046 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.203569996 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:32.819724124 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:32.819724124 -0800
 @@ -190,10 +190,12 @@ static void *init_ppi_data(struct rndis_
  	return ppi;
  }

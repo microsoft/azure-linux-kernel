@@ -12,8 +12,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc_drv.c |    4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.015567681 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:55.015567681 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:30.847749215 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:30.843749267 -0800
 @@ -193,7 +193,7 @@ static void *init_ppi_data(struct rndis_
  /* Azure hosts don't support non-TCP port numbers in hashing yet. We compute
   * hash for non-TCP traffic with only IP numbers.

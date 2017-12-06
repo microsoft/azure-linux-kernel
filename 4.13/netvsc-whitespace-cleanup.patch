@@ -10,8 +10,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc_drv.c |   11 ++++++-----
  1 file changed, 6 insertions(+), 5 deletions(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.323559154 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:54.323559154 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:24.115834871 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:24.111834923 -0800
 @@ -169,7 +169,7 @@ static int netvsc_close(struct net_devic
  }
  

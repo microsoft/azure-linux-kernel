@@ -12,8 +12,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc_drv.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:56.263583055 -0700
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-10-05 14:20:56.259583006 -0700
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:43.875583451 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-05 16:23:43.871583502 -0800
 @@ -1407,7 +1407,7 @@ static int netvsc_set_rxfh(struct net_de
  	rndis_dev = ndev->extension;
  	if (indir) {

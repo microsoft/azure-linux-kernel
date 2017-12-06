@@ -13,9 +13,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc.c |   19 +++++--------------
  1 file changed, 5 insertions(+), 14 deletions(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.835540822 -0700
-+++ b/drivers/net/hyperv/netvsc.c	2017-10-05 14:20:52.831540773 -0700
-@@ -249,20 +249,13 @@ int netvsc_alloc_recv_comp_ring(struct n
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:58.424161777 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:22:58.420161827 -0800
+@@ -247,20 +247,13 @@ int netvsc_alloc_recv_comp_ring(struct n
  static int netvsc_init_buf(struct hv_device *device,
  			   struct netvsc_device *net_device)
  {
@@ -40,7 +40,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	if (!net_device->recv_buf) {
  		netdev_err(ndev, "unable to allocate receive "
  			"buffer of size %d\n", net_device->recv_buf_size);
-@@ -343,9 +336,7 @@ static int netvsc_init_buf(struct hv_dev
+@@ -341,9 +334,7 @@ static int netvsc_init_buf(struct hv_dev
  		goto cleanup;
  
  	/* Now setup the send buffer. */
