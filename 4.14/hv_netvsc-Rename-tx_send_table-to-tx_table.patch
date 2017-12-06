@@ -13,8 +13,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc_drv.c |    4 ++--
  3 files changed, 4 insertions(+), 4 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:38.930861473 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:38.926861527 -0800
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:51.483487464 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:51.479487515 -0800
 @@ -731,7 +731,7 @@ struct net_device_context {
  
  	u32 tx_checksum_mask;
@@ -24,8 +24,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
  	/* Ethtool settings */
  	u8 duplex;
---- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:38.930861473 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:38.926861527 -0800
+--- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:51.483487464 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:51.479487515 -0800
 @@ -1110,7 +1110,7 @@ static void netvsc_send_table(struct hv_
  		      nvmsg->msg.v5_msg.send_table.offset);
  
@@ -35,8 +35,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  }
  
  static void netvsc_send_vf(struct net_device_context *net_device_ctx,
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.930861473 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.926861527 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:51.483487464 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:51.479487515 -0800
 @@ -252,8 +252,8 @@ static inline int netvsc_get_tx_queue(st
  	struct sock *sk = skb->sk;
  	int q_idx;

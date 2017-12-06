@@ -14,8 +14,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/rndis_filter.c |    6 +++---
  3 files changed, 6 insertions(+), 6 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:38.714864379 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:38.710864433 -0800
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:51.275490131 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:51.271490182 -0800
 @@ -179,7 +179,7 @@ struct rndis_device {
  
  	u8 hw_mac_adr[ETH_ALEN];
@@ -25,8 +25,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  };
  
  
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.714864379 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.710864433 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:51.275490131 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:51.271490182 -0800
 @@ -1434,7 +1434,7 @@ static int netvsc_get_rxfh(struct net_de
  	rndis_dev = ndev->extension;
  	if (indir) {
@@ -45,8 +45,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	}
  
  	if (!key) {
---- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:38.714864379 -0800
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:38.710864433 -0800
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:45:51.275490131 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:45:51.271490182 -0800
 @@ -759,7 +759,7 @@ int rndis_filter_set_rss_param(struct rn
  	/* Set indirection table entries */
  	itab = (u32 *)(rssp + 1);

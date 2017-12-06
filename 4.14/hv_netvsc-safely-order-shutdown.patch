@@ -19,8 +19,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/rndis_filter.c |   23 ++++++++++-----------
  2 files changed, 42 insertions(+), 21 deletions(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:44.834782042 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:44.830782096 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:09.195260412 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:09.191260463 -0800
 @@ -829,8 +829,10 @@ static int netvsc_set_channels(struct ne
  
  	orig = nvdev->num_chn;
@@ -106,8 +106,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	netif_device_attach(ndev);
  
  	/* We may have missed link change notifications */
---- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:44.834782042 -0800
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:44.830782096 -0800
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:09.195260412 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:09.191260463 -0800
 @@ -951,11 +951,20 @@ static void rndis_filter_halt_device(str
  	struct net_device_context *net_device_ctx = netdev_priv(dev->ndev);
  	struct netvsc_device *nvdev = rtnl_dereference(net_device_ctx->nvdev);

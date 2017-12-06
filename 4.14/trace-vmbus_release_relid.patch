@@ -11,8 +11,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h     |   16 ++++++++++++++++
  2 files changed, 21 insertions(+), 2 deletions(-)
 
---- a/drivers/hv/channel_mgmt.c	2017-11-17 09:03:36.890888920 -0800
-+++ b/drivers/hv/channel_mgmt.c	2017-11-17 09:03:36.886888974 -0800
+--- a/drivers/hv/channel_mgmt.c	2017-12-06 14:45:49.511512743 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-12-06 14:45:49.507512795 -0800
 @@ -373,12 +373,15 @@ static void percpu_channel_deq(void *arg
  static void vmbus_release_relid(u32 relid)
  {
@@ -31,8 +31,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  }
  
  void hv_process_channel_removal(u32 relid)
---- a/drivers/hv/hv_trace.h	2017-11-17 09:03:36.890888920 -0800
-+++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:36.886888974 -0800
+--- a/drivers/hv/hv_trace.h	2017-12-06 14:45:49.511512743 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:49.511512743 -0800
 @@ -258,6 +258,22 @@ TRACE_EVENT(vmbus_negotiate_version,
  		    )
  	);

@@ -26,8 +26,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_balloon.c |   82 ++++++++++++++++++++++++++++++++++++++++--------
  1 file changed, 69 insertions(+), 13 deletions(-)
 
---- a/drivers/hv/hv_balloon.c	2017-11-17 09:03:41.302829561 -0800
-+++ b/drivers/hv/hv_balloon.c	2017-11-17 09:03:41.298829615 -0800
+--- a/drivers/hv/hv_balloon.c	2017-12-06 14:45:53.591460441 -0800
++++ b/drivers/hv/hv_balloon.c	2017-12-06 14:45:53.587460493 -0800
 @@ -576,11 +576,65 @@ static struct hv_dynmem_device dm_device
  static void post_status(struct hv_dynmem_device *dm);
  

@@ -22,19 +22,19 @@ Subject: [PATCH 01/71] tools: adding file to support building user level
  create mode 100644 tools/hv/lis-daemon.spec
 
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/tools/hv/70-hv_fcopy.rules	2017-11-17 09:03:32.970941660 -0800
++++ b/tools/hv/70-hv_fcopy.rules	2017-12-06 14:45:45.711561455 -0800
 @@ -0,0 +1 @@
 +SUBSYSTEM=="misc", KERNEL=="vmbus/hv_fcopy", TAG+="systemd", ENV{SYSTEMD_WANTS}+="hv_fcopy_daemon.service"
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/tools/hv/70-hv_kvp.rules	2017-11-17 09:03:32.970941660 -0800
++++ b/tools/hv/70-hv_kvp.rules	2017-12-06 14:45:45.711561455 -0800
 @@ -0,0 +1 @@
 +SUBSYSTEM=="misc", KERNEL=="vmbus/hv_kvp", TAG+="systemd", ENV{SYSTEMD_WANTS}+="hv_kvp_daemon.service"
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/tools/hv/70-hv_vss.rules	2017-11-17 09:03:32.970941660 -0800
++++ b/tools/hv/70-hv_vss.rules	2017-12-06 14:45:45.711561455 -0800
 @@ -0,0 +1 @@
 +SUBSYSTEM=="misc", KERNEL=="vmbus/hv_vss", TAG+="systemd", ENV{SYSTEMD_WANTS}+="hv_vss_daemon.service"
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/tools/hv/hv_fcopy_daemon.service	2017-11-17 09:03:32.970941660 -0800
++++ b/tools/hv/hv_fcopy_daemon.service	2017-12-06 14:45:45.711561455 -0800
 @@ -0,0 +1,9 @@
 +[Unit]
 +Description=Hyper-V FCOPY daemon
@@ -46,7 +46,7 @@ Subject: [PATCH 01/71] tools: adding file to support building user level
 +[Install]
 +WantedBy=multi-user.target
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/tools/hv/hv_kvp_daemon.service	2017-11-17 09:03:32.970941660 -0800
++++ b/tools/hv/hv_kvp_daemon.service	2017-12-06 14:45:45.711561455 -0800
 @@ -0,0 +1,10 @@
 +[Unit]
 +Description=Hyper-V KVP daemon
@@ -59,7 +59,7 @@ Subject: [PATCH 01/71] tools: adding file to support building user level
 +[Install]
 +WantedBy=multi-user.target
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/tools/hv/hv_vss_daemon.service	2017-11-17 09:03:32.970941660 -0800
++++ b/tools/hv/hv_vss_daemon.service	2017-12-06 14:45:45.711561455 -0800
 @@ -0,0 +1,9 @@
 +[Unit]
 +Description=Hyper-V VSS daemon
@@ -71,7 +71,7 @@ Subject: [PATCH 01/71] tools: adding file to support building user level
 +[Install]
 +WantedBy=multi-user.target
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/tools/hv/lis-daemon.spec	2017-11-17 09:03:32.970941660 -0800
++++ b/tools/hv/lis-daemon.spec	2017-12-06 14:45:45.711561455 -0800
 @@ -0,0 +1,137 @@
 +
 +# nodebuginfo

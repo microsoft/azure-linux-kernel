@@ -10,8 +10,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc.c |    9 +++------
  1 file changed, 3 insertions(+), 6 deletions(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:43.174804375 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:43.170804429 -0800
+--- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:55.219439572 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:55.219439572 -0800
 @@ -586,14 +586,11 @@ void netvsc_device_remove(struct hv_devi
   * Get the percentage of available bytes to write in the ring.
   * The return value is in range from 0 to 100.

@@ -19,8 +19,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  create mode 100644 drivers/net/hyperv/netvsc_trace.c
  create mode 100644 drivers/net/hyperv/netvsc_trace.h
 
---- a/drivers/net/hyperv/Makefile	2017-11-17 09:03:39.342855931 -0800
-+++ b/drivers/net/hyperv/Makefile	2017-11-17 09:03:39.338855984 -0800
+--- a/drivers/net/hyperv/Makefile	2017-12-06 14:45:51.875482439 -0800
++++ b/drivers/net/hyperv/Makefile	2017-12-06 14:45:51.871482490 -0800
 @@ -1,3 +1,5 @@
  obj-$(CONFIG_HYPERV_NET) += hv_netvsc.o
  
@@ -28,8 +28,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 +CFLAGS_netvsc_trace.o = -I$(src)
 +
 +hv_netvsc-y := netvsc_drv.o netvsc.o  netvsc_trace.o rndis_filter.o
---- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:39.342855931 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:39.338855984 -0800
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:51.875482439 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:51.871482490 -0800
 @@ -142,6 +142,8 @@ struct hv_netvsc_packet {
  	u32 total_bytes;
  	u32 send_buf_index;
@@ -48,8 +48,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  		struct hv_netvsc_packet *packet,
  		struct rndis_message *rndis_msg,
  		struct hv_page_buffer *page_buffer,
---- a/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:39.342855931 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-11-17 09:03:39.338855984 -0800
+--- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:51.875482439 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:51.871482490 -0800
 @@ -35,6 +35,7 @@
  #include <asm/sync_bitops.h>
  
@@ -125,8 +125,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	}
  
  	enq_receive_complete(ndev, net_device, q_idx,
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:39.342855931 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:39.338855984 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:51.875482439 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:51.871482490 -0800
 @@ -632,7 +632,7 @@ static int netvsc_start_xmit(struct sk_b
  	/* timestamp packet in software */
  	skb_tx_timestamp(skb);
@@ -137,7 +137,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  		return NETDEV_TX_OK;
  
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/drivers/net/hyperv/netvsc_trace.c	2017-11-17 09:03:39.338855984 -0800
++++ b/drivers/net/hyperv/netvsc_trace.c	2017-12-06 14:45:51.871482490 -0800
 @@ -0,0 +1,19 @@
 +#include <linux/kernel.h>
 +#include <linux/sched.h>
@@ -159,7 +159,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 +#define CREATE_TRACE_POINTS
 +#include "netvsc_trace.h"
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/drivers/net/hyperv/netvsc_trace.h	2017-11-17 09:03:39.338855984 -0800
++++ b/drivers/net/hyperv/netvsc_trace.h	2017-12-06 14:45:51.871482490 -0800
 @@ -0,0 +1,74 @@
 +#undef TRACE_SYSTEM
 +#define TRACE_SYSTEM netvsc
@@ -235,8 +235,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 +
 +/* This part must be outside protection */
 +#include <trace/define_trace.h>
---- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:39.342855931 -0800
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:39.338855984 -0800
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:45:51.875482439 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:45:51.871482490 -0800
 @@ -217,7 +217,6 @@ static int rndis_filter_send_request(str
  	struct hv_netvsc_packet *packet;
  	struct hv_page_buffer page_buf[2];

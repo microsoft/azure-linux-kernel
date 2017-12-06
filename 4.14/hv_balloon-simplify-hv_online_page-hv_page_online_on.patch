@@ -12,8 +12,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_balloon.c |   27 +++++----------------------
  1 file changed, 5 insertions(+), 22 deletions(-)
 
---- a/drivers/hv/hv_balloon.c	2017-11-17 09:03:41.114832090 -0800
-+++ b/drivers/hv/hv_balloon.c	2017-11-17 09:03:41.110832144 -0800
+--- a/drivers/hv/hv_balloon.c	2017-12-06 14:45:53.411462749 -0800
++++ b/drivers/hv/hv_balloon.c	2017-12-06 14:45:53.407462800 -0800
 @@ -612,28 +612,17 @@ static struct notifier_block hv_memory_n
  /* Check if the particular page is backed and can be onlined and online it. */
  static void hv_page_online_one(struct hv_hotadd_state *has, struct page *pg)

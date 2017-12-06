@@ -16,8 +16,8 @@ Cc: K. Y. Srinivasan <kys@microsoft.com>
  drivers/hv/vmbus_drv.c |    2 ++
  1 file changed, 2 insertions(+)
 
---- a/drivers/hv/vmbus_drv.c	2017-11-17 09:03:33.842929928 -0800
-+++ b/drivers/hv/vmbus_drv.c	2017-11-17 09:03:33.838929982 -0800
+--- a/drivers/hv/vmbus_drv.c	2017-12-06 14:45:46.575550380 -0800
++++ b/drivers/hv/vmbus_drv.c	2017-12-06 14:45:46.571550431 -0800
 @@ -1358,6 +1358,8 @@ void vmbus_device_unregister(struct hv_d
  	pr_debug("child device %s unregistered\n",
  		dev_name(&device_obj->device));

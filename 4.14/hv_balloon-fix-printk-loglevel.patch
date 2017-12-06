@@ -14,8 +14,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_balloon.c |   12 ++++++------
  1 file changed, 6 insertions(+), 6 deletions(-)
 
---- a/drivers/hv/hv_balloon.c	2017-11-17 09:03:40.930834566 -0800
-+++ b/drivers/hv/hv_balloon.c	2017-11-17 09:03:40.926834619 -0800
+--- a/drivers/hv/hv_balloon.c	2017-12-06 14:45:53.223465158 -0800
++++ b/drivers/hv/hv_balloon.c	2017-12-06 14:45:53.223465158 -0800
 @@ -691,7 +691,7 @@ static void hv_mem_hot_add(unsigned long
  				(HA_CHUNK << PAGE_SHIFT));
  

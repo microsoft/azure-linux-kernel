@@ -11,9 +11,9 @@ Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
  drivers/pci/host/pci-hyperv.c |    4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
---- a/drivers/pci/host/pci-hyperv.c	2017-11-17 09:03:33.214938378 -0800
-+++ b/drivers/pci/host/pci-hyperv.c	2017-11-17 09:03:33.210938431 -0800
-@@ -1538,9 +1538,11 @@ static struct hv_pci_dev *new_pcichild_d
+--- a/drivers/pci/host/pci-hyperv.c	2017-12-06 14:45:45.959558276 -0800
++++ b/drivers/pci/host/pci-hyperv.c	2017-12-06 14:45:45.955558328 -0800
+@@ -1540,9 +1540,11 @@ static struct hv_pci_dev *new_pcichild_d
  	 * can have shorter names than based on the bus instance UUID.
  	 * Only the first device serial number is used for domain, so the
  	 * domain number will not change after the first device is added.

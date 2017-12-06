@@ -13,8 +13,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  Documentation/networking/netvsc.txt |    8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
---- a/Documentation/networking/netvsc.txt	2017-11-17 09:03:38.526866908 -0800
-+++ b/Documentation/networking/netvsc.txt	2017-11-17 09:03:38.522866962 -0800
+--- a/Documentation/networking/netvsc.txt	2017-12-06 14:45:51.083492592 -0800
++++ b/Documentation/networking/netvsc.txt	2017-12-06 14:45:51.079492642 -0800
 @@ -19,12 +19,12 @@ Features
  
    Receive Side Scaling

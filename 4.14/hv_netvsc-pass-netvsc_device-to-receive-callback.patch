@@ -14,8 +14,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/rndis_filter.c |    7 +++++--
  3 files changed, 8 insertions(+), 14 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:44.206790490 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-11-17 09:03:44.202790545 -0800
+--- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:06.659292922 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:06.655292973 -0800
 @@ -202,6 +202,7 @@ int netvsc_send(struct net_device *ndev,
  void netvsc_linkstatus_callback(struct net_device *net,
  				struct rndis_message *resp);
@@ -24,8 +24,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  			 struct vmbus_channel *channel,
  			 void  *data, u32 len,
  			 const struct ndis_tcp_ip_checksum_info *csum_info,
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:44.206790490 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:44.202790545 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:06.659292922 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:06.655292973 -0800
 @@ -740,34 +740,26 @@ static struct sk_buff *netvsc_alloc_recv
   * "wire" on the specified device.
   */
@@ -72,8 +72,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	return 0;
  }
  
---- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:44.206790490 -0800
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:44.202790545 -0800
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:06.659292922 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:06.655292973 -0800
 @@ -351,6 +351,7 @@ static inline void *rndis_get_ppi(struct
  }
  

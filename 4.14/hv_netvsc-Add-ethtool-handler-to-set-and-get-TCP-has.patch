@@ -23,8 +23,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc_drv.c |   25 ++++++++++++++++++++++++-
  1 file changed, 24 insertions(+), 1 deletion(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.338869438 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:38.334869491 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:50.895495001 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:50.891495053 -0800
 @@ -1264,8 +1264,15 @@ netvsc_get_rss_hash_opts(struct net_devi
  
  	switch (info->flow_type) {

@@ -11,8 +11,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h   |   26 ++++++++++++++++++++++++++
  2 files changed, 29 insertions(+)
 
---- a/drivers/hv/connection.c	2017-11-17 09:03:36.686891664 -0800
-+++ b/drivers/hv/connection.c	2017-11-17 09:03:36.682891718 -0800
+--- a/drivers/hv/connection.c	2017-12-06 14:45:49.319515205 -0800
++++ b/drivers/hv/connection.c	2017-12-06 14:45:49.319515205 -0800
 @@ -117,6 +117,9 @@ static int vmbus_negotiate_version(struc
  	ret = vmbus_post_msg(msg,
  			     sizeof(struct vmbus_channel_initiate_contact),
@@ -23,8 +23,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	if (ret != 0) {
  		spin_lock_irqsave(&vmbus_connection.channelmsg_lock, flags);
  		list_del(&msginfo->msglistentry);
---- a/drivers/hv/hv_trace.h	2017-11-17 09:03:36.686891664 -0800
-+++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:36.682891718 -0800
+--- a/drivers/hv/hv_trace.h	2017-12-06 14:45:49.319515205 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:49.319515205 -0800
 @@ -232,6 +232,32 @@ TRACE_EVENT(vmbus_teardown_gpadl,
  		    )
  	);

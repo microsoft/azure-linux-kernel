@@ -13,8 +13,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/rndis_filter.c |    4 ++++
  2 files changed, 4 insertions(+), 3 deletions(-)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:44.418787638 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-11-17 09:03:44.414787692 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:07.539281641 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:07.535281692 -0800
 @@ -752,9 +752,6 @@ int netvsc_recv_callback(struct net_devi
  	struct sk_buff *skb;
  	struct netvsc_stats *rx_stats;
@@ -25,8 +25,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	/* Allocate a skb - TODO direct I/O to pages? */
  	skb = netvsc_alloc_recv_skb(net, &nvchan->napi,
  				    csum_info, vlan, data, len);
---- a/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:44.418787638 -0800
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-11-17 09:03:44.414787692 -0800
+--- a/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:07.539281641 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:07.535281692 -0800
 @@ -379,6 +379,10 @@ static int rndis_filter_receive_data(str
  		return NVSP_STAT_FAIL;
  	}

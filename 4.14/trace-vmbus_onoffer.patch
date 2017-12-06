@@ -11,8 +11,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h     |   37 +++++++++++++++++++++++++++++++++++++
  2 files changed, 39 insertions(+)
 
---- a/drivers/hv/channel_mgmt.c	2017-11-17 09:03:34.470921478 -0800
-+++ b/drivers/hv/channel_mgmt.c	2017-11-17 09:03:34.466921533 -0800
+--- a/drivers/hv/channel_mgmt.c	2017-12-06 14:45:47.179542636 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-12-06 14:45:47.175542688 -0800
 @@ -813,6 +813,8 @@ static void vmbus_onoffer(struct vmbus_c
  
  	offer = (struct vmbus_channel_offer_channel *)hdr;
@@ -22,8 +22,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	/* Allocate the channel object and save this offer. */
  	newchannel = alloc_channel();
  	if (!newchannel) {
---- a/drivers/hv/hv_trace.h	2017-11-17 09:03:34.470921478 -0800
-+++ b/drivers/hv/hv_trace.h	2017-11-17 09:03:34.466921533 -0800
+--- a/drivers/hv/hv_trace.h	2017-12-06 14:45:47.179542636 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:47.175542688 -0800
 @@ -24,6 +24,43 @@ DEFINE_EVENT(vmbus_hdr_msg, vmbus_on_mes
  	TP_ARGS(hdr)
  );

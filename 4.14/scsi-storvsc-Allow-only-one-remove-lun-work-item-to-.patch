@@ -36,8 +36,8 @@ Reviewed-by: Long Li <longli@microsoft.com>
  drivers/scsi/storvsc_drv.c |   26 +++++++++++++++++++++-----
  1 file changed, 21 insertions(+), 5 deletions(-)
 
---- a/drivers/scsi/storvsc_drv.c	2017-11-17 09:03:41.698824232 -0800
-+++ b/drivers/scsi/storvsc_drv.c	2017-11-17 09:03:41.694824287 -0800
+--- a/drivers/scsi/storvsc_drv.c	2017-12-06 14:45:53.983455416 -0800
++++ b/drivers/scsi/storvsc_drv.c	2017-12-06 14:45:53.979455468 -0800
 @@ -486,6 +486,7 @@ struct hv_host_device {
  	unsigned int port;
  	unsigned char path;
