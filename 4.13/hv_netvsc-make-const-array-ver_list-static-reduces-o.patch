@@ -1,0 +1,37 @@
+From 9bad8caa5b93021a1424fa668ba7feccd6136f75 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Fri, 22 Sep 2017 16:50:23 +0100
+Subject: [PATCH 123/156] hv_netvsc: make const array ver_list static, reduces
+ object code size
+
+Don't populate const array ver_list on the stack, instead make it
+static. Makes the object code smaller by over 400 bytes:
+
+Before:
+   text	   data	    bss	    dec	    hex	filename
+  18444	   3168	    320	  21932	   55ac	drivers/net/hyperv/netvsc.o
+
+After:
+   text	   data	    bss	    dec	    hex	filename
+  17950	   3224	    320	  21494	   53f6	drivers/net/hyperv/netvsc.o
+
+(gcc 6.3.0, x86-64)
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hyperv/netvsc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:55:50.486621854 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:55:50.482621905 -0800
+@@ -485,7 +485,7 @@ static int netvsc_connect_vsp(struct hv_
+ 			      struct netvsc_device *net_device,
+ 			      const struct netvsc_device_info *device_info)
+ {
+-	const u32 ver_list[] = {
++	static const u32 ver_list[] = {
+ 		NVSP_PROTOCOL_VERSION_1, NVSP_PROTOCOL_VERSION_2,
+ 		NVSP_PROTOCOL_VERSION_4, NVSP_PROTOCOL_VERSION_5
+ 	};

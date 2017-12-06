@@ -1,0 +1,45 @@
+From 3db3b97937af7345ca76b9cec3d3a0f6572e8877 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 16:50:35 +0200
+Subject: [PATCH 113/156] hyper-v: trace vmbus_onversion_response()
+
+Add tracepoint to CHANNELMSG_VERSION_RESPONSE handler.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/hv/channel_mgmt.c |  3 +++
+ drivers/hv/hv_trace.h     | 11 +++++++++++
+ 2 files changed, 14 insertions(+)
+
+--- a/drivers/hv/channel_mgmt.c	2017-12-05 16:55:48.478647625 -0800
++++ b/drivers/hv/channel_mgmt.c	2017-12-05 16:55:48.474647677 -0800
+@@ -1124,6 +1124,9 @@ static void vmbus_onversion_response(
+ 	unsigned long flags;
+ 
+ 	version_response = (struct vmbus_channel_version_response *)hdr;
++
++	trace_vmbus_onversion_response(version_response);
++
+ 	spin_lock_irqsave(&vmbus_connection.channelmsg_lock, flags);
+ 
+ 	list_for_each_entry(msginfo, &vmbus_connection.chn_msg_list,
+--- a/drivers/hv/hv_trace.h	2017-12-05 16:55:48.478647625 -0800
++++ b/drivers/hv/hv_trace.h	2017-12-05 16:55:48.474647677 -0800
+@@ -111,6 +111,17 @@ TRACE_EVENT(vmbus_ongpadl_torndown,
+ 	    TP_printk("gpadl 0x%x", __entry->gpadl)
+ 	);
+ 
++TRACE_EVENT(vmbus_onversion_response,
++	    TP_PROTO(const struct vmbus_channel_version_response *response),
++	    TP_ARGS(response),
++	    TP_STRUCT__entry(
++		    __field(u8, ver)
++		    ),
++	    TP_fast_assign(__entry->ver = response->version_supported;
++		    ),
++	    TP_printk("version_supported %d", __entry->ver)
++	);
++
+ #undef TRACE_INCLUDE_PATH
+ #define TRACE_INCLUDE_PATH .
+ #undef TRACE_INCLUDE_FILE

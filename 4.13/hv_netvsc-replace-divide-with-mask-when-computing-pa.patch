@@ -1,0 +1,30 @@
+From af18a25118e8bcea959e3bec41a33828cc156fed Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Thu, 5 Oct 2017 09:45:07 -0700
+Subject: [PATCH 134/156] hv_netvsc: replace divide with mask when computing
+ padding
+
+Packet alignment is always a power of 2 therefore modulus can
+be replaced with a faster and operation
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/hyperv/netvsc.c	2017-12-05 16:55:52.718593207 -0800
++++ b/drivers/net/hyperv/netvsc.c	2017-12-05 16:55:52.714593258 -0800
+@@ -712,11 +712,12 @@ static void netvsc_copy_to_send_buf(stru
+ 		     + pend_size;
+ 	int i;
+ 	u32 padding = 0;
+-	u32 remain = packet->total_data_buflen % net_device->pkt_align;
+ 	u32 page_count = packet->cp_partial ? packet->rmsg_pgcnt :
+ 		packet->page_buf_cnt;
++	u32 remain;
+ 
+ 	/* Add padding */
++	remain = packet->total_data_buflen & (net_device->pkt_align - 1);
+ 	if (skb->xmit_more && remain && !packet->cp_partial) {
+ 		padding = net_device->pkt_align - remain;
+ 		rndis_msg->msg_len += padding;
