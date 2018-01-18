@@ -1,0 +1,33 @@
+From 0672d3bf08e1fb6b807d7e4bc6c171fd5165948e Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Wed, 3 Jan 2018 11:45:08 -0800
+Subject: [PATCH 2/2] hack pci res code to make OFED driver work...
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+---
+ drivers/pci/bus.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/pci/bus.c b/drivers/pci/bus.c
+index 32e66a6..d700a0e 100644
+--- a/drivers/pci/bus.c
++++ b/drivers/pci/bus.c
+@@ -137,6 +137,7 @@ pci_bus_alloc_resource(struct pci_bus *bus, struct resource *res,
+ 		if (!r)
+ 			continue;
+ 
++#if 0
+ 		/* type_mask must match */
+ 		if ((res->flags ^ r->flags) & type_mask)
+ 			continue;
+@@ -146,6 +147,7 @@ pci_bus_alloc_resource(struct pci_bus *bus, struct resource *res,
+ 		if ((r->flags & IORESOURCE_PREFETCH) &&
+ 		    !(res->flags & IORESOURCE_PREFETCH))
+ 			continue;
++#endif
+ 
+ 		/* Ok, try it out.. */
+ 		ret = allocate_resource(r, res, size,
+-- 
+2.7.4
+
