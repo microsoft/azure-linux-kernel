@@ -29,7 +29,6 @@ hv_netvsc-Update-netvsc-Document-for-TCP-hash-level-.patch
 hv_netvsc-Rename-ind_table-to-rx_table.patch
 hv_netvsc-Rename-tx_send_table-to-tx_table.patch
 hv_netvsc-Add-initialization-of-tx_table-in-netvsc_d.patch
-hv_netvsc-add-trace-event-hooks.patch
 hv_netvsc-drop-unused-macros.patch
 hv_netvsc-copy_to_send-buf-can-be-void.patch
 hv_netvsc-don-t-need-local-xmit_more.patch
