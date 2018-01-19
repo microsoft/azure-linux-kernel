@@ -1,0 +1,2123 @@
+From 6b9ffa54fb34512a59dc895268e4b86b35963a6b Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Thu, 18 Jan 2018 16:16:14 -0800
+Subject: [PATCH 3/3] uncomment the hv_utils driver
+
+TimeSync, KVP, Shutdown & HeartBeat work fine with the patch.
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+---
+ drivers/hv/Makefile             |   4 +-
+ drivers/hv/channel_mgmt.c       | 179 +++++++++++---------
+ drivers/hv/hv_kvp.c             | 286 +++++++++++++++++++------------
+ drivers/hv/hv_snapshot.c        | 332 ++++++++++++++++++++++++------------
+ drivers/hv/hv_util.c            | 311 +++++++++++++++++++++++++++-------
+ drivers/hv/hv_utils_transport.c | 360 ++++++++++++++++++++++++++++++++++++++++
+ drivers/hv/hv_utils_transport.h |  55 ++++++
+ drivers/hv/hyperv_vmbus.h       |   5 +-
+ include/linux/hyperv.h          |   7 +-
+ 9 files changed, 1174 insertions(+), 365 deletions(-)
+ create mode 100644 drivers/hv/hv_utils_transport.c
+ create mode 100644 drivers/hv/hv_utils_transport.h
+
+diff --git a/drivers/hv/Makefile b/drivers/hv/Makefile
+index b67487c..ab7fac6 100644
+--- a/drivers/hv/Makefile
++++ b/drivers/hv/Makefile
+@@ -1,8 +1,8 @@
+ obj-$(CONFIG_HYPERV)		+= hv_vmbus.o
+-#obj-$(CONFIG_HYPERV_UTILS)	+= hv_utils.o
++obj-$(CONFIG_HYPERV_UTILS)	+= hv_utils.o
+ #obj-$(CONFIG_HYPERV_BALLOON)	+= hv_balloon.o
+ 
+ hv_vmbus-y := vmbus_drv.o \
+ 		 hv.o connection.o channel.o \
+ 		 channel_mgmt.o ring_buffer.o
+-hv_utils-y := hv_util.o hv_kvp.o hv_snapshot.o
++hv_utils-y := hv_util.o hv_kvp.o hv_snapshot.o hv_utils_transport.o
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index 543f4a2..7396f5e 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -180,91 +180,118 @@ static u16 hv_get_dev_type(const struct vmbus_channel *channel)
+  * @buf: Raw buffer channel data
+  *
+  * @icmsghdrp is of type &struct icmsg_hdr.
+- * @negop is of type &struct icmsg_negotiate.
+  * Set up and fill in default negotiate response message.
+  *
+- * The fw_version specifies the  framework version that
+- * we can support and srv_version specifies the service
+- * version we can support.
++ * The fw_version and fw_vercnt specifies the framework version that
++ * we can support.
++ *
++ * The srv_version and srv_vercnt specifies the service
++ * versions we can support.
++ *
++ * Versions are given in decreasing order.
++ *
++ * nego_fw_version and nego_srv_version store the selected protocol versions.
+  *
+  * Mainly used by Hyper-V drivers.
+  */
+ bool vmbus_prep_negotiate_resp(struct icmsg_hdr *icmsghdrp,
+-				struct icmsg_negotiate *negop, u8 *buf,
+-				int fw_version, int srv_version)
++                                u8 *buf, const int *fw_version, int fw_vercnt,
++                                const int *srv_version, int srv_vercnt,
++                                int *nego_fw_version, int *nego_srv_version)
+ {
+-	int icframe_major, icframe_minor;
+-	int icmsg_major, icmsg_minor;
+-	int fw_major, fw_minor;
+-	int srv_major, srv_minor;
+-	int i;
+-	bool found_match = false;
+-
+-	icmsghdrp->icmsgsize = 0x10;
+-	fw_major = (fw_version >> 16);
+-	fw_minor = (fw_version & 0xFFFF);
+-
+-	srv_major = (srv_version >> 16);
+-	srv_minor = (srv_version & 0xFFFF);
+-
+-	negop = (struct icmsg_negotiate *)&buf[
+-		sizeof(struct vmbuspipe_hdr) +
+-		sizeof(struct icmsg_hdr)];
+-
+-	icframe_major = negop->icframe_vercnt;
+-	icframe_minor = 0;
+-
+-	icmsg_major = negop->icmsg_vercnt;
+-	icmsg_minor = 0;
+-
+-	/*
+-	 * Select the framework version number we will
+-	 * support.
+-	 */
+-
+-	for (i = 0; i < negop->icframe_vercnt; i++) {
+-		if ((negop->icversion_data[i].major == fw_major) &&
+-		   (negop->icversion_data[i].minor == fw_minor)) {
+-			icframe_major = negop->icversion_data[i].major;
+-			icframe_minor = negop->icversion_data[i].minor;
+-			found_match = true;
+-		}
+-	}
+-
+-	if (!found_match)
+-		goto fw_error;
+-
+-	found_match = false;
+-
+-	for (i = negop->icframe_vercnt;
+-		 (i < negop->icframe_vercnt + negop->icmsg_vercnt); i++) {
+-		if ((negop->icversion_data[i].major == srv_major) &&
+-		   (negop->icversion_data[i].minor == srv_minor)) {
+-			icmsg_major = negop->icversion_data[i].major;
+-			icmsg_minor = negop->icversion_data[i].minor;
+-			found_match = true;
+-		}
+-	}
+-
+-	/*
+-	 * Respond with the framework and service
+-	 * version numbers we can support.
+-	 */
++        int icframe_major, icframe_minor;
++        int icmsg_major, icmsg_minor;
++        int fw_major, fw_minor;
++        int srv_major, srv_minor;
++        int i, j;
++        bool found_match = false;
++        struct icmsg_negotiate *negop;
++
++        icmsghdrp->icmsgsize = 0x10;
++        negop = (struct icmsg_negotiate *)&buf[
++                sizeof(struct vmbuspipe_hdr) +
++                sizeof(struct icmsg_hdr)];
++
++        icframe_major = negop->icframe_vercnt;
++        icframe_minor = 0;
++
++        icmsg_major = negop->icmsg_vercnt;
++        icmsg_minor = 0;
++
++        /*
++         * Select the framework version number we will
++         * support.
++         */
++        for (i = 0; i < fw_vercnt; i++) {
++                fw_major = (fw_version[i] >> 16);
++                fw_minor = (fw_version[i] & 0xFFFF);
++
++                for (j = 0; j < negop->icframe_vercnt; j++) {
++                        if ((negop->icversion_data[j].major == fw_major) &&
++                            (negop->icversion_data[j].minor == fw_minor)) {
++                                icframe_major = negop->icversion_data[j].major;
++                                icframe_minor = negop->icversion_data[j].minor;
++                                found_match = true;
++                                break;
++                        }
++                }
++
++                if (found_match)
++                        break;
++        }
++
++        if (!found_match)
++                goto fw_error;
++
++        found_match = false;
++
++        for (i = 0; i < srv_vercnt; i++) {
++                srv_major = (srv_version[i] >> 16);
++                srv_minor = (srv_version[i] & 0xFFFF);
++
++                for (j = negop->icframe_vercnt;
++                        (j < negop->icframe_vercnt + negop->icmsg_vercnt);
++                        j++) {
++
++                        if ((negop->icversion_data[j].major == srv_major) &&
++                                (negop->icversion_data[j].minor == srv_minor)) {
++
++                                icmsg_major = negop->icversion_data[j].major;
++                                icmsg_minor = negop->icversion_data[j].minor;
++                                found_match = true;
++                                break;
++                        }
++                }
++
++                if (found_match)
++                        break;
++        }
++
++        /*
++         * Respond with the framework and service
++         * version numbers we can support.
++         */
+ 
+ fw_error:
+-	if (!found_match) {
+-		negop->icframe_vercnt = 0;
+-		negop->icmsg_vercnt = 0;
+-	} else {
+-		negop->icframe_vercnt = 1;
+-		negop->icmsg_vercnt = 1;
+-	}
+-
+-	negop->icversion_data[0].major = icframe_major;
+-	negop->icversion_data[0].minor = icframe_minor;
+-	negop->icversion_data[1].major = icmsg_major;
+-	negop->icversion_data[1].minor = icmsg_minor;
+-	return found_match;
++        if (!found_match) {
++                negop->icframe_vercnt = 0;
++                negop->icmsg_vercnt = 0;
++        } else {
++                negop->icframe_vercnt = 1;
++                negop->icmsg_vercnt = 1;
++        }
++
++        if (nego_fw_version)
++                *nego_fw_version = (icframe_major << 16) | icframe_minor;
++
++        if (nego_srv_version)
++                *nego_srv_version = (icmsg_major << 16) | icmsg_minor;
++
++        negop->icversion_data[0].major = icframe_major;
++        negop->icversion_data[0].minor = icframe_minor;
++        negop->icversion_data[1].major = icmsg_major;
++        negop->icversion_data[1].minor = icmsg_minor;
++        return found_match;
+ }
+ 
+ EXPORT_SYMBOL_GPL(vmbus_prep_negotiate_resp);
+diff --git a/drivers/hv/hv_kvp.c b/drivers/hv/hv_kvp.c
+index 0e8c1ea..2c93558 100644
+--- a/drivers/hv/hv_kvp.c
++++ b/drivers/hv/hv_kvp.c
+@@ -28,34 +28,60 @@
+ #include <linux/workqueue.h>
+ #include <linux/hyperv.h>
+ 
++#include "hyperv_vmbus.h"
++#include "hv_utils_transport.h"
+ 
++/*
++ * Pre win8 version numbers used in ws2008 and ws 2008 r2 (win7)
++ */
++#define WS2008_SRV_MAJOR	1
++#define WS2008_SRV_MINOR	0
++#define WS2008_SRV_VERSION     (WS2008_SRV_MAJOR << 16 | WS2008_SRV_MINOR)
++
++#define WIN7_SRV_MAJOR   3
++#define WIN7_SRV_MINOR   0
++#define WIN7_SRV_VERSION     (WIN7_SRV_MAJOR << 16 | WIN7_SRV_MINOR)
++
++#define WIN8_SRV_MAJOR   4
++#define WIN8_SRV_MINOR   0
++#define WIN8_SRV_VERSION     (WIN8_SRV_MAJOR << 16 | WIN8_SRV_MINOR)
++
++#define KVP_VER_COUNT 3
++static const int kvp_versions[] = {
++	WIN8_SRV_VERSION,
++	WIN7_SRV_VERSION,
++	WS2008_SRV_VERSION
++};
++
++#define FW_VER_COUNT 2
++static const int fw_versions[] = {
++	UTIL_FW_VERSION,
++	UTIL_WS2K8_FW_VERSION
++};
+ 
+ /*
+- * Global state maintained for transaction that is being processed.
+- * Note that only one transaction can be active at any point in time.
++ * Global state maintained for transaction that is being processed. For a class
++ * of integration services, including the "KVP service", the specified protocol
++ * is a "request/response" protocol which means that there can only be single
++ * outstanding transaction from the host at any given point in time. We use
++ * this to simplify memory management in this driver - we cache and process
++ * only one message at a time.
+  *
+- * This state is set when we receive a request from the host; we
+- * cleanup this state when the transaction is completed - when we respond
+- * to the host with the key value.
++ * While the request/response protocol is guaranteed by the host, we further
++ * ensure this by serializing packet processing in this driver - we do not
++ * read additional packets from the VMBUS until the current packet is fully
++ * handled.
+  */
+ 
+ static struct {
+-	bool active; /* transaction status - active or not */
++	int state;   /* hvutil_device_state */
+ 	int recv_len; /* number of bytes received. */
+ 	struct hv_kvp_msg  *kvp_msg; /* current message */
+ 	struct vmbus_channel *recv_channel; /* chn we got the request */
+ 	u64 recv_req_id; /* request ID. */
+-	void *kvp_context; /* for the channel callback */
+ } kvp_transaction;
+ 
+ /*
+- * Before we can accept KVP messages from the host, we need
+- * to handshake with the user level daemon. This state tracks
+- * if we are in the handshake phase.
+- */
+-static bool in_hand_shake = true;
+-
+-/*
+  * This state maintains the version number registered by the daemon.
+  */
+ static int dm_reg_value;
+@@ -64,66 +90,81 @@ static void kvp_send_key(struct work_struct *dummy);
+ 
+ 
+ static void kvp_respond_to_host(struct hv_kvp_msg *msg, int error);
+-static void kvp_work_func(struct work_struct *dummy);
++static void kvp_timeout_func(struct work_struct *dummy);
++static void kvp_host_handshake_func(struct work_struct *dummy);
+ static void kvp_register(int);
+ 
+-static DECLARE_DELAYED_WORK(kvp_work, kvp_work_func);
++static DECLARE_DELAYED_WORK(kvp_timeout_work, kvp_timeout_func);
++static DECLARE_DELAYED_WORK(kvp_host_handshake_work, kvp_host_handshake_func);
+ static DECLARE_WORK(kvp_sendkey_work, kvp_send_key);
+ 
+-static struct cb_id kvp_id = { CN_KVP_IDX, CN_KVP_VAL };
+-static const char kvp_name[] = "kvp_kernel_module";
++static const char kvp_devname[] = "vmbus/hv_kvp";
+ static u8 *recv_buffer;
++static struct hvutil_transport *hvt;
++
+ /*
+  * Register the kernel component with the user-level daemon.
+  * As part of this registration, pass the LIC version number.
++ * This number has no meaning, it satisfies the registration protocol.
+  */
++#define HV_DRV_VERSION           "3.1"
++
++static void kvp_poll_wrapper(void *channel)
++{
++	/* Transaction is finished, reset the state here to avoid races. */
++	kvp_transaction.state = HVUTIL_READY;
++	tasklet_schedule(&((struct vmbus_channel *)channel)->callback_event);
++}
++
++static void kvp_register_done(void)
++{
++	/*
++	 * If we're still negotiating with the host cancel the timeout
++	 * work to not poll the channel twice.
++	 */
++	pr_debug("KVP: userspace daemon registered\n");
++	cancel_delayed_work_sync(&kvp_host_handshake_work);
++	hv_poll_channel(kvp_transaction.recv_channel, kvp_poll_wrapper);
++}
+ 
+ static void
+ kvp_register(int reg_value)
+ {
+ 
+-	struct cn_msg *msg;
+ 	struct hv_kvp_msg *kvp_msg;
+ 	char *version;
+ 
+-	msg = kzalloc(sizeof(*msg) + sizeof(struct hv_kvp_msg), GFP_ATOMIC);
++	kvp_msg = kzalloc(sizeof(*kvp_msg), GFP_KERNEL);
+ 
+-	if (msg) {
+-		kvp_msg = (struct hv_kvp_msg *)msg->data;
++	if (kvp_msg) {
+ 		version = kvp_msg->body.kvp_register.version;
+-		msg->id.idx =  CN_KVP_IDX;
+-		msg->id.val = CN_KVP_VAL;
+-
+ 		kvp_msg->kvp_hdr.operation = reg_value;
+ 		strcpy(version, HV_DRV_VERSION);
+-		msg->len = sizeof(struct hv_kvp_msg);
+-		cn_netlink_send(msg, 0, GFP_ATOMIC);
+-		kfree(msg);
++
++		hvutil_transport_send(hvt, kvp_msg, sizeof(*kvp_msg),
++				      kvp_register_done);
++		kfree(kvp_msg);
+ 	}
+ }
+-static void
+-kvp_work_func(struct work_struct *dummy)
++
++static void kvp_timeout_func(struct work_struct *dummy)
+ {
+ 	/*
+ 	 * If the timer fires, the user-mode component has not responded;
+ 	 * process the pending transaction.
+ 	 */
+ 	kvp_respond_to_host(NULL, HV_E_FAIL);
++
++	hv_poll_channel(kvp_transaction.recv_channel, kvp_poll_wrapper);
+ }
+ 
+-static void poll_channel(struct vmbus_channel *channel)
++static void kvp_host_handshake_func(struct work_struct *dummy)
+ {
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&channel->inbound_lock, flags);
+-	hv_kvp_onchannelcallback(channel);
+-	spin_unlock_irqrestore(&channel->inbound_lock, flags);
++	tasklet_schedule(&kvp_transaction.recv_channel->callback_event);
+ }
+ 
+ static int kvp_handle_handshake(struct hv_kvp_msg *msg)
+ {
+-	int ret = 1;
+-
+ 	switch (msg->kvp_hdr.operation) {
+ 	case KVP_OP_REGISTER:
+ 		dm_reg_value = KVP_OP_REGISTER;
+@@ -137,20 +178,17 @@ static int kvp_handle_handshake(struct hv_kvp_msg *msg)
+ 		pr_info("KVP: incompatible daemon\n");
+ 		pr_info("KVP: KVP version: %d, Daemon version: %d\n",
+ 			KVP_OP_REGISTER1, msg->kvp_hdr.operation);
+-		ret = 0;
++		return -EINVAL;
+ 	}
+ 
+-	if (ret) {
+-		/*
+-		 * We have a compatible daemon; complete the handshake.
+-		 */
+-		pr_info("KVP: user-mode registering done.\n");
+-		kvp_register(dm_reg_value);
+-		kvp_transaction.active = false;
+-		if (kvp_transaction.kvp_context)
+-			poll_channel(kvp_transaction.kvp_context);
+-	}
+-	return ret;
++	/*
++	 * We have a compatible daemon; complete the handshake.
++	 */
++	pr_debug("KVP: userspace daemon ver. %d connected\n",
++		 msg->kvp_hdr.operation);
++	kvp_register(dm_reg_value);
++
++	return 0;
+ }
+ 
+ 
+@@ -158,26 +196,30 @@ static int kvp_handle_handshake(struct hv_kvp_msg *msg)
+  * Callback when data is received from user mode.
+  */
+ 
+-static void
+-kvp_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
++static int kvp_on_msg(void *msg, int len)
+ {
+-	struct hv_kvp_msg *message;
++	struct hv_kvp_msg *message = (struct hv_kvp_msg *)msg;
+ 	struct hv_kvp_msg_enumerate *data;
+ 	int	error = 0;
+ 
+-	message = (struct hv_kvp_msg *)msg->data;
++	if (len < sizeof(*message))
++		return -EINVAL;
+ 
+ 	/*
+ 	 * If we are negotiating the version information
+ 	 * with the daemon; handle that first.
+ 	 */
+ 
+-	if (in_hand_shake) {
+-		if (kvp_handle_handshake(message))
+-			in_hand_shake = false;
+-		return;
++	if (kvp_transaction.state < HVUTIL_READY) {
++		return kvp_handle_handshake(message);
+ 	}
+ 
++	/* We didn't send anything to userspace so the reply is spurious */
++	if (kvp_transaction.state < HVUTIL_USERSPACE_REQ)
++		return -EINVAL;
++
++	kvp_transaction.state = HVUTIL_USERSPACE_RECV;
++
+ 	/*
+ 	 * Based on the version of the daemon, we propagate errors from the
+ 	 * daemon differently.
+@@ -207,8 +249,12 @@ kvp_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
+ 	 * Complete the transaction by forwarding the key value
+ 	 * to the host. But first, cancel the timeout.
+ 	 */
+-	if (cancel_delayed_work_sync(&kvp_work))
++	if (cancel_delayed_work_sync(&kvp_timeout_work)) {
+ 		kvp_respond_to_host(message, error);
++		hv_poll_channel(kvp_transaction.recv_channel, kvp_poll_wrapper);
++	}
++
++	return 0;
+ }
+ 
+ 
+@@ -259,7 +305,7 @@ static int process_ob_ipinfo(void *in_msg, void *out_msg, int op)
+ 				strlen((char *)in->body.kvp_ip_val.adapter_id),
+ 				UTF16_HOST_ENDIAN,
+ 				(wchar_t *)out->kvp_ip_val.adapter_id,
+-				MAX_IP_ADDR_SIZE);
++				MAX_ADAPTER_ID_SIZE);
+ 		if (len < 0)
+ 			return len;
+ 
+@@ -325,22 +371,22 @@ static void process_ib_ipinfo(void *in_msg, void *out_msg, int op)
+ static void
+ kvp_send_key(struct work_struct *dummy)
+ {
+-	struct cn_msg *msg;
+ 	struct hv_kvp_msg *message;
+ 	struct hv_kvp_msg *in_msg;
+ 	__u8 operation = kvp_transaction.kvp_msg->kvp_hdr.operation;
+ 	__u8 pool = kvp_transaction.kvp_msg->kvp_hdr.pool;
+ 	__u32 val32;
+ 	__u64 val64;
++	int rc;
+ 
+-	msg = kzalloc(sizeof(*msg) + sizeof(struct hv_kvp_msg) , GFP_ATOMIC);
+-	if (!msg)
++	/* The transaction state is wrong. */
++	if (kvp_transaction.state != HVUTIL_HOSTMSG_RECEIVED)
+ 		return;
+ 
+-	msg->id.idx =  CN_KVP_IDX;
+-	msg->id.val = CN_KVP_VAL;
++	message = kzalloc(sizeof(*message), GFP_KERNEL);
++	if (!message)
++		return;
+ 
+-	message = (struct hv_kvp_msg *)msg->data;
+ 	message->kvp_hdr.operation = operation;
+ 	message->kvp_hdr.pool = pool;
+ 	in_msg = kvp_transaction.kvp_msg;
+@@ -352,7 +398,7 @@ kvp_send_key(struct work_struct *dummy)
+ 	 * the max lengths specified. We will however, reserve room
+ 	 * for the string terminating character - in the utf16s_utf8s()
+ 	 * function we limit the size of the buffer where the converted
+-	 * string is placed to HV_KVP_EXCHANGE_MAX_*_SIZE -1 to gaurantee
++	 * string is placed to HV_KVP_EXCHANGE_MAX_*_SIZE -1 to guarantee
+ 	 * that the strings can be properly terminated!
+ 	 */
+ 
+@@ -427,11 +473,17 @@ kvp_send_key(struct work_struct *dummy)
+ 			break;
+ 	}
+ 
+-	msg->len = sizeof(struct hv_kvp_msg);
+-	cn_netlink_send(msg, 0, GFP_ATOMIC);
+-	kfree(msg);
++	kvp_transaction.state = HVUTIL_USERSPACE_REQ;
++	rc = hvutil_transport_send(hvt, message, sizeof(*message), NULL);
++	if (rc) {
++		pr_debug("KVP: failed to communicate to the daemon: %d\n", rc);
++		if (cancel_delayed_work_sync(&kvp_timeout_work)) {
++			kvp_respond_to_host(message, HV_E_FAIL);
++			kvp_transaction.state = HVUTIL_READY;
++		}
++	}
+ 
+-	return;
++	kfree(message);
+ }
+ 
+ /*
+@@ -454,17 +506,6 @@ kvp_respond_to_host(struct hv_kvp_msg *msg_to_host, int error)
+ 	int ret;
+ 
+ 	/*
+-	 * If a transaction is not active; log and return.
+-	 */
+-
+-	if (!kvp_transaction.active) {
+-		/*
+-		 * This is a spurious call!
+-		 */
+-		pr_warn("KVP: Transaction not active\n");
+-		return;
+-	}
+-	/*
+ 	 * Copy the global state for completing the transaction. Note that
+ 	 * only one transaction can be active at a time.
+ 	 */
+@@ -473,8 +514,6 @@ kvp_respond_to_host(struct hv_kvp_msg *msg_to_host, int error)
+ 	channel = kvp_transaction.recv_channel;
+ 	req_id = kvp_transaction.recv_req_id;
+ 
+-	kvp_transaction.active = false;
+-
+ 	icmsghdrp = (struct icmsg_hdr *)
+ 			&recv_buffer[sizeof(struct vmbuspipe_hdr)];
+ 
+@@ -493,7 +532,7 @@ kvp_respond_to_host(struct hv_kvp_msg *msg_to_host, int error)
+ 	 */
+ 	if (error) {
+ 		/*
+-		 * Something failed or we have timedout;
++		 * Something failed or we have timed out;
+ 		 * terminate the current host-side iteration.
+ 		 */
+ 		goto response_done;
+@@ -561,16 +600,14 @@ response_done:
+ 
+ 	vmbus_sendpacket(channel, recv_buffer, buf_len, req_id,
+ 				VM_PKT_DATA_INBAND, 0);
+-	poll_channel(channel);
+-
+ }
+ 
+ /*
+  * This callback is invoked when we get a KVP message from the host.
+  * The host ensures that only one KVP transaction can be active at a time.
+  * KVP implementation in Linux needs to forward the key to a user-mde
+- * component to retrive the corresponding value. Consequently, we cannot
+- * respond to the host in the conext of this callback. Since the host
++ * component to retrieve the corresponding value. Consequently, we cannot
++ * respond to the host in the context of this callback. Since the host
+  * guarantees that at most only one transaction can be active at a time,
+  * we stash away the transaction state in a set of global variables.
+  */
+@@ -584,16 +621,26 @@ void hv_kvp_onchannelcallback(void *context)
+ 	struct hv_kvp_msg *kvp_msg;
+ 
+ 	struct icmsg_hdr *icmsghdrp;
+-	struct icmsg_negotiate *negop = NULL;
++	int kvp_srv_version;
++	static enum {NEGO_NOT_STARTED,
++		     NEGO_IN_PROGRESS,
++		     NEGO_FINISHED} host_negotiatied = NEGO_NOT_STARTED;
+ 
+-	if (kvp_transaction.active) {
++	if (kvp_transaction.state < HVUTIL_READY) {
+ 		/*
+-		 * We will defer processing this callback once
+-		 * the current transaction is complete.
++		 * If userspace daemon is not connected and host is asking
++		 * us to negotiate we need to delay to not lose messages.
++		 * This is important for Failover IP setting.
+ 		 */
+-		kvp_transaction.kvp_context = context;
++		if (host_negotiatied == NEGO_NOT_STARTED) {
++			host_negotiatied = NEGO_IN_PROGRESS;
++			schedule_delayed_work(&kvp_host_handshake_work,
++					      HV_UTIL_NEGO_TIMEOUT * HZ);
++		}
+ 		return;
+ 	}
++	if (kvp_transaction.state > HVUTIL_READY)
++		return;
+ 
+ 	vmbus_recvpacket(channel, recv_buffer, PAGE_SIZE * 4, &recvlen,
+ 			 &requestid);
+@@ -603,8 +650,14 @@ void hv_kvp_onchannelcallback(void *context)
+ 			sizeof(struct vmbuspipe_hdr)];
+ 
+ 		if (icmsghdrp->icmsgtype == ICMSGTYPE_NEGOTIATE) {
+-			vmbus_prep_negotiate_resp(icmsghdrp, negop,
+-				 recv_buffer, MAX_SRV_VER, MAX_SRV_VER);
++			if (vmbus_prep_negotiate_resp(icmsghdrp,
++				 recv_buffer, fw_versions, FW_VER_COUNT,
++				 kvp_versions, KVP_VER_COUNT,
++				 NULL, &kvp_srv_version)) {
++				pr_info("KVP IC version %d.%d\n",
++					kvp_srv_version >> 16,
++					kvp_srv_version & 0xFFFF);
++			}
+ 		} else {
+ 			kvp_msg = (struct hv_kvp_msg *)&recv_buffer[
+ 				sizeof(struct vmbuspipe_hdr) +
+@@ -616,11 +669,16 @@ void hv_kvp_onchannelcallback(void *context)
+ 			 */
+ 
+ 			kvp_transaction.recv_len = recvlen;
+-			kvp_transaction.recv_channel = channel;
+ 			kvp_transaction.recv_req_id = requestid;
+-			kvp_transaction.active = true;
+ 			kvp_transaction.kvp_msg = kvp_msg;
+ 
++			if (kvp_transaction.state < HVUTIL_READY) {
++				/* Userspace is not registered yet */
++				kvp_respond_to_host(NULL, HV_E_FAIL);
++				return;
++			}
++			kvp_transaction.state = HVUTIL_HOSTMSG_RECEIVED;
++
+ 			/*
+ 			 * Get the information from the
+ 			 * user-mode component.
+@@ -631,7 +689,8 @@ void hv_kvp_onchannelcallback(void *context)
+ 			 * user-mode not responding.
+ 			 */
+ 			schedule_work(&kvp_sendkey_work);
+-			schedule_delayed_work(&kvp_work, 5*HZ);
++			schedule_delayed_work(&kvp_timeout_work,
++					      HV_UTIL_TIMEOUT * HZ);
+ 
+ 			return;
+ 
+@@ -643,19 +702,25 @@ void hv_kvp_onchannelcallback(void *context)
+ 		vmbus_sendpacket(channel, recv_buffer,
+ 				       recvlen, requestid,
+ 				       VM_PKT_DATA_INBAND, 0);
++
++		host_negotiatied = NEGO_FINISHED;
++		hv_poll_channel(kvp_transaction.recv_channel, kvp_poll_wrapper);
+ 	}
+ 
+ }
+ 
++static void kvp_on_reset(void)
++{
++	if (cancel_delayed_work_sync(&kvp_timeout_work))
++		kvp_respond_to_host(NULL, HV_E_FAIL);
++	kvp_transaction.state = HVUTIL_DEVICE_INIT;
++}
++
+ int
+ hv_kvp_init(struct hv_util_service *srv)
+ {
+-	int err;
+-
+-	err = cn_add_callback(&kvp_id, kvp_name, kvp_cn_callback);
+-	if (err)
+-		return err;
+ 	recv_buffer = srv->recv_buffer;
++	kvp_transaction.recv_channel = srv->channel;
+ 
+ 	/*
+ 	 * When this driver loads, the user level daemon that
+@@ -663,14 +728,21 @@ hv_kvp_init(struct hv_util_service *srv)
+ 	 * Defer processing channel callbacks until the daemon
+ 	 * has registered.
+ 	 */
+-	kvp_transaction.active = true;
++	kvp_transaction.state = HVUTIL_DEVICE_INIT;
++
++	hvt = hvutil_transport_init(kvp_devname, CN_KVP_IDX, CN_KVP_VAL,
++				    kvp_on_msg, kvp_on_reset);
++	if (!hvt)
++		return -EFAULT;
+ 
+ 	return 0;
+ }
+ 
+ void hv_kvp_deinit(void)
+ {
+-	cn_del_callback(&kvp_id);
+-	cancel_delayed_work_sync(&kvp_work);
++	kvp_transaction.state = HVUTIL_DEVICE_DYING;
++	cancel_delayed_work_sync(&kvp_host_handshake_work);
++	cancel_delayed_work_sync(&kvp_timeout_work);
+ 	cancel_work_sync(&kvp_sendkey_work);
++	hvutil_transport_destroy(hvt);
+ }
+diff --git a/drivers/hv/hv_snapshot.c b/drivers/hv/hv_snapshot.c
+index 8ad5653..1f4f1b7 100644
+--- a/drivers/hv/hv_snapshot.c
++++ b/drivers/hv/hv_snapshot.c
+@@ -24,19 +24,44 @@
+ #include <linux/workqueue.h>
+ #include <linux/hyperv.h>
+ 
++#include "hyperv_vmbus.h"
++#include "hv_utils_transport.h"
+ 
++#define VSS_MAJOR  5
++#define VSS_MINOR  0
++#define VSS_VERSION    (VSS_MAJOR << 16 | VSS_MINOR)
++
++#define VSS_VER_COUNT 1
++static const int vss_versions[] = {
++	VSS_VERSION
++};
++
++#define FW_VER_COUNT 1
++static const int fw_versions[] = {
++	UTIL_FW_VERSION
++};
++
++/*
++ * Timeout values are based on expecations from host
++ */
++#define VSS_FREEZE_TIMEOUT (15 * 60)
+ 
+ /*
+- * Global state maintained for transaction that is being processed.
+- * Note that only one transaction can be active at any point in time.
++ * Global state maintained for transaction that is being processed. For a class
++ * of integration services, including the "VSS service", the specified protocol
++ * is a "request/response" protocol which means that there can only be single
++ * outstanding transaction from the host at any given point in time. We use
++ * this to simplify memory management in this driver - we cache and process
++ * only one message at a time.
+  *
+- * This state is set when we receive a request from the host; we
+- * cleanup this state when the transaction is completed - when we respond
+- * to the host with the key value.
++ * While the request/response protocol is guaranteed by the host, we further
++ * ensure this by serializing packet processing in this driver - we do not
++ * read additional packets from the VMBUs until the current packet is fully
++ * handled.
+  */
+ 
+ static struct {
+-	bool active; /* transaction status - active or not */
++	int state;   /* hvutil_device_state */
+ 	int recv_len; /* number of bytes received. */
+ 	struct vmbus_channel *recv_channel; /* chn we got the request */
+ 	u64 recv_req_id; /* request ID. */
+@@ -46,58 +71,183 @@ static struct {
+ 
+ static void vss_respond_to_host(int error);
+ 
+-static struct cb_id vss_id = { CN_VSS_IDX, CN_VSS_VAL };
+-static const char vss_name[] = "vss_kernel_module";
++/*
++ * This state maintains the version number registered by the daemon.
++ */
++static int dm_reg_value;
++
++static const char vss_devname[] = "vmbus/hv_vss";
+ static __u8 *recv_buffer;
++static struct hvutil_transport *hvt;
++
++static void vss_timeout_func(struct work_struct *dummy);
++static void vss_handle_request(struct work_struct *dummy);
++
++static DECLARE_DELAYED_WORK(vss_timeout_work, vss_timeout_func);
++static DECLARE_WORK(vss_handle_request_work, vss_handle_request);
+ 
+-static void vss_send_op(struct work_struct *dummy);
+-static DECLARE_WORK(vss_send_op_work, vss_send_op);
++static void vss_poll_wrapper(void *channel)
++{
++	/* Transaction is finished, reset the state here to avoid races. */
++	vss_transaction.state = HVUTIL_READY;
++	hv_vss_onchannelcallback(channel);
++}
+ 
+ /*
+  * Callback when data is received from user mode.
+  */
+ 
+-static void
+-vss_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
++static void vss_timeout_func(struct work_struct *dummy)
+ {
+-	struct hv_vss_msg *vss_msg;
++	/*
++	 * Timeout waiting for userspace component to reply happened.
++	 */
++	pr_warn("VSS: timeout waiting for daemon to reply\n");
++	vss_respond_to_host(HV_E_FAIL);
+ 
+-	vss_msg = (struct hv_vss_msg *)msg->data;
++	hv_poll_channel(vss_transaction.recv_channel, vss_poll_wrapper);
++}
+ 
+-	if (vss_msg->vss_hdr.operation == VSS_OP_REGISTER) {
+-		pr_info("VSS daemon registered\n");
+-		vss_transaction.active = false;
+-		if (vss_transaction.recv_channel != NULL)
+-			hv_vss_onchannelcallback(vss_transaction.recv_channel);
+-		return;
++static void vss_register_done(void)
++{
++	hv_poll_channel(vss_transaction.recv_channel, vss_poll_wrapper);
++	pr_debug("VSS: userspace daemon registered\n");
++}
+ 
++static int vss_handle_handshake(struct hv_vss_msg *vss_msg)
++{
++	u32 our_ver = VSS_OP_REGISTER1;
++
++	switch (vss_msg->vss_hdr.operation) {
++	case VSS_OP_REGISTER:
++		/* Daemon doesn't expect us to reply */
++		dm_reg_value = VSS_OP_REGISTER;
++		break;
++	case VSS_OP_REGISTER1:
++		/* Daemon expects us to reply with our own version */
++		if (hvutil_transport_send(hvt, &our_ver, sizeof(our_ver),
++					  vss_register_done))
++			return -EFAULT;
++		dm_reg_value = VSS_OP_REGISTER1;
++		break;
++	default:
++		return -EINVAL;
+ 	}
+-	vss_respond_to_host(vss_msg->error);
++	pr_info("VSS: userspace daemon ver. %d connected\n", dm_reg_value);
++	return 0;
+ }
+ 
++static int vss_on_msg(void *msg, int len)
++{
++	struct hv_vss_msg *vss_msg = (struct hv_vss_msg *)msg;
++
++	if (len != sizeof(*vss_msg)) {
++		pr_debug("VSS: Message size does not match length\n");
++		return -EINVAL;
++	}
++
++	if (vss_msg->vss_hdr.operation == VSS_OP_REGISTER ||
++	    vss_msg->vss_hdr.operation == VSS_OP_REGISTER1) {
++		/*
++		 * Don't process registration messages if we're in the middle
++		 * of a transaction processing.
++		 */
++		if (vss_transaction.state > HVUTIL_READY) {
++			pr_debug("VSS: Got unexpected registration request\n");
++			return -EINVAL;
++		}
++
++		return vss_handle_handshake(vss_msg);
++	} else if (vss_transaction.state == HVUTIL_USERSPACE_REQ) {
++		vss_transaction.state = HVUTIL_USERSPACE_RECV;
+ 
+-static void vss_send_op(struct work_struct *dummy)
++		if (vss_msg->vss_hdr.operation == VSS_OP_HOT_BACKUP)
++			vss_transaction.msg->vss_cf.flags =
++				VSS_HBU_NO_AUTO_RECOVERY;
++
++		if (cancel_delayed_work_sync(&vss_timeout_work)) {
++			vss_respond_to_host(vss_msg->error);
++			/* Transaction is finished, reset the state. */
++			hv_poll_channel(vss_transaction.recv_channel,
++					vss_poll_wrapper);
++		}
++	} else {
++		/* This is a spurious call! */
++		pr_debug("VSS: Transaction not active\n");
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static void vss_send_op(void)
+ {
+ 	int op = vss_transaction.msg->vss_hdr.operation;
+-	struct cn_msg *msg;
++	int rc;
+ 	struct hv_vss_msg *vss_msg;
+ 
+-	msg = kzalloc(sizeof(*msg) + sizeof(*vss_msg), GFP_ATOMIC);
+-	if (!msg)
++	/* The transaction state is wrong. */
++	if (vss_transaction.state != HVUTIL_HOSTMSG_RECEIVED) {
++		pr_debug("VSS: Unexpected attempt to send to daemon\n");
+ 		return;
++	}
+ 
+-	vss_msg = (struct hv_vss_msg *)msg->data;
+-
+-	msg->id.idx =  CN_VSS_IDX;
+-	msg->id.val = CN_VSS_VAL;
++	vss_msg = kzalloc(sizeof(*vss_msg), GFP_KERNEL);
++	if (!vss_msg)
++		return;
+ 
+ 	vss_msg->vss_hdr.operation = op;
+-	msg->len = sizeof(struct hv_vss_msg);
+ 
+-	cn_netlink_send(msg, 0, GFP_ATOMIC);
+-	kfree(msg);
++	vss_transaction.state = HVUTIL_USERSPACE_REQ;
++
++	schedule_delayed_work(&vss_timeout_work, op == VSS_OP_FREEZE ?
++			VSS_FREEZE_TIMEOUT * HZ : HV_UTIL_TIMEOUT * HZ);
+ 
+-	return;
++	rc = hvutil_transport_send(hvt, vss_msg, sizeof(*vss_msg), NULL);
++	if (rc) {
++		pr_warn("VSS: failed to communicate to the daemon: %d\n", rc);
++		if (cancel_delayed_work_sync(&vss_timeout_work)) {
++			vss_respond_to_host(HV_E_FAIL);
++			vss_transaction.state = HVUTIL_READY;
++		}
++	}
++
++	kfree(vss_msg);
++}
++
++static void vss_handle_request(struct work_struct *dummy)
++{
++	switch (vss_transaction.msg->vss_hdr.operation) {
++	/*
++	 * Initiate a "freeze/thaw" operation in the guest.
++	 * We respond to the host once the operation is complete.
++	 *
++	 * We send the message to the user space daemon and the operation is
++	 * performed in the daemon.
++	 */
++	case VSS_OP_THAW:
++	case VSS_OP_FREEZE:
++	case VSS_OP_HOT_BACKUP:
++		if (vss_transaction.state < HVUTIL_READY) {
++			/* Userspace is not registered yet */
++			pr_debug("VSS: Not ready for request.\n");
++			vss_respond_to_host(HV_E_FAIL);
++			return;
++		}
++
++		pr_debug("VSS: Received request for op code: %d\n",
++			vss_transaction.msg->vss_hdr.operation);
++		vss_transaction.state = HVUTIL_HOSTMSG_RECEIVED;
++		vss_send_op();
++		return;
++	case VSS_OP_GET_DM_INFO:
++		vss_transaction.msg->dm_info.flags = 0;
++		break;
++	default:
++		break;
++	}
++
++	vss_respond_to_host(0);
++	hv_poll_channel(vss_transaction.recv_channel, vss_poll_wrapper);
+ }
+ 
+ /*
+@@ -113,17 +263,6 @@ vss_respond_to_host(int error)
+ 	u64	req_id;
+ 
+ 	/*
+-	 * If a transaction is not active; log and return.
+-	 */
+-
+-	if (!vss_transaction.active) {
+-		/*
+-		 * This is a spurious call!
+-		 */
+-		pr_warn("VSS: Transaction not active\n");
+-		return;
+-	}
+-	/*
+ 	 * Copy the global state for completing the transaction. Note that
+ 	 * only one transaction can be active at a time.
+ 	 */
+@@ -131,7 +270,6 @@ vss_respond_to_host(int error)
+ 	buf_len = vss_transaction.recv_len;
+ 	channel = vss_transaction.recv_channel;
+ 	req_id = vss_transaction.recv_req_id;
+-	vss_transaction.active = false;
+ 
+ 	icmsghdrp = (struct icmsg_hdr *)
+ 			&recv_buffer[sizeof(struct vmbuspipe_hdr)];
+@@ -163,19 +301,12 @@ void hv_vss_onchannelcallback(void *context)
+ 	u32 recvlen;
+ 	u64 requestid;
+ 	struct hv_vss_msg *vss_msg;
+-
++	int vss_srv_version;
+ 
+ 	struct icmsg_hdr *icmsghdrp;
+-	struct icmsg_negotiate *negop = NULL;
+ 
+-	if (vss_transaction.active) {
+-		/*
+-		 * We will defer processing this callback once
+-		 * the current transaction is complete.
+-		 */
+-		vss_transaction.recv_channel = channel;
++	if (vss_transaction.state > HVUTIL_READY)
+ 		return;
+-	}
+ 
+ 	vmbus_recvpacket(channel, recv_buffer, PAGE_SIZE * 2, &recvlen,
+ 			 &requestid);
+@@ -185,19 +316,15 @@ void hv_vss_onchannelcallback(void *context)
+ 			sizeof(struct vmbuspipe_hdr)];
+ 
+ 		if (icmsghdrp->icmsgtype == ICMSGTYPE_NEGOTIATE) {
+-			vmbus_prep_negotiate_resp(icmsghdrp, negop,
+-				 recv_buffer, MAX_SRV_VER, MAX_SRV_VER);
+-			/*
+-			 * We currently negotiate the highest number the
+-			 * host has presented. If this version is not
+-			 * atleast 5.0, reject.
+-			 */
+-			negop = (struct icmsg_negotiate *)&recv_buffer[
+-				sizeof(struct vmbuspipe_hdr) +
+-				sizeof(struct icmsg_hdr)];
+-
+-			if (negop->icversion_data[1].major < 5)
+-				negop->icframe_vercnt = 0;
++			if (vmbus_prep_negotiate_resp(icmsghdrp,
++				 recv_buffer, fw_versions, FW_VER_COUNT,
++				 vss_versions, VSS_VER_COUNT,
++				 NULL, &vss_srv_version)) {
++
++				pr_info("VSS IC version %d.%d\n",
++					vss_srv_version >> 16,
++					vss_srv_version & 0xFFFF);
++			}
+ 		} else {
+ 			vss_msg = (struct hv_vss_msg *)&recv_buffer[
+ 				sizeof(struct vmbuspipe_hdr) +
+@@ -209,45 +336,11 @@ void hv_vss_onchannelcallback(void *context)
+ 			 */
+ 
+ 			vss_transaction.recv_len = recvlen;
+-			vss_transaction.recv_channel = channel;
+ 			vss_transaction.recv_req_id = requestid;
+-			vss_transaction.active = true;
+ 			vss_transaction.msg = (struct hv_vss_msg *)vss_msg;
+ 
+-			switch (vss_msg->vss_hdr.operation) {
+-				/*
+-				 * Initiate a "freeze/thaw"
+-				 * operation in the guest.
+-				 * We respond to the host once
+-				 * the operation is complete.
+-				 *
+-				 * We send the message to the
+-				 * user space daemon and the
+-				 * operation is performed in
+-				 * the daemon.
+-				 */
+-			case VSS_OP_FREEZE:
+-			case VSS_OP_THAW:
+-				schedule_work(&vss_send_op_work);
+-				return;
+-
+-			case VSS_OP_HOT_BACKUP:
+-				vss_msg->vss_cf.flags =
+-					 VSS_HBU_NO_AUTO_RECOVERY;
+-				vss_respond_to_host(0);
+-				return;
+-
+-			case VSS_OP_GET_DM_INFO:
+-				vss_msg->dm_info.flags = 0;
+-				vss_respond_to_host(0);
+-				return;
+-
+-			default:
+-				vss_respond_to_host(0);
+-				return;
+-
+-			}
+-
++			schedule_work(&vss_handle_request_work);
++			return;
+ 		}
+ 
+ 		icmsghdrp->icflags = ICMSGHDRFLAG_TRANSACTION
+@@ -260,15 +353,24 @@ void hv_vss_onchannelcallback(void *context)
+ 
+ }
+ 
++static void vss_on_reset(void)
++{
++	if (cancel_delayed_work_sync(&vss_timeout_work))
++		vss_respond_to_host(HV_E_FAIL);
++	vss_transaction.state = HVUTIL_DEVICE_INIT;
++}
++
+ int
+ hv_vss_init(struct hv_util_service *srv)
+ {
+-	int err;
++	if (vmbus_proto_version < VERSION_WIN8_1) {
++		pr_warn("Integration service 'Backup (volume snapshot)'"
++			" not supported on this host version.\n");
++		return -ENOTSUPP;
++	}
+ 
+-	err = cn_add_callback(&vss_id, vss_name, vss_cn_callback);
+-	if (err)
+-		return err;
+ 	recv_buffer = srv->recv_buffer;
++	vss_transaction.recv_channel = srv->channel;
+ 
+ 	/*
+ 	 * When this driver loads, the user level daemon that
+@@ -276,12 +378,22 @@ hv_vss_init(struct hv_util_service *srv)
+ 	 * Defer processing channel callbacks until the daemon
+ 	 * has registered.
+ 	 */
+-	vss_transaction.active = true;
++	vss_transaction.state = HVUTIL_DEVICE_INIT;
++
++	hvt = hvutil_transport_init(vss_devname, CN_VSS_IDX, CN_VSS_VAL,
++				    vss_on_msg, vss_on_reset);
++	if (!hvt) {
++		pr_warn("VSS: Failed to initialize transport\n");
++		return -EFAULT;
++	}
++
+ 	return 0;
+ }
+ 
+ void hv_vss_deinit(void)
+ {
+-	cn_del_callback(&vss_id);
+-	cancel_work_sync(&vss_send_op_work);
++	vss_transaction.state = HVUTIL_DEVICE_DYING;
++	cancel_delayed_work_sync(&vss_timeout_work);
++	cancel_work_sync(&vss_handle_request_work);
++	hvutil_transport_destroy(hvt);
+ }
+diff --git a/drivers/hv/hv_util.c b/drivers/hv/hv_util.c
+index 604438d..6e0eb4d 100644
+--- a/drivers/hv/hv_util.c
++++ b/drivers/hv/hv_util.c
+@@ -27,15 +27,79 @@
+ #include <linux/sysctl.h>
+ #include <linux/reboot.h>
+ #include <linux/hyperv.h>
++#include <linux/clockchips.h>
++#include <linux/ptp_clock_kernel.h>
++#include <linux/time64.h>
++#include <asm/mshyperv.h>
++
++#include "hyperv_vmbus.h"
++
++#define SD_MAJOR	3
++#define SD_MINOR	0
++#define SD_VERSION	(SD_MAJOR << 16 | SD_MINOR)
++
++#define SD_MAJOR_1	1
++#define SD_VERSION_1	(SD_MAJOR_1 << 16 | SD_MINOR)
++
++#define TS_MAJOR	4
++#define TS_MINOR	0
++#define TS_VERSION	(TS_MAJOR << 16 | TS_MINOR)
++
++#define TS_MAJOR_1	1
++#define TS_VERSION_1	(TS_MAJOR_1 << 16 | TS_MINOR)
++
++#define TS_MAJOR_3	3
++#define TS_VERSION_3	(TS_MAJOR_3 << 16 | TS_MINOR)
++
++#define HB_MAJOR	3
++#define HB_MINOR	0
++#define HB_VERSION	(HB_MAJOR << 16 | HB_MINOR)
++
++#define HB_MAJOR_1	1
++#define HB_VERSION_1	(HB_MAJOR_1 << 16 | HB_MINOR)
++
++static int sd_srv_version;
++static int ts_srv_version;
++static int hb_srv_version;
++
++#define SD_VER_COUNT 2
++static const int sd_versions[] = {
++	SD_VERSION,
++	SD_VERSION_1
++};
++
++#define TS_VER_COUNT 3
++static const int ts_versions[] = {
++	TS_VERSION,
++	TS_VERSION_3,
++	TS_VERSION_1
++};
++
++#define HB_VER_COUNT 2
++static const int hb_versions[] = {
++	HB_VERSION,
++	HB_VERSION_1
++};
++
++#define FW_VER_COUNT 2
++static const int fw_versions[] = {
++	UTIL_FW_VERSION,
++	UTIL_WS2K8_FW_VERSION
++};
+ 
+ static void shutdown_onchannelcallback(void *context);
+ static struct hv_util_service util_shutdown = {
+ 	.util_cb = shutdown_onchannelcallback,
+ };
+ 
++static int hv_timesync_init(struct hv_util_service *srv);
++static void hv_timesync_deinit(void);
++
+ static void timesync_onchannelcallback(void *context);
+ static struct hv_util_service util_timesynch = {
+ 	.util_cb = timesync_onchannelcallback,
++	.util_init = hv_timesync_init,
++	.util_deinit = hv_timesync_deinit,
+ };
+ 
+ static void heartbeat_onchannelcallback(void *context);
+@@ -70,13 +134,12 @@ static void shutdown_onchannelcallback(void *context)
+ 	struct vmbus_channel *channel = context;
+ 	u32 recvlen;
+ 	u64 requestid;
+-	u8  execute_shutdown = false;
++	bool execute_shutdown = false;
+ 	u8  *shut_txf_buf = util_shutdown.recv_buffer;
+ 
+ 	struct shutdown_msg_data *shutdown_msg;
+ 
+ 	struct icmsg_hdr *icmsghdrp;
+-	struct icmsg_negotiate *negop = NULL;
+ 
+ 	vmbus_recvpacket(channel, shut_txf_buf,
+ 			 PAGE_SIZE, &recvlen, &requestid);
+@@ -86,8 +149,14 @@ static void shutdown_onchannelcallback(void *context)
+ 			sizeof(struct vmbuspipe_hdr)];
+ 
+ 		if (icmsghdrp->icmsgtype == ICMSGTYPE_NEGOTIATE) {
+-			vmbus_prep_negotiate_resp(icmsghdrp, negop,
+-					shut_txf_buf, MAX_SRV_VER, MAX_SRV_VER);
++			if (vmbus_prep_negotiate_resp(icmsghdrp, shut_txf_buf,
++					fw_versions, FW_VER_COUNT,
++					sd_versions, SD_VER_COUNT,
++					NULL, &sd_srv_version)) {
++				pr_info("Shutdown IC version %d.%d\n",
++					sd_srv_version >> 16,
++					sd_srv_version & 0xFFFF);
++			}
+ 		} else {
+ 			shutdown_msg =
+ 				(struct shutdown_msg_data *)&shut_txf_buf[
+@@ -126,35 +195,42 @@ static void shutdown_onchannelcallback(void *context)
+ }
+ 
+ /*
+- * Set guest time to host UTC time.
++ * Set the host time in a process context.
+  */
+-static inline void do_adj_guesttime(u64 hosttime)
+-{
+-	s64 host_tns;
+-	struct timespec host_ts;
+-
+-	host_tns = (hosttime - WLTIMEDELTA) * 100;
+-	host_ts = ns_to_timespec(host_tns);
+-
+-	do_settimeofday(&host_ts);
+-}
++static struct work_struct adj_time_work;
+ 
+ /*
+- * Set the host time in a process context.
++ * The last time sample, received from the host. PTP device responds to
++ * requests by using this data and the current partition-wide time reference
++ * count.
+  */
++static struct {
++	u64				host_time;
++	u64				ref_time;
++	spinlock_t			lock;
++} host_ts;
+ 
+-struct adj_time_work {
+-	struct work_struct work;
+-	u64	host_time;
+-};
++static struct timespec64 hv_get_adj_host_time(void)
++{
++	struct timespec64 ts;
++	u64 newtime, reftime;
++	unsigned long flags;
++
++	spin_lock_irqsave(&host_ts.lock, flags);
++	reftime = hyperv_cs->read(hyperv_cs);
++	newtime = host_ts.host_time + (reftime - host_ts.ref_time);
++	ts = ns_to_timespec64((newtime - WLTIMEDELTA) * 100);
++	spin_unlock_irqrestore(&host_ts.lock, flags);
++
++	return ts;
++}
+ 
+ static void hv_set_host_time(struct work_struct *work)
+ {
+-	struct adj_time_work	*wrk;
++	struct timespec64 ts64 = hv_get_adj_host_time();
++	struct timespec ts = timespec64_to_timespec(ts64);
+ 
+-	wrk = container_of(work, struct adj_time_work, work);
+-	do_adj_guesttime(wrk->host_time);
+-	kfree(wrk);
++	do_settimeofday(&ts);
+ }
+ 
+ /*
+@@ -163,33 +239,42 @@ static void hv_set_host_time(struct work_struct *work)
+  * ICTIMESYNCFLAG_SYNC flag bit indicates reboot, restore events of the VM.
+  * After reboot the flag ICTIMESYNCFLAG_SYNC is included in the first time
+  * message after the timesync channel is opened. Since the hv_utils module is
+- * loaded after hv_vmbus, the first message is usually missed. The other
+- * thing is, systime is automatically set to emulated hardware clock which may
+- * not be UTC time or in the same time zone. So, to override these effects, we
+- * use the first 50 time samples for initial system time setting.
++ * loaded after hv_vmbus, the first message is usually missed. This bit is
++ * considered a hard request to discipline the clock.
++ *
++ * ICTIMESYNCFLAG_SAMPLE bit indicates a time sample from host. This is
++ * typically used as a hint to the guest. The guest is under no obligation
++ * to discipline the clock.
+  */
+-static inline void adj_guesttime(u64 hosttime, u8 flags)
++static inline void adj_guesttime(u64 hosttime, u64 reftime, u8 adj_flags)
+ {
+-	struct adj_time_work    *wrk;
+-	static s32 scnt = 50;
+-
+-	wrk = kmalloc(sizeof(struct adj_time_work), GFP_ATOMIC);
+-	if (wrk == NULL)
+-		return;
+-
+-	wrk->host_time = hosttime;
+-	if ((flags & ICTIMESYNCFLAG_SYNC) != 0) {
+-		INIT_WORK(&wrk->work, hv_set_host_time);
+-		schedule_work(&wrk->work);
+-		return;
+-	}
++	unsigned long flags;
++	u64 cur_reftime;
+ 
+-	if ((flags & ICTIMESYNCFLAG_SAMPLE) != 0 && scnt > 0) {
+-		scnt--;
+-		INIT_WORK(&wrk->work, hv_set_host_time);
+-		schedule_work(&wrk->work);
+-	} else
+-		kfree(wrk);
++	/*
++	 * Save the adjusted time sample from the host and the snapshot
++	 * of the current system time.
++	 */
++	spin_lock_irqsave(&host_ts.lock, flags);
++
++	cur_reftime = hyperv_cs->read(hyperv_cs);
++	host_ts.host_time = hosttime;
++	host_ts.ref_time = cur_reftime;
++
++	/*
++	 * TimeSync v4 messages contain reference time (guest's Hyper-V
++	 * clocksource read when the time sample was generated), we can
++	 * improve the precision by adding the delta between now and the
++	 * time of generation. For older protocols we set
++	 * reftime == cur_reftime on call.
++	 */
++	host_ts.host_time += (cur_reftime - reftime);
++
++	spin_unlock_irqrestore(&host_ts.lock, flags);
++
++	/* Schedule work to do do_settimeofday64() */
++	if (adj_flags & ICTIMESYNCFLAG_SYNC)
++		schedule_work(&adj_time_work);
+ }
+ 
+ /*
+@@ -202,6 +287,7 @@ static void timesync_onchannelcallback(void *context)
+ 	u64 requestid;
+ 	struct icmsg_hdr *icmsghdrp;
+ 	struct ictimesync_data *timedatap;
++	struct ictimesync_ref_data *refdata;
+ 	u8 *time_txf_buf = util_timesynch.recv_buffer;
+ 
+ 	vmbus_recvpacket(channel, time_txf_buf,
+@@ -212,13 +298,33 @@ static void timesync_onchannelcallback(void *context)
+ 				sizeof(struct vmbuspipe_hdr)];
+ 
+ 		if (icmsghdrp->icmsgtype == ICMSGTYPE_NEGOTIATE) {
+-			vmbus_prep_negotiate_resp(icmsghdrp, NULL, time_txf_buf,
+-						MAX_SRV_VER, MAX_SRV_VER);
++			if (vmbus_prep_negotiate_resp(icmsghdrp, time_txf_buf,
++						fw_versions, FW_VER_COUNT,
++						ts_versions, TS_VER_COUNT,
++						NULL, &ts_srv_version)) {
++				pr_info("TimeSync IC version %d.%d\n",
++					ts_srv_version >> 16,
++					ts_srv_version & 0xFFFF);
++			}
+ 		} else {
+-			timedatap = (struct ictimesync_data *)&time_txf_buf[
+-				sizeof(struct vmbuspipe_hdr) +
+-				sizeof(struct icmsg_hdr)];
+-			adj_guesttime(timedatap->parenttime, timedatap->flags);
++			if (ts_srv_version > TS_VERSION_3) {
++				refdata = (struct ictimesync_ref_data *)
++					&time_txf_buf[
++					sizeof(struct vmbuspipe_hdr) +
++					sizeof(struct icmsg_hdr)];
++
++				adj_guesttime(refdata->parenttime,
++						refdata->vmreferencetime,
++						refdata->flags);
++			} else {
++				timedatap = (struct ictimesync_data *)
++					&time_txf_buf[
++					sizeof(struct vmbuspipe_hdr) +
++					sizeof(struct icmsg_hdr)];
++				adj_guesttime(timedatap->parenttime,
++					      hyperv_cs->read(hyperv_cs),
++					      timedatap->flags);
++			}
+ 		}
+ 
+ 		icmsghdrp->icflags = ICMSGHDRFLAG_TRANSACTION
+@@ -246,18 +352,26 @@ static void heartbeat_onchannelcallback(void *context)
+ 
+ 	while (1) {
+ 
+-		vmbus_recvpacket(channel, hbeat_txf_buf,
+-				 PAGE_SIZE, &recvlen, &requestid);
++               vmbus_recvpacket(channel, hbeat_txf_buf,
++                                PAGE_SIZE, &recvlen, &requestid);
+ 
+-		if (!recvlen)
+-			break;
++               if (!recvlen)
++                       break;
+ 
+ 		icmsghdrp = (struct icmsg_hdr *)&hbeat_txf_buf[
+ 				sizeof(struct vmbuspipe_hdr)];
+ 
+ 		if (icmsghdrp->icmsgtype == ICMSGTYPE_NEGOTIATE) {
+-			vmbus_prep_negotiate_resp(icmsghdrp, NULL,
+-				hbeat_txf_buf, MAX_SRV_VER, MAX_SRV_VER);
++			if (vmbus_prep_negotiate_resp(icmsghdrp,
++					hbeat_txf_buf,
++					fw_versions, FW_VER_COUNT,
++					hb_versions, HB_VER_COUNT,
++					NULL, &hb_srv_version)) {
++
++				pr_info("Heartbeat IC version %d.%d\n",
++					hb_srv_version >> 16,
++					hb_srv_version & 0xFFFF);
++			}
+ 		} else {
+ 			heartbeat_msg =
+ 				(struct heartbeat_msg_data *)&hbeat_txf_buf[
+@@ -286,6 +400,7 @@ static int util_probe(struct hv_device *dev,
+ 	srv->recv_buffer = kmalloc(PAGE_SIZE * 4, GFP_KERNEL);
+ 	if (!srv->recv_buffer)
+ 		return -ENOMEM;
++	srv->channel = dev->channel;
+ 	if (srv->util_init) {
+ 		ret = srv->util_init(srv);
+ 		if (ret) {
+@@ -303,12 +418,13 @@ static int util_probe(struct hv_device *dev,
+ 	 */
+ 	set_channel_read_mode(dev->channel, HV_CALL_DIRECT);
+ 
++	hv_set_drvdata(dev, srv);
++
+ 	ret = vmbus_open(dev->channel, 4 * PAGE_SIZE, 4 * PAGE_SIZE, NULL, 0,
+ 			srv->util_cb, dev->channel);
+ 	if (ret)
+ 		goto error;
+ 
+-	hv_set_drvdata(dev, srv);
+ 	return 0;
+ 
+ error:
+@@ -323,9 +439,9 @@ static int util_remove(struct hv_device *dev)
+ {
+ 	struct hv_util_service *srv = hv_get_drvdata(dev);
+ 
+-	vmbus_close(dev->channel);
+ 	if (srv->util_deinit)
+ 		srv->util_deinit();
++	vmbus_close(dev->channel);
+ 	kfree(srv->recv_buffer);
+ 
+ 	return 0;
+@@ -365,6 +481,76 @@ static  struct hv_driver util_drv = {
+ 	.remove =  util_remove,
+ };
+ 
++static int hv_ptp_enable(struct ptp_clock_info *info,
++			 struct ptp_clock_request *request, int on)
++{
++	return -EOPNOTSUPP;
++}
++
++static int hv_ptp_settime(struct ptp_clock_info *p, const struct timespec64 *ts)
++{
++	return -EOPNOTSUPP;
++}
++
++static int hv_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
++{
++	return -EOPNOTSUPP;
++}
++static int hv_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
++{
++	return -EOPNOTSUPP;
++}
++
++static int hv_ptp_gettime(struct ptp_clock_info *info, struct timespec64 *ts)
++{
++	*ts = hv_get_adj_host_time();
++
++	return 0;
++}
++
++static struct ptp_clock_info ptp_hyperv_info = {
++	.name		= "hyperv",
++	.enable         = hv_ptp_enable,
++	.adjtime        = hv_ptp_adjtime,
++	.adjfreq        = hv_ptp_adjfreq,
++	.gettime        = hv_ptp_gettime,
++	.settime        = hv_ptp_settime,
++	.owner		= THIS_MODULE,
++};
++
++static struct ptp_clock *hv_ptp_clock;
++
++static int hv_timesync_init(struct hv_util_service *srv)
++{
++	/* TimeSync requires Hyper-V clocksource. */
++	if (!hyperv_cs)
++		return -ENODEV;
++	spin_lock_init(&host_ts.lock);
++
++	INIT_WORK(&adj_time_work, hv_set_host_time);
++
++	/*
++	 * ptp_clock_register() returns NULL when CONFIG_PTP_1588_CLOCK is
++	 * disabled but the driver is still useful without the PTP device
++	 * as it still handles the ICTIMESYNCFLAG_SYNC case.
++	 */
++	hv_ptp_clock = ptp_clock_register(&ptp_hyperv_info, NULL);
++	if (IS_ERR_OR_NULL(hv_ptp_clock)) {
++		pr_err("cannot register PTP clock: %ld\n",
++		       PTR_ERR(hv_ptp_clock));
++		hv_ptp_clock = NULL;
++	}
++
++	return 0;
++}
++
++static void hv_timesync_deinit(void)
++{
++	if (hv_ptp_clock)
++		ptp_clock_unregister(hv_ptp_clock);
++	cancel_work_sync(&adj_time_work);
++}
++
+ static int __init init_hyperv_utils(void)
+ {
+ 	pr_info("Registering HyperV Utility Driver\n");
+@@ -383,5 +569,4 @@ module_init(init_hyperv_utils);
+ module_exit(exit_hyperv_utils);
+ 
+ MODULE_DESCRIPTION("Hyper-V Utilities");
+-MODULE_VERSION(HV_DRV_VERSION);
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/hv/hv_utils_transport.c b/drivers/hv/hv_utils_transport.c
+new file mode 100644
+index 0000000..ab5cc44
+--- /dev/null
++++ b/drivers/hv/hv_utils_transport.c
+@@ -0,0 +1,360 @@
++/*
++ * Kernel/userspace transport abstraction for Hyper-V util driver.
++ *
++ * Copyright (C) 2015, Vitaly Kuznetsov <vkuznets@redhat.com>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++ * NON INFRINGEMENT.  See the GNU General Public License for more
++ * details.
++ *
++ */
++
++#include <linux/slab.h>
++#include <linux/fs.h>
++#include <linux/poll.h>
++
++#include "hyperv_vmbus.h"
++#include "hv_utils_transport.h"
++
++static DEFINE_SPINLOCK(hvt_list_lock);
++static struct list_head hvt_list = LIST_HEAD_INIT(hvt_list);
++
++static void hvt_reset(struct hvutil_transport *hvt)
++{
++	kfree(hvt->outmsg);
++	hvt->outmsg = NULL;
++	hvt->outmsg_len = 0;
++	if (hvt->on_reset)
++		hvt->on_reset();
++}
++
++static ssize_t hvt_op_read(struct file *file, char __user *buf,
++			   size_t count, loff_t *ppos)
++{
++	struct hvutil_transport *hvt;
++	int ret;
++
++	hvt = container_of(file->f_op, struct hvutil_transport, fops);
++
++	if (wait_event_interruptible(hvt->outmsg_q, hvt->outmsg_len > 0 ||
++				     hvt->mode != HVUTIL_TRANSPORT_CHARDEV))
++		return -EINTR;
++
++	mutex_lock(&hvt->lock);
++
++	if (hvt->mode == HVUTIL_TRANSPORT_DESTROY) {
++		ret = -EBADF;
++		goto out_unlock;
++	}
++
++	if (!hvt->outmsg) {
++		ret = -EAGAIN;
++		goto out_unlock;
++	}
++
++	if (count < hvt->outmsg_len) {
++		ret = -EINVAL;
++		goto out_unlock;
++	}
++
++	if (!copy_to_user(buf, hvt->outmsg, hvt->outmsg_len))
++		ret = hvt->outmsg_len;
++	else
++		ret = -EFAULT;
++
++	kfree(hvt->outmsg);
++	hvt->outmsg = NULL;
++	hvt->outmsg_len = 0;
++
++	if (hvt->on_read)
++		hvt->on_read();
++	hvt->on_read = NULL;
++
++out_unlock:
++	mutex_unlock(&hvt->lock);
++	return ret;
++}
++
++static ssize_t hvt_op_write(struct file *file, const char __user *buf,
++			    size_t count, loff_t *ppos)
++{
++	struct hvutil_transport *hvt;
++	u8 *inmsg;
++	int ret;
++
++	hvt = container_of(file->f_op, struct hvutil_transport, fops);
++
++	inmsg = memdup_user(buf, count);
++	if (IS_ERR(inmsg))
++		return PTR_ERR(inmsg);
++
++	if (hvt->mode == HVUTIL_TRANSPORT_DESTROY)
++		ret = -EBADF;
++	else
++		ret = hvt->on_msg(inmsg, count);
++
++	kfree(inmsg);
++
++	return ret ? ret : count;
++}
++
++static unsigned int hvt_op_poll(struct file *file, poll_table *wait)
++{
++	struct hvutil_transport *hvt;
++
++	hvt = container_of(file->f_op, struct hvutil_transport, fops);
++
++	poll_wait(file, &hvt->outmsg_q, wait);
++
++	if (hvt->mode == HVUTIL_TRANSPORT_DESTROY)
++		return POLLERR | POLLHUP;
++
++	if (hvt->outmsg_len > 0)
++		return POLLIN | POLLRDNORM;
++
++	return 0;
++}
++
++static int hvt_op_open(struct inode *inode, struct file *file)
++{
++	struct hvutil_transport *hvt;
++	int ret = 0;
++	bool issue_reset = false;
++
++	hvt = container_of(file->f_op, struct hvutil_transport, fops);
++
++	mutex_lock(&hvt->lock);
++
++	if (hvt->mode == HVUTIL_TRANSPORT_DESTROY) {
++		ret = -EBADF;
++	} else if (hvt->mode == HVUTIL_TRANSPORT_INIT) {
++		/*
++		 * Switching to CHARDEV mode. We switch bach to INIT when
++		 * device gets released.
++		 */
++		hvt->mode = HVUTIL_TRANSPORT_CHARDEV;
++	}
++	else if (hvt->mode == HVUTIL_TRANSPORT_NETLINK) {
++		/*
++		 * We're switching from netlink communication to using char
++		 * device. Issue the reset first.
++		 */
++		issue_reset = true;
++		hvt->mode = HVUTIL_TRANSPORT_CHARDEV;
++	} else {
++		ret = -EBUSY;
++	}
++
++	if (issue_reset)
++		hvt_reset(hvt);
++
++	mutex_unlock(&hvt->lock);
++
++	return ret;
++}
++
++static void hvt_transport_free(struct hvutil_transport *hvt)
++{
++	misc_deregister(&hvt->mdev);
++	kfree(hvt->outmsg);
++	kfree(hvt);
++}
++
++static int hvt_op_release(struct inode *inode, struct file *file)
++{
++	struct hvutil_transport *hvt;
++	int mode_old;
++
++	hvt = container_of(file->f_op, struct hvutil_transport, fops);
++
++	mutex_lock(&hvt->lock);
++	mode_old = hvt->mode;
++	if (hvt->mode != HVUTIL_TRANSPORT_DESTROY)
++		hvt->mode = HVUTIL_TRANSPORT_INIT;
++	/*
++	 * Cleanup message buffers to avoid spurious messages when the daemon
++	 * connects back.
++	 */
++	hvt_reset(hvt);
++
++	if (mode_old == HVUTIL_TRANSPORT_DESTROY)
++		complete(&hvt->release);
++
++	mutex_unlock(&hvt->lock);
++
++	return 0;
++}
++
++static void hvt_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
++{
++	struct hvutil_transport *hvt, *hvt_found = NULL;
++
++	spin_lock(&hvt_list_lock);
++	list_for_each_entry(hvt, &hvt_list, list) {
++		if (hvt->cn_id.idx == msg->id.idx &&
++		    hvt->cn_id.val == msg->id.val) {
++			hvt_found = hvt;
++			break;
++		}
++	}
++	spin_unlock(&hvt_list_lock);
++	if (!hvt_found) {
++		pr_warn("hvt_cn_callback: spurious message received!\n");
++		return;
++	}
++
++	/*
++	 * Switching to NETLINK mode. Switching to CHARDEV happens when someone
++	 * opens the device.
++	 */
++	mutex_lock(&hvt->lock);
++	if (hvt->mode == HVUTIL_TRANSPORT_INIT)
++		hvt->mode = HVUTIL_TRANSPORT_NETLINK;
++
++	if (hvt->mode == HVUTIL_TRANSPORT_NETLINK)
++		hvt_found->on_msg(msg->data, msg->len);
++	else
++		pr_warn("hvt_cn_callback: unexpected netlink message!\n");
++	mutex_unlock(&hvt->lock);
++}
++
++int hvutil_transport_send(struct hvutil_transport *hvt, void *msg, int len,
++			  void (*on_read_cb)(void))
++{
++	struct cn_msg *cn_msg;
++	int ret = 0;
++
++	if (hvt->mode == HVUTIL_TRANSPORT_INIT ||
++	    hvt->mode == HVUTIL_TRANSPORT_DESTROY) {
++		return -EINVAL;
++	} else if (hvt->mode == HVUTIL_TRANSPORT_NETLINK) {
++		cn_msg = kzalloc(sizeof(*cn_msg) + len, GFP_ATOMIC);
++		if (!cn_msg)
++			return -ENOMEM;
++		cn_msg->id.idx = hvt->cn_id.idx;
++		cn_msg->id.val = hvt->cn_id.val;
++		cn_msg->len = len;
++		memcpy(cn_msg->data, msg, len);
++		ret = cn_netlink_send(cn_msg, 0, GFP_ATOMIC);
++		kfree(cn_msg);
++		/*
++		 * We don't know when netlink messages are delivered but unlike
++		 * in CHARDEV mode we're not blocked and we can send next
++		 * messages right away.
++		 */
++		if (on_read_cb)
++			on_read_cb();
++		return ret;
++	}
++	/* HVUTIL_TRANSPORT_CHARDEV */
++	mutex_lock(&hvt->lock);
++	if (hvt->mode != HVUTIL_TRANSPORT_CHARDEV) {
++		ret = -EINVAL;
++		goto out_unlock;
++	}
++
++	if (hvt->outmsg) {
++		/* Previous message wasn't received */
++		ret = -EFAULT;
++		goto out_unlock;
++	}
++	hvt->outmsg = kzalloc(len, GFP_KERNEL);
++	if (hvt->outmsg) {
++		memcpy(hvt->outmsg, msg, len);
++		hvt->outmsg_len = len;
++		hvt->on_read = on_read_cb;
++		wake_up_interruptible(&hvt->outmsg_q);
++	} else
++		ret = -ENOMEM;
++out_unlock:
++	mutex_unlock(&hvt->lock);
++	return ret;
++}
++
++struct hvutil_transport *hvutil_transport_init(const char *name,
++					       u32 cn_idx, u32 cn_val,
++					       int (*on_msg)(void *, int),
++					       void (*on_reset)(void))
++{
++	struct hvutil_transport *hvt;
++
++	hvt = kzalloc(sizeof(*hvt), GFP_KERNEL);
++	if (!hvt)
++		return NULL;
++
++	hvt->cn_id.idx = cn_idx;
++	hvt->cn_id.val = cn_val;
++
++	hvt->mdev.minor = MISC_DYNAMIC_MINOR;
++	hvt->mdev.name = name;
++
++	hvt->fops.owner = THIS_MODULE;
++	hvt->fops.read = hvt_op_read;
++	hvt->fops.write = hvt_op_write;
++	hvt->fops.poll = hvt_op_poll;
++	hvt->fops.open = hvt_op_open;
++	hvt->fops.release = hvt_op_release;
++
++	hvt->mdev.fops = &hvt->fops;
++
++	init_waitqueue_head(&hvt->outmsg_q);
++	mutex_init(&hvt->lock);
++	init_completion(&hvt->release);
++
++	spin_lock(&hvt_list_lock);
++	list_add(&hvt->list, &hvt_list);
++	spin_unlock(&hvt_list_lock);
++
++	hvt->on_msg = on_msg;
++	hvt->on_reset = on_reset;
++
++	if (misc_register(&hvt->mdev))
++		goto err_free_hvt;
++
++	/* Use cn_id.idx/cn_id.val to determine if we need to setup netlink */
++	if (hvt->cn_id.idx > 0 && hvt->cn_id.val > 0 &&
++	    cn_add_callback(&hvt->cn_id, name, hvt_cn_callback))
++		goto err_free_hvt;
++
++	return hvt;
++
++err_free_hvt:
++	spin_lock(&hvt_list_lock);
++	list_del(&hvt->list);
++	spin_unlock(&hvt_list_lock);
++	kfree(hvt);
++	return NULL;
++}
++
++void hvutil_transport_destroy(struct hvutil_transport *hvt)
++{
++	int mode_old;
++
++	mutex_lock(&hvt->lock);
++	mode_old = hvt->mode;
++	hvt->mode = HVUTIL_TRANSPORT_DESTROY;
++	wake_up_interruptible(&hvt->outmsg_q);
++	mutex_unlock(&hvt->lock);
++
++	/*
++	 * In case we were in 'chardev' mode we still have an open fd so we
++	 * have to defer freeing the device. Netlink interface can be freed
++	 * now.
++	 */
++	spin_lock(&hvt_list_lock);
++	list_del(&hvt->list);
++	spin_unlock(&hvt_list_lock);
++	if (hvt->cn_id.idx > 0 && hvt->cn_id.val > 0)
++		cn_del_callback(&hvt->cn_id);
++
++	if (mode_old == HVUTIL_TRANSPORT_CHARDEV)
++		wait_for_completion(&hvt->release);
++
++	hvt_transport_free(hvt);
++}
+diff --git a/drivers/hv/hv_utils_transport.h b/drivers/hv/hv_utils_transport.h
+new file mode 100644
+index 0000000..79afb62
+--- /dev/null
++++ b/drivers/hv/hv_utils_transport.h
+@@ -0,0 +1,55 @@
++/*
++ * Kernel/userspace transport abstraction for Hyper-V util driver.
++ *
++ * Copyright (C) 2015, Vitaly Kuznetsov <vkuznets@redhat.com>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++ * NON INFRINGEMENT.  See the GNU General Public License for more
++ * details.
++ *
++ */
++
++#ifndef _HV_UTILS_TRANSPORT_H
++#define _HV_UTILS_TRANSPORT_H
++
++#include <linux/connector.h>
++#include <linux/miscdevice.h>
++
++enum hvutil_transport_mode {
++	HVUTIL_TRANSPORT_INIT = 0,
++	HVUTIL_TRANSPORT_NETLINK,
++	HVUTIL_TRANSPORT_CHARDEV,
++	HVUTIL_TRANSPORT_DESTROY,
++};
++
++struct hvutil_transport {
++	int mode;                           /* hvutil_transport_mode */
++	struct file_operations fops;        /* file operations */
++	struct miscdevice mdev;             /* misc device */
++	struct cb_id cn_id;                 /* CN_*_IDX/CN_*_VAL */
++	struct list_head list;              /* hvt_list */
++	int (*on_msg)(void *, int);         /* callback on new user message */
++	void (*on_reset)(void);             /* callback when userspace drops */
++	void (*on_read)(void);              /* callback on message read */
++	u8 *outmsg;                         /* message to the userspace */
++	int outmsg_len;                     /* its length */
++	wait_queue_head_t outmsg_q;         /* poll/read wait queue */
++	struct mutex lock;                  /* protects struct members */
++	struct completion release;          /* synchronize with fd release */
++};
++
++struct hvutil_transport *hvutil_transport_init(const char *name,
++					       u32 cn_idx, u32 cn_val,
++					       int (*on_msg)(void *, int),
++					       void (*on_reset)(void));
++int hvutil_transport_send(struct hvutil_transport *hvt, void *msg, int len,
++			  void (*on_read_cb)(void));
++void hvutil_transport_destroy(struct hvutil_transport *hvt);
++
++#endif /* _HV_UTILS_TRANSPORT_H */
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 83c0b8af..23decda 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -32,7 +32,7 @@
+ #include <linux/interrupt.h>
+ 
+ /*
+- * Timeout for services such as KVP and fcopy.
++ * Timeout for services such as KVP.
+  */
+ #define HV_UTIL_TIMEOUT 30
+ 
+@@ -777,9 +777,6 @@ int hv_vss_init(struct hv_util_service *);
+ void hv_vss_deinit(void);
+ void hv_vss_onchannelcallback(void *);
+ 
+-int hv_fcopy_init(struct hv_util_service *);
+-void hv_fcopy_deinit(void);
+-void hv_fcopy_onchannelcallback(void *);
+ void vmbus_initiate_unload(bool crash);
+ 
+ static inline void hv_poll_channel(struct vmbus_channel *channel,
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 2615d43..f4f1cf5 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1474,9 +1474,10 @@ struct hyperv_service_callback {
+ };
+ 
+ #define MAX_SRV_VER	0x7ffffff
+-extern bool vmbus_prep_negotiate_resp(struct icmsg_hdr *,
+-					struct icmsg_negotiate *, u8 *, int,
+-					int);
++extern bool vmbus_prep_negotiate_resp(struct icmsg_hdr *icmsghdrp, u8 *buf,
++                                const int *fw_version, int fw_vercnt,
++                                const int *srv_version, int srv_vercnt,
++                                int *nego_fw_version, int *nego_srv_version);
+ 
+ void hv_event_tasklet_disable(struct vmbus_channel *channel);
+ void hv_event_tasklet_enable(struct vmbus_channel *channel);
+-- 
+2.7.4
+
