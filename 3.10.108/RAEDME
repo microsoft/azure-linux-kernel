@@ -6,9 +6,10 @@ Linux VM on Hyper-V.
 1.1 checkout the upstream 3.10.108 kernel
 https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/commit/?h=linux-3.10.y&id=e7a59c7f266809d17dcde20fd2055e23e7eb6895
 
-1.2 apply the 2 patches
+1.2 apply the 3 patches
 0001-vmbus-backport-for-3.10.108.patch
 0002-hack-pci-res-code-to-make-OFED-driver-work.patch
+0003-uncomment-the-hv_utils-driver.patch
 
 1.3 use the "kernel-config" as the .config and build & install the kernel/drivers.
 
