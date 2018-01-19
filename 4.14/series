@@ -52,3 +52,6 @@ hv_netvsc-pass-netvsc_device-to-receive-callback.patch
 hv_netvsc-drop-received-traffic-if-device-not-opened.patch
 hv_netvsc-remove-open_cnt-reference-count.patch
 hv_netvsc-safely-order-shutdown.patch
+hv_netvsc-use-reciprocal-divide.patch
+hv_netvsc-fix-receive-buffer-limit.patch
+hv_netvsc-fix-tx-rx-buffer-size-defaults.patch
