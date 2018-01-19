@@ -10,9 +10,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc.c |   22 ++++++++--------------
  1 file changed, 8 insertions(+), 14 deletions(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:52.303476952 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:52.299477004 -0800
-@@ -698,19 +698,18 @@ static u32 netvsc_get_next_send_section(
+--- a/drivers/net/hyperv/netvsc.c	2018-01-19 15:22:35.193387661 -0800
++++ b/drivers/net/hyperv/netvsc.c	2018-01-19 15:22:35.189387715 -0800
+@@ -695,19 +695,18 @@ static u32 netvsc_get_next_send_section(
  	return NETVSC_INVALID_INDEX;
  }
  
@@ -39,7 +39,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	u32 padding = 0;
  	u32 remain = packet->total_data_buflen % net_device->pkt_align;
  	u32 page_count = packet->cp_partial ? packet->rmsg_pgcnt :
-@@ -729,16 +728,11 @@ static u32 netvsc_copy_to_send_buf(struc
+@@ -726,16 +725,11 @@ static u32 netvsc_copy_to_send_buf(struc
  		u32 len = pb[i].len;
  
  		memcpy(dest, (src + offset), len);
@@ -56,4 +56,4 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 -	return msg_size;
  }
  
- static int netvsc_send_pkt(
+ static inline int netvsc_send_pkt(

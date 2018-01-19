@@ -11,9 +11,9 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h     |   17 +++++++++++++++++
  2 files changed, 19 insertions(+)
 
---- a/drivers/hv/channel_mgmt.c	2017-12-06 14:45:47.759535202 -0800
-+++ b/drivers/hv/channel_mgmt.c	2017-12-06 14:45:47.755535253 -0800
-@@ -1032,6 +1032,8 @@ static void vmbus_ongpadl_created(struct
+--- a/drivers/hv/channel_mgmt.c	2018-01-19 15:21:59.165869101 -0800
++++ b/drivers/hv/channel_mgmt.c	2018-01-19 15:21:59.161869154 -0800
+@@ -1033,6 +1033,8 @@ static void vmbus_ongpadl_created(struct
  
  	gpadlcreated = (struct vmbus_channel_gpadl_created *)hdr;
  
@@ -22,8 +22,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	/*
  	 * Find the establish msg, copy the result and signal/unblock the wait
  	 * event
---- a/drivers/hv/hv_trace.h	2017-12-06 14:45:47.759535202 -0800
-+++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:47.755535253 -0800
+--- a/drivers/hv/hv_trace.h	2018-01-19 15:21:59.165869101 -0800
++++ b/drivers/hv/hv_trace.h	2018-01-19 15:21:59.161869154 -0800
 @@ -86,6 +86,23 @@ TRACE_EVENT(vmbus_onopen_result,
  		    )
  	);

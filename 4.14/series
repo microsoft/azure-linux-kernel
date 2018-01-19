@@ -41,8 +41,6 @@ hv_balloon-fix-bugs-in-num_pages_onlined-accounting.patch
 hv_balloon-trace-post_status.patch
 scsi-storvsc-Allow-only-one-remove-lun-work-item-to-.patch
 scsi-storvsc-Avoid-excessive-host-scan-on-controller.patch
-hv-kvp-Avoid-reading-past-allocated-blocks-from-KVP-.patch
-Drivers-hv-vmbus-Fix-a-rescind-issue.patch
 use-the-new-async-probing-feature-for-the-hyperv-dri.patch
 Drivers-hv-vmbus-Remove-x86-isms-from-arch-independe.patch
 hv_netvsc-use-hv_get_bytes_to_write.patch
@@ -54,4 +52,3 @@ hv_netvsc-pass-netvsc_device-to-receive-callback.patch
 hv_netvsc-drop-received-traffic-if-device-not-opened.patch
 hv_netvsc-remove-open_cnt-reference-count.patch
 hv_netvsc-safely-order-shutdown.patch
-hv_netvsc-get-rid-of-link-state-event-queue.patch

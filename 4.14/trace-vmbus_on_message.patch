@@ -12,9 +12,9 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h     |    5 +++++
  2 files changed, 7 insertions(+)
 
---- a/drivers/hv/channel_mgmt.c	2017-12-06 14:45:46.987545098 -0800
-+++ b/drivers/hv/channel_mgmt.c	2017-12-06 14:45:46.983545149 -0800
-@@ -1176,6 +1176,8 @@ void vmbus_onmessage(void *context)
+--- a/drivers/hv/channel_mgmt.c	2018-01-19 15:21:45.734048647 -0800
++++ b/drivers/hv/channel_mgmt.c	2018-01-19 15:21:45.730048699 -0800
+@@ -1177,6 +1177,8 @@ void vmbus_onmessage(void *context)
  	hdr = (struct vmbus_channel_message_header *)msg->u.payload;
  	size = msg->header.payload_size;
  
@@ -23,8 +23,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	if (hdr->msgtype >= CHANNELMSG_COUNT) {
  		pr_err("Received invalid channel message type %d size %d\n",
  			   hdr->msgtype, size);
---- a/drivers/hv/hv_trace.h	2017-12-06 14:45:46.987545098 -0800
-+++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:46.983545149 -0800
+--- a/drivers/hv/hv_trace.h	2018-01-19 15:21:45.734048647 -0800
++++ b/drivers/hv/hv_trace.h	2018-01-19 15:21:45.730048699 -0800
 @@ -19,6 +19,11 @@ DEFINE_EVENT(vmbus_hdr_msg, vmbus_on_msg
  	TP_ARGS(hdr)
  );

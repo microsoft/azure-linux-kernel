@@ -14,9 +14,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/rndis_filter.c |    7 +++++--
  3 files changed, 8 insertions(+), 14 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:06.659292922 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:06.655292973 -0800
-@@ -202,6 +202,7 @@ int netvsc_send(struct net_device *ndev,
+--- a/drivers/net/hyperv/hyperv_net.h	2018-01-19 15:23:50.632380254 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2018-01-19 15:23:50.628380309 -0800
+@@ -200,6 +200,7 @@ int netvsc_send(struct net_device_contex
  void netvsc_linkstatus_callback(struct net_device *net,
  				struct rndis_message *resp);
  int netvsc_recv_callback(struct net_device *net,
@@ -24,8 +24,8 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  			 struct vmbus_channel *channel,
  			 void  *data, u32 len,
  			 const struct ndis_tcp_ip_checksum_info *csum_info,
---- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:06.659292922 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:06.655292973 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2018-01-19 15:23:50.632380254 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2018-01-19 15:23:50.628380309 -0800
 @@ -740,34 +740,26 @@ static struct sk_buff *netvsc_alloc_recv
   * "wire" on the specified device.
   */
@@ -72,9 +72,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	return 0;
  }
  
---- a/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:06.659292922 -0800
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:06.655292973 -0800
-@@ -351,6 +351,7 @@ static inline void *rndis_get_ppi(struct
+--- a/drivers/net/hyperv/rndis_filter.c	2018-01-19 15:23:50.632380254 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2018-01-19 15:23:50.628380309 -0800
+@@ -352,6 +352,7 @@ static inline void *rndis_get_ppi(struct
  }
  
  static int rndis_filter_receive_data(struct net_device *ndev,
@@ -82,7 +82,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  				     struct rndis_device *dev,
  				     struct rndis_message *msg,
  				     struct vmbus_channel *channel,
-@@ -387,7 +388,8 @@ static int rndis_filter_receive_data(str
+@@ -388,7 +389,8 @@ static int rndis_filter_receive_data(str
  	 */
  	data = (void *)((unsigned long)data + data_offset);
  	csum_info = rndis_get_ppi(rndis_pkt, TCPIP_CHKSUM_PKTINFO);
@@ -92,7 +92,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  				    data, rndis_pkt->data_len,
  				    csum_info, vlan);
  }
-@@ -419,7 +421,8 @@ int rndis_filter_receive(struct net_devi
+@@ -420,7 +422,8 @@ int rndis_filter_receive(struct net_devi
  
  	switch (rndis_msg->ndis_msg_type) {
  	case RNDIS_MSG_PACKET:
