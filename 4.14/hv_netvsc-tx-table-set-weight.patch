@@ -1,0 +1,28 @@
+From a6fb6aa3cfa9047b62653dbcfc9bcde6e2272b41 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 27 Oct 2017 12:36:38 -0700
+Subject: hv_netvsc: Set tx_table to equal weight after subchannels open
+
+In some cases, like internal vSwitch, the host doesn't provide
+send indirection table updates. This patch sets the table to be
+equal weight after subchannels are all open. Otherwise, all workload
+will be on one TX channel.
+
+As tested, this patch has largely increased the throughput over
+internal vSwitch.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+--- a/drivers/net/hyperv/rndis_filter.c	2018-01-19 15:09:51.687619945 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2018-01-19 15:10:03.000000000 -0800
+@@ -1117,6 +1117,9 @@ void rndis_set_subchannel(struct work_st
+ 	netif_set_real_num_tx_queues(ndev, nvdev->num_chn);
+ 	netif_set_real_num_rx_queues(ndev, nvdev->num_chn);
+ 
++	for (i = 0; i < VRSS_SEND_TAB_SIZE; i++)
++		ndev_ctx->tx_table[i] = i % nvdev->num_chn;
++
+ 	rtnl_unlock();
+ 	return;
+ 

@@ -55,3 +55,7 @@ hv_netvsc-safely-order-shutdown.patch
 hv_netvsc-use-reciprocal-divide.patch
 hv_netvsc-fix-receive-buffer-limit.patch
 hv_netvsc-fix-tx-rx-buffer-size-defaults.patch
+hv_netvsc-teardown-gpadl-split.patch
+hv_netvsc-tx-table-set-weight.patch
+hv_netvsc-hide-warnings-about-rndis-device.patch
+hv_netvsc-empty-tx-if-flow-blocked.patch
