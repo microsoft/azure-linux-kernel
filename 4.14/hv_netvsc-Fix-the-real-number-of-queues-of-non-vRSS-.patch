@@ -16,8 +16,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc_drv.c |    6 ++++++
  1 file changed, 6 insertions(+)
 
---- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:50.307502539 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:50.303502591 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2018-01-19 15:22:25.469517581 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2018-01-19 15:22:25.465517634 -0800
 @@ -1935,6 +1935,12 @@ static int netvsc_probe(struct hv_device
  	/* We always need headroom for rndis header */
  	net->needed_headroom = RNDIS_AND_PPI_SIZE;

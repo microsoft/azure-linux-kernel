@@ -14,9 +14,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/rndis_filter.c |   10 +++-------
  3 files changed, 4 insertions(+), 10 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:08.215272975 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:08.211273026 -0800
-@@ -812,8 +812,6 @@ struct netvsc_device {
+--- a/drivers/net/hyperv/hyperv_net.h	2018-01-19 15:23:52.368357083 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2018-01-19 15:23:52.364357137 -0800
+@@ -810,8 +810,6 @@ struct netvsc_device {
  	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
  	u32 pkt_align; /* alignment bytes, e.g. 8 */
  
@@ -25,9 +25,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	struct netvsc_channel chan_table[VRSS_CHANNEL_MAX];
  
  	struct rcu_head rcu;
---- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:46:08.215272975 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:46:08.211273026 -0800
-@@ -73,7 +73,7 @@ static struct netvsc_device *alloc_net_d
+--- a/drivers/net/hyperv/netvsc.c	2018-01-19 15:23:52.368357083 -0800
++++ b/drivers/net/hyperv/netvsc.c	2018-01-19 15:23:52.364357137 -0800
+@@ -72,7 +72,7 @@ static struct netvsc_device *alloc_net_d
  
  	init_waitqueue_head(&net_device->wait_drain);
  	net_device->destroy = false;
@@ -36,9 +36,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
  	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
  
---- a/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:08.215272975 -0800
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:46:08.211273026 -0800
-@@ -1362,9 +1362,6 @@ int rndis_filter_open(struct netvsc_devi
+--- a/drivers/net/hyperv/rndis_filter.c	2018-01-19 15:23:52.368357083 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2018-01-19 15:23:52.364357137 -0800
+@@ -1363,9 +1363,6 @@ int rndis_filter_open(struct netvsc_devi
  	if (!nvdev)
  		return -EINVAL;
  
@@ -48,7 +48,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  	return rndis_filter_open_device(nvdev->extension);
  }
  
-@@ -1373,13 +1370,12 @@ int rndis_filter_close(struct netvsc_dev
+@@ -1374,13 +1371,12 @@ int rndis_filter_close(struct netvsc_dev
  	if (!nvdev)
  		return -EINVAL;
  

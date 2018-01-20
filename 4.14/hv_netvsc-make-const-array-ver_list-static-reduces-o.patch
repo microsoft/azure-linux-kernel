@@ -24,8 +24,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:50.123504898 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:50.123504898 -0800
+--- a/drivers/net/hyperv/netvsc.c	2018-01-19 15:22:24.369532278 -0800
++++ b/drivers/net/hyperv/netvsc.c	2018-01-19 15:22:24.365532333 -0800
 @@ -484,7 +484,7 @@ static int netvsc_connect_vsp(struct hv_
  			      struct netvsc_device *net_device,
  			      const struct netvsc_device_info *device_info)

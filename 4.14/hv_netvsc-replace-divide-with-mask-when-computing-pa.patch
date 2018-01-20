@@ -12,9 +12,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc.c |    3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:52.675472184 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:52.671472235 -0800
-@@ -711,11 +711,12 @@ static void netvsc_copy_to_send_buf(stru
+--- a/drivers/net/hyperv/netvsc.c	2018-01-19 15:22:37.249360193 -0800
++++ b/drivers/net/hyperv/netvsc.c	2018-01-19 15:22:37.245360246 -0800
+@@ -708,11 +708,12 @@ static void netvsc_copy_to_send_buf(stru
  		     + pend_size;
  	int i;
  	u32 padding = 0;

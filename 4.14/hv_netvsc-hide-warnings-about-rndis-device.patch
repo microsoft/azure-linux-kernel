@@ -1,0 +1,30 @@
+From b5eb819dcbcbeca7a047573a5218cb8f703709c9 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 2 Nov 2017 11:35:31 +0100
+Subject: hv_netvsc: hide warnings about uninitialized/missing rndis device
+
+Hyper-V hosts are known to send RNDIS messages even after we halt the
+device in rndis_filter_halt_device(). Remove user visible messages
+as they are not really useful.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+--- a/drivers/net/hyperv/rndis_filter.c	2018-01-19 15:09:51.711619636 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2018-01-19 15:10:01.000000000 -0800
+@@ -410,13 +410,13 @@ int rndis_filter_receive(struct net_devi
+ 
+ 	/* Make sure the rndis device state is initialized */
+ 	if (unlikely(!rndis_dev)) {
+-		netif_err(net_device_ctx, rx_err, ndev,
++		netif_dbg(net_device_ctx, rx_err, ndev,
+ 			  "got rndis message but no rndis device!\n");
+ 		return NVSP_STAT_FAIL;
+ 	}
+ 
+ 	if (unlikely(rndis_dev->state == RNDIS_DEV_UNINITIALIZED)) {
+-		netif_err(net_device_ctx, rx_err, ndev,
++		netif_dbg(net_device_ctx, rx_err, ndev,
+ 			  "got rndis message uninitialized\n");
+ 		return NVSP_STAT_FAIL;
+ 	}

@@ -20,8 +20,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/hyperv/netvsc.c |    3 +++
  1 file changed, 3 insertions(+)
 
---- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:51.687484849 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:51.683484900 -0800
+--- a/drivers/net/hyperv/netvsc.c	2018-01-19 15:22:32.513423466 -0800
++++ b/drivers/net/hyperv/netvsc.c	2018-01-19 15:22:32.509423520 -0800
 @@ -1255,6 +1255,9 @@ struct netvsc_device *netvsc_device_add(
  	if (!net_device)
  		return ERR_PTR(-ENOMEM);

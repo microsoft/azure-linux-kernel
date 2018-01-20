@@ -11,9 +11,9 @@ rather than rx_dropped which is intended for netif_receive.
  drivers/net/hyperv/netvsc_drv.c |    5 +++--
  2 files changed, 4 insertions(+), 2 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:04.555319893 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:46:04.551319944 -0800
-@@ -692,6 +692,7 @@ struct netvsc_ethtool_stats {
+--- a/drivers/net/hyperv/hyperv_net.h	2018-01-19 15:23:48.392410153 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2018-01-19 15:23:48.388410206 -0800
+@@ -690,6 +690,7 @@ struct netvsc_ethtool_stats {
  	unsigned long tx_busy;
  	unsigned long tx_send_full;
  	unsigned long rx_comp_busy;
@@ -21,8 +21,8 @@ rather than rx_dropped which is intended for netif_receive.
  	unsigned long stop_queue;
  	unsigned long wake_queue;
  };
---- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:04.555319893 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:46:04.551319944 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2018-01-19 15:23:48.392410153 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2018-01-19 15:23:48.388410206 -0800
 @@ -774,8 +774,8 @@ int netvsc_recv_callback(struct net_devi
  	skb = netvsc_alloc_recv_skb(net, &nvchan->napi,
  				    csum_info, vlan, data, len);

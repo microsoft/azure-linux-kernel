@@ -30,9 +30,9 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/net/hyperv/rndis_filter.c |  136 +++++++++++++++++++++-----------------
  3 files changed, 83 insertions(+), 59 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:55.603434649 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:55.599434701 -0800
-@@ -648,6 +648,10 @@ struct nvsp_message {
+--- a/drivers/net/hyperv/hyperv_net.h	2018-01-19 15:23:47.296424784 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2018-01-19 15:23:47.292424836 -0800
+@@ -646,6 +646,10 @@ struct nvsp_message {
  #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
  #define NETVSC_SEND_BUFFER_ID			0
  
@@ -43,8 +43,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  #define VRSS_SEND_TAB_SIZE 16  /* must be power of 2 */
  #define VRSS_CHANNEL_MAX 64
  #define VRSS_CHANNEL_DEFAULT 8
---- a/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:55.603434649 -0800
-+++ b/drivers/net/hyperv/netvsc_drv.c	2017-12-06 14:45:55.599434701 -0800
+--- a/drivers/net/hyperv/netvsc_drv.c	2018-01-19 15:23:47.296424784 -0800
++++ b/drivers/net/hyperv/netvsc_drv.c	2018-01-19 15:23:47.292424836 -0800
 @@ -2006,7 +2006,7 @@ static int netvsc_probe(struct hv_device
  
  	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
@@ -54,9 +54,9 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	net->features = net->hw_features |
  		NETIF_F_HIGHDMA | NETIF_F_SG |
  		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
---- a/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:45:55.603434649 -0800
-+++ b/drivers/net/hyperv/rndis_filter.c	2017-12-06 14:45:55.599434701 -0800
-@@ -1127,69 +1127,20 @@ unlock:
+--- a/drivers/net/hyperv/rndis_filter.c	2018-01-19 15:23:47.296424784 -0800
++++ b/drivers/net/hyperv/rndis_filter.c	2018-01-19 15:23:47.292424836 -0800
+@@ -1128,69 +1128,20 @@ unlock:
  	rtnl_unlock();
  }
  
@@ -132,7 +132,7 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  
  	/* A value of zero means "no change"; now turn on what we want. */
  	memset(&offloads, 0, sizeof(struct ndis_offload_params));
-@@ -1197,8 +1148,12 @@ struct netvsc_device *rndis_filter_devic
+@@ -1198,8 +1149,12 @@ struct netvsc_device *rndis_filter_devic
  	/* Linux does not care about IP checksum, always does in kernel */
  	offloads.ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_DISABLED;
  
@@ -146,7 +146,7 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  
  	if ((hwcaps.csum.ip4_txcsum & NDIS_TXCSUM_ALL_TCP4) == NDIS_TXCSUM_ALL_TCP4) {
  		/* Can checksum TCP */
-@@ -1242,10 +1197,75 @@ struct netvsc_device *rndis_filter_devic
+@@ -1243,10 +1198,75 @@ struct netvsc_device *rndis_filter_devic
  		}
  	}
  

@@ -11,9 +11,9 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h     |    8 ++++++++
  2 files changed, 11 insertions(+), 1 deletion(-)
 
---- a/drivers/hv/channel_mgmt.c	2017-12-06 14:45:48.355527562 -0800
-+++ b/drivers/hv/channel_mgmt.c	2017-12-06 14:45:48.351527612 -0800
-@@ -1224,9 +1224,11 @@ int vmbus_request_offers(void)
+--- a/drivers/hv/channel_mgmt.c	2018-01-19 15:22:14.301666813 -0800
++++ b/drivers/hv/channel_mgmt.c	2018-01-19 15:22:14.297666866 -0800
+@@ -1225,9 +1225,11 @@ int vmbus_request_offers(void)
  
  	msg->msgtype = CHANNELMSG_REQUESTOFFERS;
  
@@ -26,8 +26,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	if (ret != 0) {
  		pr_err("Unable to request offers - %d\n", ret);
  
---- a/drivers/hv/hv_trace.h	2017-12-06 14:45:48.355527562 -0800
-+++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:48.351527612 -0800
+--- a/drivers/hv/hv_trace.h	2018-01-19 15:22:14.301666813 -0800
++++ b/drivers/hv/hv_trace.h	2018-01-19 15:22:14.297666866 -0800
 @@ -122,6 +122,14 @@ TRACE_EVENT(vmbus_onversion_response,
  	    TP_printk("version_supported %d", __entry->ver)
  	);

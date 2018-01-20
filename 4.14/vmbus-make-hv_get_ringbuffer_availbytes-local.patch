@@ -14,8 +14,8 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  include/linux/hyperv.h   |   22 ----------------------
  2 files changed, 23 insertions(+), 22 deletions(-)
 
---- a/drivers/hv/ring_buffer.c	2017-12-06 14:45:55.403437214 -0800
-+++ b/drivers/hv/ring_buffer.c	2017-12-06 14:45:55.399437264 -0800
+--- a/drivers/hv/ring_buffer.c	2018-01-19 15:23:46.036441601 -0800
++++ b/drivers/hv/ring_buffer.c	2018-01-19 15:23:46.028441708 -0800
 @@ -140,6 +140,29 @@ static u32 hv_copyto_ringbuffer(
  	return start_write_offset;
  }
@@ -46,8 +46,8 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  /* Get various debug metrics for the specified ring buffer. */
  void hv_ringbuffer_get_debuginfo(const struct hv_ring_buffer_info *ring_info,
  				 struct hv_ring_buffer_debug_info *debug_info)
---- a/include/linux/hyperv.h	2017-12-06 14:45:55.403437214 -0800
-+++ b/include/linux/hyperv.h	2017-12-06 14:45:55.399437264 -0800
+--- a/include/linux/hyperv.h	2018-01-19 15:23:46.036441601 -0800
++++ b/include/linux/hyperv.h	2018-01-19 15:23:46.032441656 -0800
 @@ -127,28 +127,6 @@ struct hv_ring_buffer_info {
  	u32 priv_read_index;
  };

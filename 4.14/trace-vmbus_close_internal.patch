@@ -11,8 +11,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  drivers/hv/hv_trace.h |   15 +++++++++++++++
  2 files changed, 17 insertions(+)
 
---- a/drivers/hv/channel.c	2017-12-06 14:45:48.735522690 -0800
-+++ b/drivers/hv/channel.c	2017-12-06 14:45:48.731522742 -0800
+--- a/drivers/hv/channel.c	2018-01-19 15:22:17.173628434 -0800
++++ b/drivers/hv/channel.c	2018-01-19 15:22:17.169628487 -0800
 @@ -591,6 +591,8 @@ static int vmbus_close_internal(struct v
  	ret = vmbus_post_msg(msg, sizeof(struct vmbus_channel_close_channel),
  			     true);
@@ -22,8 +22,8 @@ Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
  	if (ret) {
  		pr_err("Close failed: close post msg return is %d\n", ret);
  		/*
---- a/drivers/hv/hv_trace.h	2017-12-06 14:45:48.735522690 -0800
-+++ b/drivers/hv/hv_trace.h	2017-12-06 14:45:48.731522742 -0800
+--- a/drivers/hv/hv_trace.h	2018-01-19 15:22:17.173628434 -0800
++++ b/drivers/hv/hv_trace.h	2018-01-19 15:22:17.169628487 -0800
 @@ -157,6 +157,21 @@ TRACE_EVENT(vmbus_open,
  		    )
  	);

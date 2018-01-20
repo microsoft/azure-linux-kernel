@@ -29,7 +29,6 @@ hv_netvsc-Update-netvsc-Document-for-TCP-hash-level-.patch
 hv_netvsc-Rename-ind_table-to-rx_table.patch
 hv_netvsc-Rename-tx_send_table-to-tx_table.patch
 hv_netvsc-Add-initialization-of-tx_table-in-netvsc_d.patch
-hv_netvsc-add-trace-event-hooks.patch
 hv_netvsc-drop-unused-macros.patch
 hv_netvsc-copy_to_send-buf-can-be-void.patch
 hv_netvsc-don-t-need-local-xmit_more.patch
@@ -42,8 +41,6 @@ hv_balloon-fix-bugs-in-num_pages_onlined-accounting.patch
 hv_balloon-trace-post_status.patch
 scsi-storvsc-Allow-only-one-remove-lun-work-item-to-.patch
 scsi-storvsc-Avoid-excessive-host-scan-on-controller.patch
-hv-kvp-Avoid-reading-past-allocated-blocks-from-KVP-.patch
-Drivers-hv-vmbus-Fix-a-rescind-issue.patch
 use-the-new-async-probing-feature-for-the-hyperv-dri.patch
 Drivers-hv-vmbus-Remove-x86-isms-from-arch-independe.patch
 hv_netvsc-use-hv_get_bytes_to_write.patch
@@ -55,4 +52,10 @@ hv_netvsc-pass-netvsc_device-to-receive-callback.patch
 hv_netvsc-drop-received-traffic-if-device-not-opened.patch
 hv_netvsc-remove-open_cnt-reference-count.patch
 hv_netvsc-safely-order-shutdown.patch
-hv_netvsc-get-rid-of-link-state-event-queue.patch
+hv_netvsc-use-reciprocal-divide.patch
+hv_netvsc-fix-receive-buffer-limit.patch
+hv_netvsc-fix-tx-rx-buffer-size-defaults.patch
+hv_netvsc-teardown-gpadl-split.patch
+hv_netvsc-tx-table-set-weight.patch
+hv_netvsc-hide-warnings-about-rndis-device.patch
+hv_netvsc-empty-tx-if-flow-blocked.patch

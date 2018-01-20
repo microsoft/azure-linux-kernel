@@ -8,9 +8,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/hyperv_net.h |   26 --------------------------
  1 file changed, 26 deletions(-)
 
---- a/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:52.123479259 -0800
-+++ b/drivers/net/hyperv/hyperv_net.h	2017-12-06 14:45:52.119479311 -0800
-@@ -1423,32 +1423,6 @@ struct rndis_message {
+--- a/drivers/net/hyperv/hyperv_net.h	2018-01-19 15:22:33.433411176 -0800
++++ b/drivers/net/hyperv/hyperv_net.h	2018-01-19 15:22:33.429411228 -0800
+@@ -1421,32 +1421,6 @@ struct rndis_message {
  	(sizeof(msg) + (sizeof(struct rndis_message) -	\
  	 sizeof(union rndis_message_container)))
  

@@ -11,9 +11,9 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  drivers/net/hyperv/netvsc.c |    3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
---- a/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:52.495474491 -0800
-+++ b/drivers/net/hyperv/netvsc.c	2017-12-06 14:45:52.491474542 -0800
-@@ -845,7 +845,6 @@ int netvsc_send(struct net_device *ndev,
+--- a/drivers/net/hyperv/netvsc.c	2018-01-19 15:22:36.293372965 -0800
++++ b/drivers/net/hyperv/netvsc.c	2018-01-19 15:22:36.289373018 -0800
+@@ -839,7 +839,6 @@ int netvsc_send(struct net_device_contex
  	struct hv_netvsc_packet *msd_send = NULL, *cur_send = NULL;
  	struct sk_buff *msd_skb = NULL;
  	bool try_batch;
@@ -21,7 +21,7 @@ Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
  
  	/* If device is rescinded, return error and packet will get dropped. */
  	if (unlikely(!net_device || net_device->destroy))
-@@ -920,7 +919,7 @@ int netvsc_send(struct net_device *ndev,
+@@ -913,7 +912,7 @@ int netvsc_send(struct net_device_contex
  		if (msdp->skb)
  			dev_consume_skb_any(msdp->skb);
  

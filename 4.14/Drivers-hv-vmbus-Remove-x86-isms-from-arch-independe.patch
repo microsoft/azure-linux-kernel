@@ -22,8 +22,8 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  drivers/hv/vmbus_drv.c          |    5 ++---
  4 files changed, 18 insertions(+), 15 deletions(-)
 
---- a/arch/x86/hyperv/hv_init.c	2017-12-06 14:45:54.999442392 -0800
-+++ b/arch/x86/hyperv/hv_init.c	2017-12-06 14:45:54.995442444 -0800
+--- a/arch/x86/hyperv/hv_init.c	2018-01-19 15:23:14.568861728 -0800
++++ b/arch/x86/hyperv/hv_init.c	2018-01-19 15:23:14.564861781 -0800
 @@ -236,17 +236,24 @@ void hyperv_report_panic(struct pt_regs
  }
  EXPORT_SYMBOL_GPL(hyperv_report_panic);
@@ -56,9 +56,9 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  }
 -EXPORT_SYMBOL_GPL(hv_is_hypercall_page_setup);
 +EXPORT_SYMBOL_GPL(hv_is_hyperv_initialized);
---- a/arch/x86/include/asm/mshyperv.h	2017-12-06 14:45:54.999442392 -0800
-+++ b/arch/x86/include/asm/mshyperv.h	2017-12-06 14:45:54.995442444 -0800
-@@ -312,11 +312,11 @@ void hyperv_init(void);
+--- a/arch/x86/include/asm/mshyperv.h	2018-01-19 15:23:14.568861728 -0800
++++ b/arch/x86/include/asm/mshyperv.h	2018-01-19 15:23:14.564861781 -0800
+@@ -314,11 +314,11 @@ void hyperv_init(void);
  void hyperv_setup_mmu_ops(void);
  void hyper_alloc_mmu(void);
  void hyperv_report_panic(struct pt_regs *regs);
@@ -72,8 +72,8 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  static inline void hyperv_cleanup(void) {}
  static inline void hyperv_setup_mmu_ops(void) {}
  #endif /* CONFIG_HYPERV */
---- a/drivers/hv/hv.c	2017-12-06 14:45:54.999442392 -0800
-+++ b/drivers/hv/hv.c	2017-12-06 14:45:54.999442392 -0800
+--- a/drivers/hv/hv.c	2018-01-19 15:23:14.568861728 -0800
++++ b/drivers/hv/hv.c	2018-01-19 15:23:14.568861728 -0800
 @@ -49,9 +49,6 @@ struct hv_context hv_context = {
   */
  int hv_init(void)
@@ -84,8 +84,8 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  	hv_context.cpu_context = alloc_percpu(struct hv_per_cpu_context);
  	if (!hv_context.cpu_context)
  		return -ENOMEM;
---- a/drivers/hv/vmbus_drv.c	2017-12-06 14:45:54.999442392 -0800
-+++ b/drivers/hv/vmbus_drv.c	2017-12-06 14:45:54.999442392 -0800
+--- a/drivers/hv/vmbus_drv.c	2018-01-19 15:23:14.568861728 -0800
++++ b/drivers/hv/vmbus_drv.c	2018-01-19 15:23:33.196613008 -0800
 @@ -37,7 +37,6 @@
  #include <linux/sched/task_stack.h>
  
@@ -107,7 +107,7 @@ Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
  {
  	int ret, t;
  
--	if (x86_hyper != &x86_hyper_ms_hyperv)
+-	if (x86_hyper_type != X86_HYPER_MS_HYPERV)
 +	if (!hv_is_hyperv_initialized())
  		return -ENODEV;
  
