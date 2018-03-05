@@ -1,0 +1,73 @@
+From 7969311fa743fc4670a860076e761aef22e70485 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 9 Jan 2018 12:57:32 -0800
+Subject: [PATCH 23/55] uio_hv_generic: add rescind support
+
+When host rescinds the device, the UIO driver will clear the interrupt
+state and notify application. The read (or write) on the interrupt FD
+will then fail with -EIO. This is simpler than adding lots extra uevent
+stuff inside UIO.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ Documentation/driver-api/uio-howto.rst |  4 ++++
+ drivers/uio/uio_hv_generic.c           | 19 +++++++++++++++++++
+ 2 files changed, 23 insertions(+)
+
+diff --git a/Documentation/driver-api/uio-howto.rst b/Documentation/driver-api/uio-howto.rst
+index 3d582634d1f5..bfab29cf86c6 100644
+--- a/Documentation/driver-api/uio-howto.rst
++++ b/Documentation/driver-api/uio-howto.rst
+@@ -697,6 +697,10 @@ prevents the device from generating further interrupts until the bit is
+ cleared. The userspace driver should clear this bit before blocking and
+ waiting for more interrupts.
+ 
++When host rescinds a device, the interrupt file descriptor is marked down
++and any reads of the interrupt file descriptor will return -EIO. Similar
++to a closed socket or disconnected serial device.
++
+ The vmbus device regions are mapped into uio device resources:
+     0) Channel ring buffers: guest to host and host to guest
+     1) Guest to host interrupt signalling pages
+diff --git a/drivers/uio/uio_hv_generic.c b/drivers/uio/uio_hv_generic.c
+index ee6d862ef4bd..8c6b04a26c47 100644
+--- a/drivers/uio/uio_hv_generic.c
++++ b/drivers/uio/uio_hv_generic.c
+@@ -103,6 +103,23 @@ static void hv_uio_channel_cb(void *context)
+ 	uio_event_notify(&pdata->info);
+ }
+ 
++/*
++ * Callback from vmbus_event when channel is rescinded.
++ */
++static void hv_uio_rescind(struct vmbus_channel *channel)
++{
++	struct hv_device *hv_dev = channel->primary_channel->device_obj;
++	struct hv_uio_private_data *pdata = hv_get_drvdata(hv_dev);
++
++	/*
++	 * Turn off the interrupt file handle
++	 * Next read for event will return -EIO
++	 */
++	pdata->info.irq = 0;
++
++	/* Wake up reader */
++	uio_event_notify(&pdata->info);
++}
+ 
+ static void
+ hv_uio_cleanup(struct hv_device *dev, struct hv_uio_private_data *pdata)
+@@ -218,6 +235,8 @@ hv_uio_probe(struct hv_device *dev,
+ 		goto fail_close;
+ 	}
+ 
++	vmbus_set_chn_rescind_callback(dev->channel, hv_uio_rescind);
++
+ 	hv_set_drvdata(dev, pdata);
+ 
+ 	return 0;
+-- 
+2.14.1
+

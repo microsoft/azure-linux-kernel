@@ -1,0 +1,207 @@
+From 170f5e6119c07695aeaa5864e6ad9d12874bbb76 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 1 Dec 2017 11:01:47 -0800
+Subject: [PATCH 04/55] hv_netvsc: use reciprocal divide to speed up percent
+ calculation
+
+Every packet sent checks the available ring space. The calculation
+can be sped up by using reciprocal divide which is multiplication.
+
+Since ring_size can only be configured by module parameter, so it doesn't
+have to be passed around everywhere. Also it should be unsigned
+since it is number of pages.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |  6 +++---
+ drivers/net/hyperv/netvsc.c       | 20 +++++++-------------
+ drivers/net/hyperv/netvsc_drv.c   | 17 +++++++++--------
+ drivers/net/hyperv/rndis_filter.c |  4 ++--
+ 4 files changed, 21 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 7226230561de..3d940c67ea94 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -146,7 +146,6 @@ struct hv_netvsc_packet {
+ 
+ struct netvsc_device_info {
+ 	unsigned char mac_adr[ETH_ALEN];
+-	int  ring_size;
+ 	u32  num_chn;
+ 	u32  send_sections;
+ 	u32  recv_sections;
+@@ -188,6 +187,9 @@ struct rndis_message;
+ struct netvsc_device;
+ struct net_device_context;
+ 
++extern u32 netvsc_ring_bytes;
++extern struct reciprocal_value netvsc_ring_reciprocal;
++
+ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 					const struct netvsc_device_info *info);
+ int netvsc_alloc_recv_comp_ring(struct netvsc_device *net_device, u32 q_idx);
+@@ -804,8 +806,6 @@ struct netvsc_device {
+ 
+ 	struct rndis_device *extension;
+ 
+-	int ring_size;
+-
+ 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
+ 	u32 pkt_align; /* alignment bytes, e.g. 8 */
+ 
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 4b931f017a25..e4bcd202a56a 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -31,6 +31,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/prefetch.h>
++#include <linux/reciprocal_div.h>
+ 
+ #include <asm/sync_bitops.h>
+ 
+@@ -588,14 +589,11 @@ void netvsc_device_remove(struct hv_device *device)
+  * Get the percentage of available bytes to write in the ring.
+  * The return value is in range from 0 to 100.
+  */
+-static inline u32 hv_ringbuf_avail_percent(
+-		struct hv_ring_buffer_info *ring_info)
++static u32 hv_ringbuf_avail_percent(const struct hv_ring_buffer_info *ring_info)
+ {
+-	u32 avail_read, avail_write;
++	u32 avail_write = hv_get_bytes_to_write(ring_info);
+ 
+-	hv_get_ringbuffer_availbytes(ring_info, &avail_read, &avail_write);
+-
+-	return avail_write * 100 / ring_info->ring_datasize;
++	return reciprocal_divide(avail_write  * 100, netvsc_ring_reciprocal);
+ }
+ 
+ static inline void netvsc_free_send_slot(struct netvsc_device *net_device,
+@@ -1249,7 +1247,6 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 				const struct netvsc_device_info *device_info)
+ {
+ 	int i, ret = 0;
+-	int ring_size = device_info->ring_size;
+ 	struct netvsc_device *net_device;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+@@ -1261,8 +1258,6 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 	for (i = 0; i < VRSS_SEND_TAB_SIZE; i++)
+ 		net_device_ctx->tx_table[i] = 0;
+ 
+-	net_device->ring_size = ring_size;
+-
+ 	/* Because the device uses NAPI, all the interrupt batching and
+ 	 * control is done via Net softirq, not the channel handling
+ 	 */
+@@ -1289,10 +1284,9 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 		       netvsc_poll, NAPI_POLL_WEIGHT);
+ 
+ 	/* Open the channel */
+-	ret = vmbus_open(device->channel, ring_size * PAGE_SIZE,
+-			 ring_size * PAGE_SIZE, NULL, 0,
+-			 netvsc_channel_cb,
+-			 net_device->chan_table);
++	ret = vmbus_open(device->channel, netvsc_ring_bytes,
++			 netvsc_ring_bytes,  NULL, 0,
++			 netvsc_channel_cb, net_device->chan_table);
+ 
+ 	if (ret != 0) {
+ 		netif_napi_del(&net_device->chan_table[0].napi);
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 5129647d420c..ba690e1737ab 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -35,6 +35,7 @@
+ #include <linux/slab.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/netpoll.h>
++#include <linux/reciprocal_div.h>
+ 
+ #include <net/arp.h>
+ #include <net/route.h>
+@@ -54,9 +55,11 @@
+ #define LINKCHANGE_INT (2 * HZ)
+ #define VF_TAKEOVER_INT (HZ / 10)
+ 
+-static int ring_size = 128;
+-module_param(ring_size, int, S_IRUGO);
++static unsigned int ring_size __ro_after_init = 128;
++module_param(ring_size, uint, S_IRUGO);
+ MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
++unsigned int netvsc_ring_bytes __ro_after_init;
++struct reciprocal_value netvsc_ring_reciprocal __ro_after_init;
+ 
+ static const u32 default_msg = NETIF_MSG_DRV | NETIF_MSG_PROBE |
+ 				NETIF_MSG_LINK | NETIF_MSG_IFUP |
+@@ -860,7 +863,6 @@ static int netvsc_set_channels(struct net_device *net,
+ 
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.num_chn = count;
+-	device_info.ring_size = ring_size;
+ 	device_info.send_sections = nvdev->send_section_cnt;
+ 	device_info.send_section_size = nvdev->send_section_size;
+ 	device_info.recv_sections = nvdev->recv_section_cnt;
+@@ -975,7 +977,6 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 		rndis_filter_close(nvdev);
+ 
+ 	memset(&device_info, 0, sizeof(device_info));
+-	device_info.ring_size = ring_size;
+ 	device_info.num_chn = nvdev->num_chn;
+ 	device_info.send_sections = nvdev->send_section_cnt;
+ 	device_info.send_section_size = nvdev->send_section_size;
+@@ -1539,7 +1540,6 @@ static int netvsc_set_ringparam(struct net_device *ndev,
+ 
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.num_chn = nvdev->num_chn;
+-	device_info.ring_size = ring_size;
+ 	device_info.send_sections = new_tx;
+ 	device_info.send_section_size = nvdev->send_section_size;
+ 	device_info.recv_sections = new_rx;
+@@ -1995,7 +1995,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 
+ 	/* Notify the netvsc driver of the new device */
+ 	memset(&device_info, 0, sizeof(device_info));
+-	device_info.ring_size = ring_size;
+ 	device_info.num_chn = VRSS_CHANNEL_DEFAULT;
+ 	device_info.send_sections = NETVSC_DEFAULT_TX;
+ 	device_info.send_section_size = NETVSC_SEND_SECTION_SIZE;
+@@ -2158,11 +2157,13 @@ static int __init netvsc_drv_init(void)
+ 
+ 	if (ring_size < RING_SIZE_MIN) {
+ 		ring_size = RING_SIZE_MIN;
+-		pr_info("Increased ring_size to %d (min allowed)\n",
++		pr_info("Increased ring_size to %u (min allowed)\n",
+ 			ring_size);
+ 	}
+-	ret = vmbus_driver_register(&netvsc_drv);
++	netvsc_ring_bytes = ring_size * PAGE_SIZE;
++	netvsc_ring_reciprocal = reciprocal_value(netvsc_ring_bytes);
+ 
++	ret = vmbus_driver_register(&netvsc_drv);
+ 	if (ret)
+ 		return ret;
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 7b637c7dd1e5..673492063307 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1040,8 +1040,8 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 	/* Set the channel before opening.*/
+ 	nvchan->channel = new_sc;
+ 
+-	ret = vmbus_open(new_sc, nvscdev->ring_size * PAGE_SIZE,
+-			 nvscdev->ring_size * PAGE_SIZE, NULL, 0,
++	ret = vmbus_open(new_sc, netvsc_ring_bytes,
++			 netvsc_ring_bytes, NULL, 0,
+ 			 netvsc_channel_cb, nvchan);
+ 	if (ret == 0)
+ 		napi_enable(&nvchan->napi);
+-- 
+2.14.1
+

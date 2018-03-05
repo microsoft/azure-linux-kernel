@@ -1,0 +1,29 @@
+From b2760e679e1eb14b24d3963f0243c35746362c3d Mon Sep 17 00:00:00 2001
+From: Arjan van de Ven <arjan@linux.intel.com>
+Date: Tue, 21 Jun 2016 21:23:52 +0000
+Subject: [PATCH 46/55] Boot with rcu expedite on
+
+Turn on rcu_expedite by default, we'll turn it back off at the end of the boot
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ kernel/ksysfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/ksysfs.c b/kernel/ksysfs.c
+index 46ba853656f6..925c7fdd26c1 100644
+--- a/kernel/ksysfs.c
++++ b/kernel/ksysfs.c
+@@ -149,7 +149,7 @@ static ssize_t fscaps_show(struct kobject *kobj,
+ KERNEL_ATTR_RO(fscaps);
+ 
+ #ifndef CONFIG_TINY_RCU
+-int rcu_expedited;
++int rcu_expedited = 1;
+ static ssize_t rcu_expedited_show(struct kobject *kobj,
+ 				  struct kobj_attribute *attr, char *buf)
+ {
+-- 
+2.14.1
+

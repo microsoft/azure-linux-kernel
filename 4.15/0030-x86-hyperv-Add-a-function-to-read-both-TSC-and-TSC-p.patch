@@ -1,0 +1,107 @@
+From f6e493db0e47e95252482a263ab5302602a63d1f Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 24 Jan 2018 14:23:32 +0100
+Subject: [PATCH 30/55] x86/hyperv: Add a function to read both TSC and TSC
+ page value simulateneously
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This is going to be used from KVM code where both TSC and TSC page value
+are needed.
+
+Nothing is supposed to use the function when Hyper-V code is compiled out,
+just BUG().
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: kvm@vger.kernel.org
+Cc: Radim Krčmář <rkrcmar@redhat.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: "Michael Kelley (EOSG)" <Michael.H.Kelley@microsoft.com>
+Cc: Roman Kagan <rkagan@virtuozzo.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: devel@linuxdriverproject.org
+Cc: Paolo Bonzini <pbonzini@redhat.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+Cc: Cathy Avery <cavery@redhat.com>
+Cc: Mohammed Gamal <mmorsy@redhat.com>
+Link: https://lkml.kernel.org/r/20180124132337.30138-3-vkuznets@redhat.com
+
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c       |  1 +
+ arch/x86/include/asm/mshyperv.h | 23 +++++++++++++++++++----
+ 2 files changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index bffc31664f6b..bee698005e50 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -37,6 +37,7 @@ struct ms_hyperv_tsc_page *hv_get_tsc_page(void)
+ {
+ 	return tsc_pg;
+ }
++EXPORT_SYMBOL_GPL(hv_get_tsc_page);
+ 
+ static u64 read_hv_clock_tsc(struct clocksource *arg)
+ {
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index b52af150cbd8..1991a20a30dd 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -325,9 +325,10 @@ static inline void hyperv_setup_mmu_ops(void) {}
+ 
+ #ifdef CONFIG_HYPERV_TSCPAGE
+ struct ms_hyperv_tsc_page *hv_get_tsc_page(void);
+-static inline u64 hv_read_tsc_page(const struct ms_hyperv_tsc_page *tsc_pg)
++static inline u64 hv_read_tsc_page_tsc(const struct ms_hyperv_tsc_page *tsc_pg,
++				       u64 *cur_tsc)
+ {
+-	u64 scale, offset, cur_tsc;
++	u64 scale, offset;
+ 	u32 sequence;
+ 
+ 	/*
+@@ -358,7 +359,7 @@ static inline u64 hv_read_tsc_page(const struct ms_hyperv_tsc_page *tsc_pg)
+ 
+ 		scale = READ_ONCE(tsc_pg->tsc_scale);
+ 		offset = READ_ONCE(tsc_pg->tsc_offset);
+-		cur_tsc = rdtsc_ordered();
++		*cur_tsc = rdtsc_ordered();
+ 
+ 		/*
+ 		 * Make sure we read sequence after we read all other values
+@@ -368,7 +369,14 @@ static inline u64 hv_read_tsc_page(const struct ms_hyperv_tsc_page *tsc_pg)
+ 
+ 	} while (READ_ONCE(tsc_pg->tsc_sequence) != sequence);
+ 
+-	return mul_u64_u64_shr(cur_tsc, scale, 64) + offset;
++	return mul_u64_u64_shr(*cur_tsc, scale, 64) + offset;
++}
++
++static inline u64 hv_read_tsc_page(const struct ms_hyperv_tsc_page *tsc_pg)
++{
++	u64 cur_tsc;
++
++	return hv_read_tsc_page_tsc(tsc_pg, &cur_tsc);
+ }
+ 
+ #else
+@@ -376,5 +384,12 @@ static inline struct ms_hyperv_tsc_page *hv_get_tsc_page(void)
+ {
+ 	return NULL;
+ }
++
++static inline u64 hv_read_tsc_page_tsc(const struct ms_hyperv_tsc_page *tsc_pg,
++				       u64 *cur_tsc)
++{
++	BUG();
++	return U64_MAX;
++}
+ #endif
+ #endif
+-- 
+2.14.1
+

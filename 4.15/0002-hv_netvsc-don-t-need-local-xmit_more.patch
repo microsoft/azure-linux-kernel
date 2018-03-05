@@ -1,0 +1,39 @@
+From d6d7b077a00a95cd362ed90deb5a1fb5f1088612 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 1 Dec 2017 11:01:45 -0800
+Subject: [PATCH 02/55] hv_netvsc: don't need local xmit_more
+
+Since skb is always non-NULL in the copy portion of netvsc_send
+do not need local variable.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index bfc79698b8f4..ee31faa67cad 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -848,7 +848,6 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ 	struct hv_netvsc_packet *msd_send = NULL, *cur_send = NULL;
+ 	struct sk_buff *msd_skb = NULL;
+ 	bool try_batch;
+-	bool xmit_more = (skb != NULL) ? skb->xmit_more : false;
+ 
+ 	/* If device is rescinded, return error and packet will get dropped. */
+ 	if (unlikely(!net_device || net_device->destroy))
+@@ -922,7 +921,7 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ 		if (msdp->skb)
+ 			dev_consume_skb_any(msdp->skb);
+ 
+-		if (xmit_more && !packet->cp_partial) {
++		if (skb->xmit_more && !packet->cp_partial) {
+ 			msdp->skb = skb;
+ 			msdp->pkt = packet;
+ 			msdp->count++;
+-- 
+2.14.1
+

@@ -1,0 +1,61 @@
+From 1eeff91e93ecf83315304bad32ce1b261536bc08 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 12 Dec 2017 16:48:36 -0800
+Subject: [PATCH 10/55] hv_netvsc: track memory allocation failures in ethtool
+ stats
+
+When skb can not be allocated, update ethtool statisitics
+rather than rx_dropped which is intended for netif_receive.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h | 1 +
+ drivers/net/hyperv/netvsc_drv.c | 5 +++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 845ddc7bba46..ef8c9fb7d2ef 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -705,6 +705,7 @@ struct netvsc_ethtool_stats {
+ 	unsigned long tx_busy;
+ 	unsigned long tx_send_full;
+ 	unsigned long rx_comp_busy;
++	unsigned long rx_no_memory;
+ 	unsigned long stop_queue;
+ 	unsigned long wake_queue;
+ };
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index b6a434ac64d3..10615510727a 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -773,8 +773,8 @@ int netvsc_recv_callback(struct net_device *net,
+ 	skb = netvsc_alloc_recv_skb(net, &nvchan->napi,
+ 				    csum_info, vlan, data, len);
+ 	if (unlikely(!skb)) {
++		++net_device_ctx->eth_stats.rx_no_memory;
+ drop:
+-		++net->stats.rx_dropped;
+ 		rcu_read_unlock();
+ 		return NVSP_STAT_FAIL;
+ 	}
+@@ -1125,12 +1125,13 @@ static const struct {
+ 	u16 offset;
+ } netvsc_stats[] = {
+ 	{ "tx_scattered", offsetof(struct netvsc_ethtool_stats, tx_scattered) },
+-	{ "tx_no_memory",  offsetof(struct netvsc_ethtool_stats, tx_no_memory) },
++	{ "tx_no_memory", offsetof(struct netvsc_ethtool_stats, tx_no_memory) },
+ 	{ "tx_no_space",  offsetof(struct netvsc_ethtool_stats, tx_no_space) },
+ 	{ "tx_too_big",	  offsetof(struct netvsc_ethtool_stats, tx_too_big) },
+ 	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
+ 	{ "tx_send_full", offsetof(struct netvsc_ethtool_stats, tx_send_full) },
+ 	{ "rx_comp_busy", offsetof(struct netvsc_ethtool_stats, rx_comp_busy) },
++	{ "rx_no_memory", offsetof(struct netvsc_ethtool_stats, rx_no_memory) },
+ 	{ "stop_queue", offsetof(struct netvsc_ethtool_stats, stop_queue) },
+ 	{ "wake_queue", offsetof(struct netvsc_ethtool_stats, wake_queue) },
+ }, vf_stats[] = {
+-- 
+2.14.1
+

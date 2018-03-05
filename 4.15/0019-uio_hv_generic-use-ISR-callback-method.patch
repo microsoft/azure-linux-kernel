@@ -1,0 +1,30 @@
+From e2a19165c2f3271bd00378b6d52cdc23d7d91b61 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 4 Jan 2018 14:13:31 -0800
+Subject: [PATCH 19/55] uio_hv_generic: use ISR callback method
+
+The UIO IRQ handler doesn't need to be called from a tasklet.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/uio/uio_hv_generic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/uio/uio_hv_generic.c b/drivers/uio/uio_hv_generic.c
+index 8d5f529a1dc1..a0c4c07a907f 100644
+--- a/drivers/uio/uio_hv_generic.c
++++ b/drivers/uio/uio_hv_generic.c
+@@ -109,7 +109,7 @@ hv_uio_probe(struct hv_device *dev,
+ 		goto fail;
+ 
+ 	dev->channel->inbound.ring_buffer->interrupt_mask = 1;
+-	set_channel_read_mode(dev->channel, HV_CALL_DIRECT);
++	set_channel_read_mode(dev->channel, HV_CALL_ISR);
+ 
+ 	/* Fill general uio info */
+ 	pdata->info.name = "uio_hv_generic";
+-- 
+2.14.1
+

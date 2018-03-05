@@ -1,0 +1,39 @@
+From 7fdc1cb28b6b59c7c1442a9167c05b53ab1f7d0a Mon Sep 17 00:00:00 2001
+From: Matthew Johnson <matthew.johnson@intel.com>
+Date: Mon, 15 Aug 2016 15:57:28 +0000
+Subject: [PATCH 53/55] remove clear ioapic
+
+Remove call to clear_IO_APIC in early boot
+
+In hyper-v we can expect the IOAPIC to be empty on boot. The call
+to clear_IO_APIC is then not necessary or desirable because it can
+cause significant boot delays in hyper-v. We were seeing up to 300 ms
+delays with this call on 32-core systems.
+
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ arch/x86/kernel/apic/io_apic.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
+index 8a7963421460..069b5ad51ac2 100644
+--- a/arch/x86/kernel/apic/io_apic.c
++++ b/arch/x86/kernel/apic/io_apic.c
+@@ -1405,9 +1405,12 @@ void __init enable_IO_APIC(void)
+ 	}
+ 
+ 	/*
+-	 * Do not trust the IO-APIC being empty at bootup
++	 * In hyper-v we can trust that IO_APIC will be cleared on boot. A call to
++	 * clear_IO_APIC is therefore not necessary or desirable since it can
++	 * cause significant delays in boot time.
++	 *
++	 * clear_IO_APIC();
+ 	 */
+-	clear_IO_APIC();
+ }
+ 
+ void native_disable_io_apic(void)
+-- 
+2.14.1
+

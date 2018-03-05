@@ -1,0 +1,84 @@
+From d081652ac91779588898dff64c5b6d419b4cefb3 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 24 Jan 2018 14:23:34 +0100
+Subject: [PATCH 32/55] x86/hyperv: Redirect reenlightment notifications on CPU
+ offlining
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It is very unlikely for CPUs to get offlined when running on Hyper-V as
+there is a protection in the vmbus module which prevents it when the guest
+has any VMBus devices assigned. This, however, may change in future if an
+option to reassign an already active channel will be added. It is also
+possible to run without any Hyper-V devices or to have a CPU with no
+assigned channels.
+
+Reassign reenlightenment notifications to some other active CPU when the
+CPU which is assigned to them goes offline.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: kvm@vger.kernel.org
+Cc: Radim Krčmář <rkrcmar@redhat.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: "Michael Kelley (EOSG)" <Michael.H.Kelley@microsoft.com>
+Cc: Roman Kagan <rkagan@virtuozzo.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: devel@linuxdriverproject.org
+Cc: Paolo Bonzini <pbonzini@redhat.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+Cc: Cathy Avery <cavery@redhat.com>
+Cc: Mohammed Gamal <mmorsy@redhat.com>
+Link: https://lkml.kernel.org/r/20180124132337.30138-5-vkuznets@redhat.com
+
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index 58219d5e27d5..8a64433038c1 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -191,6 +191,26 @@ void clear_hv_tscchange_cb(void)
+ }
+ EXPORT_SYMBOL_GPL(clear_hv_tscchange_cb);
+ 
++static int hv_cpu_die(unsigned int cpu)
++{
++	struct hv_reenlightenment_control re_ctrl;
++	unsigned int new_cpu;
++
++	if (hv_reenlightenment_cb == NULL)
++		return 0;
++
++	rdmsrl(HV_X64_MSR_REENLIGHTENMENT_CONTROL, *((u64 *)&re_ctrl));
++	if (re_ctrl.target_vp == hv_vp_index[cpu]) {
++		/* Reassign to some other online CPU */
++		new_cpu = cpumask_any_but(cpu_online_mask, cpu);
++
++		re_ctrl.target_vp = hv_vp_index[new_cpu];
++		wrmsrl(HV_X64_MSR_REENLIGHTENMENT_CONTROL, *((u64 *)&re_ctrl));
++	}
++
++	return 0;
++}
++
+ /*
+  * This function is to be invoked early in the boot sequence after the
+  * hypervisor has been detected.
+@@ -220,7 +240,7 @@ void hyperv_init(void)
+ 		return;
+ 
+ 	if (cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "x86/hyperv_init:online",
+-			      hv_cpu_init, NULL) < 0)
++			      hv_cpu_init, hv_cpu_die) < 0)
+ 		goto free_vp_index;
+ 
+ 	/*
+-- 
+2.14.1
+

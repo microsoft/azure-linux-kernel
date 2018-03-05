@@ -1,0 +1,146 @@
+From 73c960609badb2420cf4f84676977dbf8ccb5bc0 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 8 Nov 2017 12:57:39 +0100
+Subject: [PATCH 39/55] hv_balloon: fix bugs in num_pages_onlined accounting
+
+Our num_pages_onlined accounting is buggy:
+1) In case we're offlining a memory block which was present at boot (e.g.
+   when there was no hotplug at all) we subtract 32k from 0 and as
+   num_pages_onlined is unsigned get a very big positive number.
+
+2) Commit 6df8d9aaf3af ("Drivers: hv: balloon: Correctly update onlined
+   page count") made num_pages_onlined counter accurate on onlining but
+   totally incorrect on offlining for partly populated regions: no matter
+   how many pages were onlined and what was actually added to
+   num_pages_onlined counter we always subtract the full region (32k) so
+   again, num_pages_onlined can wrap around zero. By onlining/offlining
+   the same partly populated region multiple times we can make the
+   situation worse.
+
+Solve these issues by doing accurate accounting on offlining: walk HAS
+list, check for covered range and gaps.
+
+Fixes: 6df8d9aaf3af ("Drivers: hv: balloon: Correctly update onlined page count")
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: Sasha Levin <alexander.levin@verizon.com>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/hv/hv_balloon.c | 82 +++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 69 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/hv/hv_balloon.c b/drivers/hv/hv_balloon.c
+index 5b8e1ad1bcfe..7514a32d0de4 100644
+--- a/drivers/hv/hv_balloon.c
++++ b/drivers/hv/hv_balloon.c
+@@ -576,11 +576,65 @@ static struct hv_dynmem_device dm_device;
+ static void post_status(struct hv_dynmem_device *dm);
+ 
+ #ifdef CONFIG_MEMORY_HOTPLUG
++static inline bool has_pfn_is_backed(struct hv_hotadd_state *has,
++				     unsigned long pfn)
++{
++	struct hv_hotadd_gap *gap;
++
++	/* The page is not backed. */
++	if ((pfn < has->covered_start_pfn) || (pfn >= has->covered_end_pfn))
++		return false;
++
++	/* Check for gaps. */
++	list_for_each_entry(gap, &has->gap_list, list) {
++		if ((pfn >= gap->start_pfn) && (pfn < gap->end_pfn))
++			return false;
++	}
++
++	return true;
++}
++
++static unsigned long hv_page_offline_check(unsigned long start_pfn,
++					   unsigned long nr_pages)
++{
++	unsigned long pfn = start_pfn, count = 0;
++	struct hv_hotadd_state *has;
++	bool found;
++
++	while (pfn < start_pfn + nr_pages) {
++		/*
++		 * Search for HAS which covers the pfn and when we find one
++		 * count how many consequitive PFNs are covered.
++		 */
++		found = false;
++		list_for_each_entry(has, &dm_device.ha_region_list, list) {
++			while ((pfn >= has->start_pfn) &&
++			       (pfn < has->end_pfn) &&
++			       (pfn < start_pfn + nr_pages)) {
++				found = true;
++				if (has_pfn_is_backed(has, pfn))
++					count++;
++				pfn++;
++			}
++		}
++
++		/*
++		 * This PFN is not in any HAS (e.g. we're offlining a region
++		 * which was present at boot), no need to account for it. Go
++		 * to the next one.
++		 */
++		if (!found)
++			pfn++;
++	}
++
++	return count;
++}
++
+ static int hv_memory_notifier(struct notifier_block *nb, unsigned long val,
+ 			      void *v)
+ {
+ 	struct memory_notify *mem = (struct memory_notify *)v;
+-	unsigned long flags;
++	unsigned long flags, pfn_count;
+ 
+ 	switch (val) {
+ 	case MEM_ONLINE:
+@@ -593,7 +647,19 @@ static int hv_memory_notifier(struct notifier_block *nb, unsigned long val,
+ 
+ 	case MEM_OFFLINE:
+ 		spin_lock_irqsave(&dm_device.ha_lock, flags);
+-		dm_device.num_pages_onlined -= mem->nr_pages;
++		pfn_count = hv_page_offline_check(mem->start_pfn,
++						  mem->nr_pages);
++		if (pfn_count <= dm_device.num_pages_onlined) {
++			dm_device.num_pages_onlined -= pfn_count;
++		} else {
++			/*
++			 * We're offlining more pages than we managed to online.
++			 * This is unexpected. In any case don't let
++			 * num_pages_onlined wrap around zero.
++			 */
++			WARN_ON_ONCE(1);
++			dm_device.num_pages_onlined = 0;
++		}
+ 		spin_unlock_irqrestore(&dm_device.ha_lock, flags);
+ 		break;
+ 	case MEM_GOING_ONLINE:
+@@ -612,19 +678,9 @@ static struct notifier_block hv_memory_nb = {
+ /* Check if the particular page is backed and can be onlined and online it. */
+ static void hv_page_online_one(struct hv_hotadd_state *has, struct page *pg)
+ {
+-	struct hv_hotadd_gap *gap;
+-	unsigned long pfn = page_to_pfn(pg);
+-
+-	/* The page is not backed. */
+-	if ((pfn < has->covered_start_pfn) || (pfn >= has->covered_end_pfn))
++	if (!has_pfn_is_backed(has, page_to_pfn(pg)))
+ 		return;
+ 
+-	/* Check for gaps. */
+-	list_for_each_entry(gap, &has->gap_list, list) {
+-		if ((pfn >= gap->start_pfn) && (pfn < gap->end_pfn))
+-			return;
+-	}
+-
+ 	/* This frame is currently backed; online the page. */
+ 	__online_page_set_limits(pg);
+ 	__online_page_increment_counters(pg);
+-- 
+2.14.1
+

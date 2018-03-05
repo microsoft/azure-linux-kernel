@@ -1,0 +1,88 @@
+From ade2261abe72140663c8edf8bd602f97781f5105 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 1 Dec 2017 11:01:49 -0800
+Subject: [PATCH 06/55] vmbus: make hv_get_ringbuffer_availbytes local
+
+The last use of hv_get_ringbuffer_availbytes in drivers is now
+gone. Only used by the debug info routine so make it static. Also, add
+READ_ONCE() to avoid any possible issues with potentially volatile
+index values.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/hv/ring_buffer.c | 23 +++++++++++++++++++++++
+ include/linux/hyperv.h   | 22 ----------------------
+ 2 files changed, 23 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
+index 12eb8caa4263..50e071444a5c 100644
+--- a/drivers/hv/ring_buffer.c
++++ b/drivers/hv/ring_buffer.c
+@@ -140,6 +140,29 @@ static u32 hv_copyto_ringbuffer(
+ 	return start_write_offset;
+ }
+ 
++/*
++ *
++ * hv_get_ringbuffer_availbytes()
++ *
++ * Get number of bytes available to read and to write to
++ * for the specified ring buffer
++ */
++static void
++hv_get_ringbuffer_availbytes(const struct hv_ring_buffer_info *rbi,
++			     u32 *read, u32 *write)
++{
++	u32 read_loc, write_loc, dsize;
++
++	/* Capture the read/write indices before they changed */
++	read_loc = READ_ONCE(rbi->ring_buffer->read_index);
++	write_loc = READ_ONCE(rbi->ring_buffer->write_index);
++	dsize = rbi->ring_datasize;
++
++	*write = write_loc >= read_loc ? dsize - (write_loc - read_loc) :
++		read_loc - write_loc;
++	*read = dsize - *write;
++}
++
+ /* Get various debug metrics for the specified ring buffer. */
+ void hv_ringbuffer_get_debuginfo(const struct hv_ring_buffer_info *ring_info,
+ 				 struct hv_ring_buffer_debug_info *debug_info)
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 6c9336626592..93bd6fcd6e62 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -127,28 +127,6 @@ struct hv_ring_buffer_info {
+ 	u32 priv_read_index;
+ };
+ 
+-/*
+- *
+- * hv_get_ringbuffer_availbytes()
+- *
+- * Get number of bytes available to read and to write to
+- * for the specified ring buffer
+- */
+-static inline void
+-hv_get_ringbuffer_availbytes(const struct hv_ring_buffer_info *rbi,
+-			     u32 *read, u32 *write)
+-{
+-	u32 read_loc, write_loc, dsize;
+-
+-	/* Capture the read/write indices before they changed */
+-	read_loc = rbi->ring_buffer->read_index;
+-	write_loc = rbi->ring_buffer->write_index;
+-	dsize = rbi->ring_datasize;
+-
+-	*write = write_loc >= read_loc ? dsize - (write_loc - read_loc) :
+-		read_loc - write_loc;
+-	*read = dsize - *write;
+-}
+ 
+ static inline u32 hv_get_bytes_to_read(const struct hv_ring_buffer_info *rbi)
+ {
+-- 
+2.14.1
+

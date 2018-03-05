@@ -1,0 +1,40 @@
+From 3429c697d41ba079aef77e96d34f36b34d48f96b Mon Sep 17 00:00:00 2001
+From: Arjan van de Ven <arjan@linux.intel.com>
+Date: Thu, 21 Jul 2016 13:52:44 -0500
+Subject: [PATCH 45/55] Make a few key drivers probe asynchronous
+
+To help boot time, several drivers can safely be marked for probing asynchronously...
+
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 1 +
+ sound/pci/hda/hda_intel.c                  | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 61030234d2c7..4e1ced6ea4ab 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -7587,6 +7587,7 @@ static struct pci_driver e1000_driver = {
+ 	.remove   = e1000_remove,
+ 	.driver   = {
+ 		.pm = &e1000_pm_ops,
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
+ 	},
+ 	.shutdown = e1000_shutdown,
+ 	.err_handler = &e1000_err_handler
+diff --git a/sound/pci/hda/hda_intel.c b/sound/pci/hda/hda_intel.c
+index c71dcacea807..ec2a84d9cd9b 100644
+--- a/sound/pci/hda/hda_intel.c
++++ b/sound/pci/hda/hda_intel.c
+@@ -2613,6 +2613,7 @@ static struct pci_driver azx_driver = {
+ 	.shutdown = azx_shutdown,
+ 	.driver = {
+ 		.pm = AZX_PM_OPS,
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
+ 	},
+ };
+ 
+-- 
+2.14.1
+

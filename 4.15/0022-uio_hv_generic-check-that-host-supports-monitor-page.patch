@@ -1,0 +1,37 @@
+From f39ba233faee31cc03bd3716939a817a6d917a40 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 9 Jan 2018 12:57:31 -0800
+Subject: [PATCH 22/55] uio_hv_generic: check that host supports monitor page
+
+In order for userspace application to signal host, it needs the
+host to support the monitor page property. Check for the flag
+and fail if this is not supported.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/uio/uio_hv_generic.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/uio/uio_hv_generic.c b/drivers/uio/uio_hv_generic.c
+index dcd80aad9636..ee6d862ef4bd 100644
+--- a/drivers/uio/uio_hv_generic.c
++++ b/drivers/uio/uio_hv_generic.c
+@@ -133,6 +133,13 @@ hv_uio_probe(struct hv_device *dev,
+ 	if (ret)
+ 		goto fail;
+ 
++	/* Communicating with host has to be via shared memory not hypercall */
++	if (!dev->channel->offermsg.monitor_allocated) {
++		dev_err(&dev->device, "vmbus channel requires hypercall\n");
++		ret = -ENOTSUPP;
++		goto fail_close;
++	}
++
+ 	dev->channel->inbound.ring_buffer->interrupt_mask = 1;
+ 	set_channel_read_mode(dev->channel, HV_CALL_ISR);
+ 
+-- 
+2.14.1
+

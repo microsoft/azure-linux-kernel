@@ -1,0 +1,49 @@
+From 968e2322782efb1225cb2ea38cf348a871314762 Mon Sep 17 00:00:00 2001
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 12 Jan 2018 16:51:14 +0100
+Subject: [PATCH 25/55] uio_hv_generic: fix new type mismatch warnings
+
+In commit 72d146578950 ("uio_hv_generic: fix type mismatch warnings"),
+I addressed some warnings that show up with CONFIG_X86_PAE, now a new
+change has added more of the same:
+
+drivers/uio/uio_hv_generic.c: In function 'hv_uio_probe':
+drivers/uio/uio_hv_generic.c:205:5: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+drivers/uio/uio_hv_generic.c:225:5: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+
+The fix is the same as before, casting to uintptr_t as an intermediate.
+
+Fixes: e7d214642a19 ("uio_hv_generic: create send and receive buffers")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/uio/uio_hv_generic.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/uio/uio_hv_generic.c b/drivers/uio/uio_hv_generic.c
+index 787598ad933d..8ca549032c27 100644
+--- a/drivers/uio/uio_hv_generic.c
++++ b/drivers/uio/uio_hv_generic.c
+@@ -202,7 +202,7 @@ hv_uio_probe(struct hv_device *dev,
+ 		 "recv:%u", pdata->recv_gpadl);
+ 	pdata->info.mem[RECV_BUF_MAP].name = pdata->recv_name;
+ 	pdata->info.mem[RECV_BUF_MAP].addr
+-		= (phys_addr_t)pdata->recv_buf;
++		= (uintptr_t)pdata->recv_buf;
+ 	pdata->info.mem[RECV_BUF_MAP].size = RECV_BUFFER_SIZE;
+ 	pdata->info.mem[RECV_BUF_MAP].memtype = UIO_MEM_VIRTUAL;
+ 
+@@ -222,7 +222,7 @@ hv_uio_probe(struct hv_device *dev,
+ 		 "send:%u", pdata->send_gpadl);
+ 	pdata->info.mem[SEND_BUF_MAP].name = pdata->send_name;
+ 	pdata->info.mem[SEND_BUF_MAP].addr
+-		= (phys_addr_t)pdata->send_buf;
++		= (uintptr_t)pdata->send_buf;
+ 	pdata->info.mem[SEND_BUF_MAP].size = SEND_BUFFER_SIZE;
+ 	pdata->info.mem[SEND_BUF_MAP].memtype = UIO_MEM_VIRTUAL;
+ 
+-- 
+2.14.1
+

@@ -1,0 +1,86 @@
+From f3fc214e4097c360c5f0e5903f36cc509af770c6 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 24 Jan 2018 11:36:29 +0100
+Subject: [PATCH 27/55] x86/hyperv: Stop suppressing X86_FEATURE_PCID
+
+When hypercall-based TLB flush was enabled for Hyper-V guests PCID feature
+was deliberately suppressed as a precaution: back then PCID was never
+exposed to Hyper-V guests and it wasn't clear what will happen if some day
+it becomes available. The day came and PCID/INVPCID features are already
+exposed on certain Hyper-V hosts.
+
+From TLFS (as of 5.0b) it is unclear how TLB flush hypercalls combine with
+PCID. In particular the usage of PCID is per-cpu based: the same mm gets
+different CR3 values on different CPUs. If the hypercall does exact
+matching this will fail. However, this is not the case. David Zhang
+explains:
+
+ "In practice, the AddressSpace argument is ignored on any VM that supports
+  PCIDs.
+
+  Architecturally, the AddressSpace argument must match the CR3 with PCID
+  bits stripped out (i.e., the low 12 bits of AddressSpace should be 0 in
+  long mode). The flush hypercalls flush all PCIDs for the specified
+  AddressSpace."
+
+With this, PCID can be enabled.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: David Zhang <dazhan@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: "Michael Kelley (EOSG)" <Michael.H.Kelley@microsoft.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: devel@linuxdriverproject.org
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+Cc: Aditya Bhandari <adityabh@microsoft.com>
+Link: https://lkml.kernel.org/r/20180124103629.29980-1-vkuznets@redhat.com
+
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ arch/x86/hyperv/mmu.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/hyperv/mmu.c b/arch/x86/hyperv/mmu.c
+index 9cc9e1c1e2db..56c9ebac946f 100644
+--- a/arch/x86/hyperv/mmu.c
++++ b/arch/x86/hyperv/mmu.c
+@@ -137,7 +137,12 @@ static void hyperv_flush_tlb_others(const struct cpumask *cpus,
+ 	}
+ 
+ 	if (info->mm) {
++		/*
++		 * AddressSpace argument must match the CR3 with PCID bits
++		 * stripped out.
++		 */
+ 		flush->address_space = virt_to_phys(info->mm->pgd);
++		flush->address_space &= CR3_ADDR_MASK;
+ 		flush->flags = 0;
+ 	} else {
+ 		flush->address_space = 0;
+@@ -219,7 +224,12 @@ static void hyperv_flush_tlb_others_ex(const struct cpumask *cpus,
+ 	}
+ 
+ 	if (info->mm) {
++		/*
++		 * AddressSpace argument must match the CR3 with PCID bits
++		 * stripped out.
++		 */
+ 		flush->address_space = virt_to_phys(info->mm->pgd);
++		flush->address_space &= CR3_ADDR_MASK;
+ 		flush->flags = 0;
+ 	} else {
+ 		flush->address_space = 0;
+@@ -278,8 +288,6 @@ void hyperv_setup_mmu_ops(void)
+ 	if (!(ms_hyperv.hints & HV_X64_REMOTE_TLB_FLUSH_RECOMMENDED))
+ 		return;
+ 
+-	setup_clear_cpu_cap(X86_FEATURE_PCID);
+-
+ 	if (!(ms_hyperv.hints & HV_X64_EX_PROCESSOR_MASKS_RECOMMENDED)) {
+ 		pr_info("Using hypercall for remote TLB flush\n");
+ 		pv_mmu_ops.flush_tlb_others = hyperv_flush_tlb_others;
+-- 
+2.14.1
+

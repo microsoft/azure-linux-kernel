@@ -1,0 +1,86 @@
+From 0e11c1a1152cd9df6b74b10a4364f566c7442f6c Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 24 Jan 2018 14:23:35 +0100
+Subject: [PATCH 33/55] x86/irq: Count Hyper-V reenlightenment interrupts
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Hyper-V reenlightenment interrupts arrive when the VM is migrated, While
+they are not interesting in general it's important when L2 nested guests
+are running.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: kvm@vger.kernel.org
+Cc: Radim Krčmář <rkrcmar@redhat.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: "Michael Kelley (EOSG)" <Michael.H.Kelley@microsoft.com>
+Cc: Roman Kagan <rkagan@virtuozzo.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: devel@linuxdriverproject.org
+Cc: Paolo Bonzini <pbonzini@redhat.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+Cc: Cathy Avery <cavery@redhat.com>
+Cc: Mohammed Gamal <mmorsy@redhat.com>
+Link: https://lkml.kernel.org/r/20180124132337.30138-6-vkuznets@redhat.com
+
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c      | 2 ++
+ arch/x86/include/asm/hardirq.h | 3 +++
+ arch/x86/kernel/irq.c          | 9 +++++++++
+ 3 files changed, 14 insertions(+)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index 8a64433038c1..2edc49e7409b 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -147,6 +147,8 @@ __visible void __irq_entry hyperv_reenlightenment_intr(struct pt_regs *regs)
+ {
+ 	entering_ack_irq();
+ 
++	inc_irq_stat(irq_hv_reenlightenment_count);
++
+ 	schedule_delayed_work(&hv_reenlightenment_work, HZ/10);
+ 
+ 	exiting_irq();
+diff --git a/arch/x86/include/asm/hardirq.h b/arch/x86/include/asm/hardirq.h
+index 51cc979dd364..7c341a74ec8c 100644
+--- a/arch/x86/include/asm/hardirq.h
++++ b/arch/x86/include/asm/hardirq.h
+@@ -38,6 +38,9 @@ typedef struct {
+ #if IS_ENABLED(CONFIG_HYPERV) || defined(CONFIG_XEN)
+ 	unsigned int irq_hv_callback_count;
+ #endif
++#if IS_ENABLED(CONFIG_HYPERV)
++	unsigned int irq_hv_reenlightenment_count;
++#endif
+ } ____cacheline_aligned irq_cpustat_t;
+ 
+ DECLARE_PER_CPU_SHARED_ALIGNED(irq_cpustat_t, irq_stat);
+diff --git a/arch/x86/kernel/irq.c b/arch/x86/kernel/irq.c
+index 68e1867cca80..45fb4d2565f8 100644
+--- a/arch/x86/kernel/irq.c
++++ b/arch/x86/kernel/irq.c
+@@ -141,6 +141,15 @@ int arch_show_interrupts(struct seq_file *p, int prec)
+ 				   irq_stats(j)->irq_hv_callback_count);
+ 		seq_puts(p, "  Hypervisor callback interrupts\n");
+ 	}
++#endif
++#if IS_ENABLED(CONFIG_HYPERV)
++	if (test_bit(HYPERV_REENLIGHTENMENT_VECTOR, system_vectors)) {
++		seq_printf(p, "%*s: ", prec, "HRE");
++		for_each_online_cpu(j)
++			seq_printf(p, "%10u ",
++				   irq_stats(j)->irq_hv_reenlightenment_count);
++		seq_puts(p, "  Hyper-V reenlightenment interrupts\n");
++	}
+ #endif
+ 	seq_printf(p, "%*s: %10u\n", prec, "ERR", atomic_read(&irq_err_count));
+ #if defined(CONFIG_X86_IO_APIC)
+-- 
+2.14.1
+

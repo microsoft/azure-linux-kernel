@@ -1,0 +1,92 @@
+From a26f869d28fa44160cab14348476d5e6b2f76830 Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Wed, 27 Sep 2017 21:20:01 -0700
+Subject: [PATCH 36/55] vmbus: fix performance regression
+
+Need to avoid signaling host under more conditions.
+This can be merged with earlier change when sending upstream.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: Sasha Levin <alexander.levin@verizon.com>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/hv/ring_buffer.c | 40 ++++++++++++++++++++++++++--------------
+ 1 file changed, 26 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
+index 50e071444a5c..88c8e03347b0 100644
+--- a/drivers/hv/ring_buffer.c
++++ b/drivers/hv/ring_buffer.c
+@@ -419,11 +419,22 @@ EXPORT_SYMBOL_GPL(__hv_pkt_iter_next);
+ 
+ /*
+  * Update host ring buffer after iterating over packets.
++ *
++ * Avoid unnecessary signaling of the host by making sure that all
++ * data is read.
++ *
++ * In addition, in Windows 8 or later there is an extension for the
++ * host to indicate how much space needs to be available before
++ * signaling. The host sets pending_send_sz to the number of bytes
++ * that it is waiting to send.
+  */
+ void hv_pkt_iter_close(struct vmbus_channel *channel)
+ {
+ 	struct hv_ring_buffer_info *rbi = &channel->inbound;
+-	u32 orig_write_sz = hv_get_bytes_to_write(rbi);
++	u32 cached_write_sz, cur_write_sz, pending_sz;
++
++	/* Available space before read_index update */
++	cached_write_sz = hv_get_bytes_to_write(rbi);
+ 
+ 	/*
+ 	 * Make sure all reads are done before we update the read index since
+@@ -431,6 +442,8 @@ void hv_pkt_iter_close(struct vmbus_channel *channel)
+ 	 * is updated.
+ 	 */
+ 	virt_rmb();
++
++	/* Update the position where ring buffer has been read from */
+ 	rbi->ring_buffer->read_index = rbi->priv_read_index;
+ 
+ 	/*
+@@ -446,24 +459,23 @@ void hv_pkt_iter_close(struct vmbus_channel *channel)
+ 	 */
+ 	virt_mb();
+ 
+-	/* If host has disabled notifications then skip */
+-	if (rbi->ring_buffer->interrupt_mask)
+-		return;
+-
+ 	if (rbi->ring_buffer->feature_bits.feat_pending_send_sz) {
+-		u32 pending_sz = READ_ONCE(rbi->ring_buffer->pending_send_sz);
++		pending_sz = READ_ONCE(rbi->ring_buffer->pending_send_sz);
+ 
+-		/*
+-		 * If there was space before we began iteration,
+-		 * then host was not blocked. Also handles case where
+-		 * pending_sz is zero then host has nothing pending
+-		 * and does not need to be signaled.
+-		 */
+-		if (orig_write_sz > pending_sz)
++		/* If the other end is not blocked on write don't bother. */
++		if (pending_sz == 0)
+ 			return;
+ 
+ 		/* If pending write will not fit, don't give false hope. */
+-		if (hv_get_bytes_to_write(rbi) < pending_sz)
++		cur_write_sz = hv_get_bytes_to_write(rbi);
++		if (cur_write_sz <= pending_sz)
++			return;
++
++		/*
++		 * If there was space before we began iteration, then
++		 * host was not blocked.
++		 */
++		if (cached_write_sz > pending_sz)
+ 			return;
+ 	}
+ 
+-- 
+2.14.1
+

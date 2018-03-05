@@ -1,0 +1,39 @@
+From ada573c9bb7069dac5aa0584b9a4c389d673435e Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 4 Jan 2018 14:13:27 -0800
+Subject: [PATCH 17/55] uio_hv_generic: fix configuration comments
+
+The suggested method for configuration does not work with
+current kernels. Paths and ids changed.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/uio/uio_hv_generic.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/uio/uio_hv_generic.c b/drivers/uio/uio_hv_generic.c
+index 48d5327d38d4..4fea9a578990 100644
+--- a/drivers/uio/uio_hv_generic.c
++++ b/drivers/uio/uio_hv_generic.c
+@@ -10,11 +10,13 @@
+  * Since the driver does not declare any device ids, you must allocate
+  * id and bind the device to the driver yourself.  For example:
+  *
++ * Associate Network GUID with UIO device
+  * # echo "f8615163-df3e-46c5-913f-f2d2f965ed0e" \
+- *    > /sys/bus/vmbus/drivers/uio_hv_generic
+- * # echo -n vmbus-ed963694-e847-4b2a-85af-bc9cfc11d6f3 \
++ *    > /sys/bus/vmbus/drivers/uio_hv_generic/new_id
++ * Then rebind
++ * # echo -n "ed963694-e847-4b2a-85af-bc9cfc11d6f3" \
+  *    > /sys/bus/vmbus/drivers/hv_netvsc/unbind
+- * # echo -n vmbus-ed963694-e847-4b2a-85af-bc9cfc11d6f3 \
++ * # echo -n "ed963694-e847-4b2a-85af-bc9cfc11d6f3" \
+  *    > /sys/bus/vmbus/drivers/uio_hv_generic/bind
+  */
+ 
+-- 
+2.14.1
+

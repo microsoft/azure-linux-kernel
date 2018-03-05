@@ -1,0 +1,115 @@
+From 526cd07dad4edf917a92e527ef496bb262bbe813 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 12 Dec 2017 16:48:38 -0800
+Subject: [PATCH 12/55] hv_netvsc: pass netvsc_device to receive callback
+
+The netvsc_receive_callback function was using RCU to find the
+appropriate underlying netvsc_device. Since calling function already
+had that pointer, this was unnecessary.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |  1 +
+ drivers/net/hyperv/netvsc_drv.c   | 14 ++------------
+ drivers/net/hyperv/rndis_filter.c |  7 +++++--
+ 3 files changed, 8 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 7e34eb53848b..b090d90114ca 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -202,6 +202,7 @@ int netvsc_send(struct net_device_context *ndc,
+ void netvsc_linkstatus_callback(struct net_device *net,
+ 				struct rndis_message *resp);
+ int netvsc_recv_callback(struct net_device *net,
++			 struct netvsc_device *nvdev,
+ 			 struct vmbus_channel *channel,
+ 			 void  *data, u32 len,
+ 			 const struct ndis_tcp_ip_checksum_info *csum_info,
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 3997c2d64427..5ab81611d6d9 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -739,34 +739,26 @@ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
+  * "wire" on the specified device.
+  */
+ int netvsc_recv_callback(struct net_device *net,
++			 struct netvsc_device *net_device,
+ 			 struct vmbus_channel *channel,
+ 			 void  *data, u32 len,
+ 			 const struct ndis_tcp_ip_checksum_info *csum_info,
+ 			 const struct ndis_pkt_8021q_info *vlan)
+ {
+ 	struct net_device_context *net_device_ctx = netdev_priv(net);
+-	struct netvsc_device *net_device;
+ 	u16 q_idx = channel->offermsg.offer.sub_channel_index;
+-	struct netvsc_channel *nvchan;
++	struct netvsc_channel *nvchan = &net_device->chan_table[q_idx];
+ 	struct sk_buff *skb;
+ 	struct netvsc_stats *rx_stats;
+ 
+ 	if (net->reg_state != NETREG_REGISTERED)
+ 		return NVSP_STAT_FAIL;
+ 
+-	rcu_read_lock();
+-	net_device = rcu_dereference(net_device_ctx->nvdev);
+-	if (unlikely(!net_device))
+-		goto drop;
+-
+-	nvchan = &net_device->chan_table[q_idx];
+-
+ 	/* Allocate a skb - TODO direct I/O to pages? */
+ 	skb = netvsc_alloc_recv_skb(net, &nvchan->napi,
+ 				    csum_info, vlan, data, len);
+ 	if (unlikely(!skb)) {
+ 		++net_device_ctx->eth_stats.rx_no_memory;
+-drop:
+ 		rcu_read_unlock();
+ 		return NVSP_STAT_FAIL;
+ 	}
+@@ -790,8 +782,6 @@ int netvsc_recv_callback(struct net_device *net,
+ 	u64_stats_update_end(&rx_stats->syncp);
+ 
+ 	napi_gro_receive(&nvchan->napi, skb);
+-	rcu_read_unlock();
+-
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 901838b2bcc9..025110a19d4a 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -352,6 +352,7 @@ static inline void *rndis_get_ppi(struct rndis_packet *rpkt, u32 type)
+ }
+ 
+ static int rndis_filter_receive_data(struct net_device *ndev,
++				     struct netvsc_device *nvdev,
+ 				     struct rndis_device *dev,
+ 				     struct rndis_message *msg,
+ 				     struct vmbus_channel *channel,
+@@ -388,7 +389,8 @@ static int rndis_filter_receive_data(struct net_device *ndev,
+ 	 */
+ 	data = (void *)((unsigned long)data + data_offset);
+ 	csum_info = rndis_get_ppi(rndis_pkt, TCPIP_CHKSUM_PKTINFO);
+-	return netvsc_recv_callback(ndev, channel,
++
++	return netvsc_recv_callback(ndev, nvdev, channel,
+ 				    data, rndis_pkt->data_len,
+ 				    csum_info, vlan);
+ }
+@@ -420,7 +422,8 @@ int rndis_filter_receive(struct net_device *ndev,
+ 
+ 	switch (rndis_msg->ndis_msg_type) {
+ 	case RNDIS_MSG_PACKET:
+-		return rndis_filter_receive_data(ndev, rndis_dev, rndis_msg,
++		return rndis_filter_receive_data(ndev, net_dev,
++						 rndis_dev, rndis_msg,
+ 						 channel, data, buflen);
+ 	case RNDIS_MSG_INIT_C:
+ 	case RNDIS_MSG_QUERY_C:
+-- 
+2.14.1
+

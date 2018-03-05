@@ -1,0 +1,63 @@
+From 4444e647b9d8ec7a3d3796a36b6f6a02859fd978 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 24 Jan 2018 14:23:31 +0100
+Subject: [PATCH 29/55] x86/hyperv: Check for required priviliges in
+ hyperv_init()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+In hyperv_init() its presumed that it always has access to VP index and
+hypercall MSRs while according to the specification it should be checked if
+it's allowed to access the corresponding MSRs before accessing them.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: kvm@vger.kernel.org
+Cc: Radim Krčmář <rkrcmar@redhat.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: "Michael Kelley (EOSG)" <Michael.H.Kelley@microsoft.com>
+Cc: Roman Kagan <rkagan@virtuozzo.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: devel@linuxdriverproject.org
+Cc: Paolo Bonzini <pbonzini@redhat.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+Cc: Cathy Avery <cavery@redhat.com>
+Cc: Mohammed Gamal <mmorsy@redhat.com>
+Link: https://lkml.kernel.org/r/20180124132337.30138-2-vkuznets@redhat.com
+
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index a0a206556919..bffc31664f6b 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -110,12 +110,19 @@ static int hv_cpu_init(unsigned int cpu)
+  */
+ void hyperv_init(void)
+ {
+-	u64 guest_id;
++	u64 guest_id, required_msrs;
+ 	union hv_x64_msr_hypercall_contents hypercall_msr;
+ 
+ 	if (x86_hyper_type != X86_HYPER_MS_HYPERV)
+ 		return;
+ 
++	/* Absolutely required MSRs */
++	required_msrs = HV_X64_MSR_HYPERCALL_AVAILABLE |
++		HV_X64_MSR_VP_INDEX_AVAILABLE;
++
++	if ((ms_hyperv.features & required_msrs) != required_msrs)
++		return;
++
+ 	/* Allocate percpu VP index */
+ 	hv_vp_index = kmalloc_array(num_possible_cpus(), sizeof(*hv_vp_index),
+ 				    GFP_KERNEL);
+-- 
+2.14.1
+

@@ -1,0 +1,307 @@
+From 297713a515c2791a831d9430e32a1f8b9941a034 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 24 Jan 2018 14:23:33 +0100
+Subject: [PATCH 31/55] x86/hyperv: Reenlightenment notifications support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Hyper-V supports Live Migration notification. This is supposed to be used
+in conjunction with TSC emulation: when a VM is migrated to a host with
+different TSC frequency for some short period the host emulates the
+accesses to TSC and sends an interrupt to notify about the event. When the
+guest is done updating everything it can disable TSC emulation and
+everything will start working fast again.
+
+These notifications weren't required until now as Hyper-V guests are not
+supposed to use TSC as a clocksource: in Linux the TSC is even marked as
+unstable on boot. Guests normally use 'tsc page' clocksource and host
+updates its values on migrations automatically.
+
+Things change when with nested virtualization: even when the PV
+clocksources (kvm-clock or tsc page) are passed through to the nested
+guests the TSC frequency and frequency changes need to be know..
+
+Hyper-V Top Level Functional Specification (as of v5.0b) wrongly specifies
+EAX:BIT(12) of CPUID:0x40000009 as the feature identification bit. The
+right one to check is EAX:BIT(13) of CPUID:0x40000003. I was assured that
+the fix in on the way.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: kvm@vger.kernel.org
+Cc: Radim Krčmář <rkrcmar@redhat.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: "Michael Kelley (EOSG)" <Michael.H.Kelley@microsoft.com>
+Cc: Roman Kagan <rkagan@virtuozzo.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: devel@linuxdriverproject.org
+Cc: Paolo Bonzini <pbonzini@redhat.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+Cc: Cathy Avery <cavery@redhat.com>
+Cc: Mohammed Gamal <mmorsy@redhat.com>
+Link: https://lkml.kernel.org/r/20180124132337.30138-4-vkuznets@redhat.com
+
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ arch/x86/entry/entry_32.S          |  3 ++
+ arch/x86/entry/entry_64.S          |  3 ++
+ arch/x86/hyperv/hv_init.c          | 89 ++++++++++++++++++++++++++++++++++++++
+ arch/x86/include/asm/irq_vectors.h |  7 ++-
+ arch/x86/include/asm/mshyperv.h    |  9 ++++
+ arch/x86/include/uapi/asm/hyperv.h | 27 ++++++++++++
+ arch/x86/kernel/cpu/mshyperv.c     |  6 +++
+ 7 files changed, 143 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/entry/entry_32.S b/arch/x86/entry/entry_32.S
+index 60c4c342316c..2938cf89d473 100644
+--- a/arch/x86/entry/entry_32.S
++++ b/arch/x86/entry/entry_32.S
+@@ -894,6 +894,9 @@ BUILD_INTERRUPT3(xen_hvm_callback_vector, HYPERVISOR_CALLBACK_VECTOR,
+ BUILD_INTERRUPT3(hyperv_callback_vector, HYPERVISOR_CALLBACK_VECTOR,
+ 		 hyperv_vector_handler)
+ 
++BUILD_INTERRUPT3(hyperv_reenlightenment_vector, HYPERV_REENLIGHTENMENT_VECTOR,
++		 hyperv_reenlightenment_intr)
++
+ #endif /* CONFIG_HYPERV */
+ 
+ ENTRY(page_fault)
+diff --git a/arch/x86/entry/entry_64.S b/arch/x86/entry/entry_64.S
+index ff6f8022612c..b04cfd7f6e4c 100644
+--- a/arch/x86/entry/entry_64.S
++++ b/arch/x86/entry/entry_64.S
+@@ -1244,6 +1244,9 @@ apicinterrupt3 HYPERVISOR_CALLBACK_VECTOR \
+ #if IS_ENABLED(CONFIG_HYPERV)
+ apicinterrupt3 HYPERVISOR_CALLBACK_VECTOR \
+ 	hyperv_callback_vector hyperv_vector_handler
++
++apicinterrupt3 HYPERV_REENLIGHTENMENT_VECTOR \
++	hyperv_reenlightenment_vector hyperv_reenlightenment_intr
+ #endif /* CONFIG_HYPERV */
+ 
+ idtentry debug			do_debug		has_error_code=0	paranoid=1 shift_ist=DEBUG_STACK
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index bee698005e50..58219d5e27d5 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -18,6 +18,8 @@
+  */
+ 
+ #include <linux/types.h>
++#include <asm/apic.h>
++#include <asm/desc.h>
+ #include <asm/hypervisor.h>
+ #include <asm/hyperv.h>
+ #include <asm/mshyperv.h>
+@@ -102,6 +104,93 @@ static int hv_cpu_init(unsigned int cpu)
+ 	return 0;
+ }
+ 
++static void (*hv_reenlightenment_cb)(void);
++
++static void hv_reenlightenment_notify(struct work_struct *dummy)
++{
++	struct hv_tsc_emulation_status emu_status;
++
++	rdmsrl(HV_X64_MSR_TSC_EMULATION_STATUS, *(u64 *)&emu_status);
++
++	/* Don't issue the callback if TSC accesses are not emulated */
++	if (hv_reenlightenment_cb && emu_status.inprogress)
++		hv_reenlightenment_cb();
++}
++static DECLARE_DELAYED_WORK(hv_reenlightenment_work, hv_reenlightenment_notify);
++
++void hyperv_stop_tsc_emulation(void)
++{
++	u64 freq;
++	struct hv_tsc_emulation_status emu_status;
++
++	rdmsrl(HV_X64_MSR_TSC_EMULATION_STATUS, *(u64 *)&emu_status);
++	emu_status.inprogress = 0;
++	wrmsrl(HV_X64_MSR_TSC_EMULATION_STATUS, *(u64 *)&emu_status);
++
++	rdmsrl(HV_X64_MSR_TSC_FREQUENCY, freq);
++	tsc_khz = div64_u64(freq, 1000);
++}
++EXPORT_SYMBOL_GPL(hyperv_stop_tsc_emulation);
++
++static inline bool hv_reenlightenment_available(void)
++{
++	/*
++	 * Check for required features and priviliges to make TSC frequency
++	 * change notifications work.
++	 */
++	return ms_hyperv.features & HV_X64_ACCESS_FREQUENCY_MSRS &&
++		ms_hyperv.misc_features & HV_FEATURE_FREQUENCY_MSRS_AVAILABLE &&
++		ms_hyperv.features & HV_X64_ACCESS_REENLIGHTENMENT;
++}
++
++__visible void __irq_entry hyperv_reenlightenment_intr(struct pt_regs *regs)
++{
++	entering_ack_irq();
++
++	schedule_delayed_work(&hv_reenlightenment_work, HZ/10);
++
++	exiting_irq();
++}
++
++void set_hv_tscchange_cb(void (*cb)(void))
++{
++	struct hv_reenlightenment_control re_ctrl = {
++		.vector = HYPERV_REENLIGHTENMENT_VECTOR,
++		.enabled = 1,
++		.target_vp = hv_vp_index[smp_processor_id()]
++	};
++	struct hv_tsc_emulation_control emu_ctrl = {.enabled = 1};
++
++	if (!hv_reenlightenment_available()) {
++		pr_warn("Hyper-V: reenlightenment support is unavailable\n");
++		return;
++	}
++
++	hv_reenlightenment_cb = cb;
++
++	/* Make sure callback is registered before we write to MSRs */
++	wmb();
++
++	wrmsrl(HV_X64_MSR_REENLIGHTENMENT_CONTROL, *((u64 *)&re_ctrl));
++	wrmsrl(HV_X64_MSR_TSC_EMULATION_CONTROL, *((u64 *)&emu_ctrl));
++}
++EXPORT_SYMBOL_GPL(set_hv_tscchange_cb);
++
++void clear_hv_tscchange_cb(void)
++{
++	struct hv_reenlightenment_control re_ctrl;
++
++	if (!hv_reenlightenment_available())
++		return;
++
++	rdmsrl(HV_X64_MSR_REENLIGHTENMENT_CONTROL, *(u64 *)&re_ctrl);
++	re_ctrl.enabled = 0;
++	wrmsrl(HV_X64_MSR_REENLIGHTENMENT_CONTROL, *(u64 *)&re_ctrl);
++
++	hv_reenlightenment_cb = NULL;
++}
++EXPORT_SYMBOL_GPL(clear_hv_tscchange_cb);
++
+ /*
+  * This function is to be invoked early in the boot sequence after the
+  * hypervisor has been detected.
+diff --git a/arch/x86/include/asm/irq_vectors.h b/arch/x86/include/asm/irq_vectors.h
+index 67421f649cfa..e71c1120426b 100644
+--- a/arch/x86/include/asm/irq_vectors.h
++++ b/arch/x86/include/asm/irq_vectors.h
+@@ -103,7 +103,12 @@
+ #endif
+ 
+ #define MANAGED_IRQ_SHUTDOWN_VECTOR	0xef
+-#define LOCAL_TIMER_VECTOR		0xee
++
++#if IS_ENABLED(CONFIG_HYPERV)
++#define HYPERV_REENLIGHTENMENT_VECTOR	0xee
++#endif
++
++#define LOCAL_TIMER_VECTOR		0xed
+ 
+ #define NR_VECTORS			 256
+ 
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index 1991a20a30dd..25283f7eb299 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -160,6 +160,7 @@ static inline void vmbus_signal_eom(struct hv_message *msg, u32 old_msg_type)
+ #define hv_set_synint_state(int_num, val) wrmsrl(int_num, val)
+ 
+ void hyperv_callback_vector(void);
++void hyperv_reenlightenment_vector(void);
+ #ifdef CONFIG_TRACING
+ #define trace_hyperv_callback_vector hyperv_callback_vector
+ #endif
+@@ -316,11 +317,19 @@ void hyper_alloc_mmu(void);
+ void hyperv_report_panic(struct pt_regs *regs, long err);
+ bool hv_is_hyperv_initialized(void);
+ void hyperv_cleanup(void);
++
++void hyperv_reenlightenment_intr(struct pt_regs *regs);
++void set_hv_tscchange_cb(void (*cb)(void));
++void clear_hv_tscchange_cb(void);
++void hyperv_stop_tsc_emulation(void);
+ #else /* CONFIG_HYPERV */
+ static inline void hyperv_init(void) {}
+ static inline bool hv_is_hyperv_initialized(void) { return false; }
+ static inline void hyperv_cleanup(void) {}
+ static inline void hyperv_setup_mmu_ops(void) {}
++static inline void set_hv_tscchange_cb(void (*cb)(void)) {}
++static inline void clear_hv_tscchange_cb(void) {}
++static inline void hyperv_stop_tsc_emulation(void) {};
+ #endif /* CONFIG_HYPERV */
+ 
+ #ifdef CONFIG_HYPERV_TSCPAGE
+diff --git a/arch/x86/include/uapi/asm/hyperv.h b/arch/x86/include/uapi/asm/hyperv.h
+index 1a5bfead93b4..197c2e6c7376 100644
+--- a/arch/x86/include/uapi/asm/hyperv.h
++++ b/arch/x86/include/uapi/asm/hyperv.h
+@@ -40,6 +40,9 @@
+  */
+ #define HV_X64_ACCESS_FREQUENCY_MSRS		(1 << 11)
+ 
++/* AccessReenlightenmentControls privilege */
++#define HV_X64_ACCESS_REENLIGHTENMENT		BIT(13)
++
+ /*
+  * Basic SynIC MSRs (HV_X64_MSR_SCONTROL through HV_X64_MSR_EOM
+  * and HV_X64_MSR_SINT0 through HV_X64_MSR_SINT15) available
+@@ -234,6 +237,30 @@
+ #define HV_X64_MSR_CRASH_PARAMS		\
+ 		(1 + (HV_X64_MSR_CRASH_P4 - HV_X64_MSR_CRASH_P0))
+ 
++/* TSC emulation after migration */
++#define HV_X64_MSR_REENLIGHTENMENT_CONTROL	0x40000106
++
++struct hv_reenlightenment_control {
++	u64 vector:8;
++	u64 reserved1:8;
++	u64 enabled:1;
++	u64 reserved2:15;
++	u64 target_vp:32;
++};
++
++#define HV_X64_MSR_TSC_EMULATION_CONTROL	0x40000107
++#define HV_X64_MSR_TSC_EMULATION_STATUS		0x40000108
++
++struct hv_tsc_emulation_control {
++	u64 enabled:1;
++	u64 reserved:63;
++};
++
++struct hv_tsc_emulation_status {
++	u64 inprogress:1;
++	u64 reserved:63;
++};
++
+ #define HV_X64_MSR_HYPERCALL_ENABLE		0x00000001
+ #define HV_X64_MSR_HYPERCALL_PAGE_ADDRESS_SHIFT	12
+ #define HV_X64_MSR_HYPERCALL_PAGE_ADDRESS_MASK	\
+diff --git a/arch/x86/kernel/cpu/mshyperv.c b/arch/x86/kernel/cpu/mshyperv.c
+index 85eb5fc180c8..9340f41ce8d3 100644
+--- a/arch/x86/kernel/cpu/mshyperv.c
++++ b/arch/x86/kernel/cpu/mshyperv.c
+@@ -251,6 +251,12 @@ static void __init ms_hyperv_init_platform(void)
+ 	hyperv_setup_mmu_ops();
+ 	/* Setup the IDT for hypervisor callback */
+ 	alloc_intr_gate(HYPERVISOR_CALLBACK_VECTOR, hyperv_callback_vector);
++
++	/* Setup the IDT for reenlightenment notifications */
++	if (ms_hyperv.features & HV_X64_ACCESS_REENLIGHTENMENT)
++		alloc_intr_gate(HYPERV_REENLIGHTENMENT_VECTOR,
++				hyperv_reenlightenment_vector);
++
+ #endif
+ }
+ 
+-- 
+2.14.1
+

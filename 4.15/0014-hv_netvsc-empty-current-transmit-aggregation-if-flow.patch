@@ -1,0 +1,145 @@
+From 601f161f7649d3ae5f7d488855f87903ddc4decc Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 12 Dec 2017 16:48:40 -0800
+Subject: [PATCH 14/55] hv_netvsc: empty current transmit aggregation if flow
+ blocked
+
+If the transmit queue is known full, then don't keep aggregating
+data. And the cp_partial flag which indicates that the current
+aggregation buffer is full can be folded in to avoid more
+conditionals.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |  2 +-
+ drivers/net/hyperv/netvsc.c       | 20 ++++++++++++++------
+ drivers/net/hyperv/netvsc_drv.c   |  2 +-
+ drivers/net/hyperv/rndis_filter.c |  3 +--
+ 4 files changed, 17 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index b10c99751e3a..0db3bd1ea06f 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -194,7 +194,7 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 					const struct netvsc_device_info *info);
+ int netvsc_alloc_recv_comp_ring(struct netvsc_device *net_device, u32 q_idx);
+ void netvsc_device_remove(struct hv_device *device);
+-int netvsc_send(struct net_device_context *ndc,
++int netvsc_send(struct net_device *net,
+ 		struct hv_netvsc_packet *packet,
+ 		struct rndis_message *rndis_msg,
+ 		struct hv_page_buffer *page_buffer,
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 83fa55336c1b..17e529af79dc 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -707,7 +707,7 @@ static void netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 				    struct hv_netvsc_packet *packet,
+ 				    struct rndis_message *rndis_msg,
+ 				    struct hv_page_buffer *pb,
+-				    struct sk_buff *skb)
++				    bool xmit_more)
+ {
+ 	char *start = net_device->send_buf;
+ 	char *dest = start + (section_index * net_device->send_section_size)
+@@ -720,7 +720,7 @@ static void netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 
+ 	/* Add padding */
+ 	remain = packet->total_data_buflen & (net_device->pkt_align - 1);
+-	if (skb->xmit_more && remain && !packet->cp_partial) {
++	if (xmit_more && remain) {
+ 		padding = net_device->pkt_align - remain;
+ 		rndis_msg->msg_len += padding;
+ 		packet->total_data_buflen += padding;
+@@ -829,12 +829,13 @@ static inline void move_pkt_msd(struct hv_netvsc_packet **msd_send,
+ }
+ 
+ /* RCU already held by caller */
+-int netvsc_send(struct net_device_context *ndev_ctx,
++int netvsc_send(struct net_device *ndev,
+ 		struct hv_netvsc_packet *packet,
+ 		struct rndis_message *rndis_msg,
+ 		struct hv_page_buffer *pb,
+ 		struct sk_buff *skb)
+ {
++	struct net_device_context *ndev_ctx = netdev_priv(ndev);
+ 	struct netvsc_device *net_device
+ 		= rcu_dereference_bh(ndev_ctx->nvdev);
+ 	struct hv_device *device = ndev_ctx->device_ctx;
+@@ -845,7 +846,7 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ 	struct multi_send_data *msdp;
+ 	struct hv_netvsc_packet *msd_send = NULL, *cur_send = NULL;
+ 	struct sk_buff *msd_skb = NULL;
+-	bool try_batch;
++	bool try_batch, xmit_more;
+ 
+ 	/* If device is rescinded, return error and packet will get dropped. */
+ 	if (unlikely(!net_device || net_device->destroy))
+@@ -896,10 +897,17 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ 		}
+ 	}
+ 
++	/* Keep aggregating only if stack says more data is coming
++	 * and not doing mixed modes send and not flow blocked
++	 */
++	xmit_more = skb->xmit_more &&
++		!packet->cp_partial &&
++		!netif_xmit_stopped(netdev_get_tx_queue(ndev, packet->q_idx));
++
+ 	if (section_index != NETVSC_INVALID_INDEX) {
+ 		netvsc_copy_to_send_buf(net_device,
+ 					section_index, msd_len,
+-					packet, rndis_msg, pb, skb);
++					packet, rndis_msg, pb, xmit_more);
+ 
+ 		packet->send_buf_index = section_index;
+ 
+@@ -919,7 +927,7 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ 		if (msdp->skb)
+ 			dev_consume_skb_any(msdp->skb);
+ 
+-		if (skb->xmit_more && !packet->cp_partial) {
++		if (xmit_more) {
+ 			msdp->skb = skb;
+ 			msdp->pkt = packet;
+ 			msdp->count++;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 5ab81611d6d9..c5584c2d440e 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -626,7 +626,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	/* timestamp packet in software */
+ 	skb_tx_timestamp(skb);
+ 
+-	ret = netvsc_send(net_device_ctx, packet, rndis_msg, pb, skb);
++	ret = netvsc_send(net, packet, rndis_msg, pb, skb);
+ 	if (likely(ret == 0))
+ 		return NETDEV_TX_OK;
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 035976949177..91a67c5297f7 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -215,7 +215,6 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 	struct hv_netvsc_packet *packet;
+ 	struct hv_page_buffer page_buf[2];
+ 	struct hv_page_buffer *pb = page_buf;
+-	struct net_device_context *net_device_ctx = netdev_priv(dev->ndev);
+ 	int ret;
+ 
+ 	/* Setup the packet to send it */
+@@ -243,7 +242,7 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 	}
+ 
+ 	rcu_read_lock_bh();
+-	ret = netvsc_send(net_device_ctx, packet, NULL, pb, NULL);
++	ret = netvsc_send(dev->ndev, packet, NULL, pb, NULL);
+ 	rcu_read_unlock_bh();
+ 
+ 	return ret;
+-- 
+2.14.1
+

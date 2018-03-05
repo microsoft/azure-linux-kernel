@@ -1,0 +1,1317 @@
+From 3e6bdc447b85a760771561480955bcbbb5ed33f3 Mon Sep 17 00:00:00 2001
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Fri, 26 Jan 2018 12:50:27 -0600
+Subject: [PATCH 28/55] PCI: Add SPDX GPL-2.0 to replace GPL v2 boilerplate
+
+Add SPDX GPL-2.0 to all PCI files that specified the GPL version 2 license.
+
+Remove the boilerplate GPL version 2 language, relying on the assertion in
+b24413180f56 ("License cleanup: add SPDX GPL-2.0 license identifier to
+files with no license") that the SPDX identifier may be used instead of the
+full boilerplate text.
+
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Reviewed-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/pci/dwc/pci-dra7xx.c                  |  5 +----
+ drivers/pci/dwc/pci-exynos.c                  |  5 +----
+ drivers/pci/dwc/pci-imx6.c                    |  5 +----
+ drivers/pci/dwc/pci-keystone-dw.c             |  6 +-----
+ drivers/pci/dwc/pci-keystone.c                |  5 +----
+ drivers/pci/dwc/pci-keystone.h                |  6 +-----
+ drivers/pci/dwc/pci-layerscape.c              |  5 +----
+ drivers/pci/dwc/pcie-armada8k.c               |  5 +----
+ drivers/pci/dwc/pcie-artpec6.c                |  5 +----
+ drivers/pci/dwc/pcie-designware-ep.c          | 13 +------------
+ drivers/pci/dwc/pcie-designware-host.c        |  5 +----
+ drivers/pci/dwc/pcie-designware-plat.c        |  5 +----
+ drivers/pci/dwc/pcie-designware.c             |  5 +----
+ drivers/pci/dwc/pcie-designware.h             |  5 +----
+ drivers/pci/dwc/pcie-hisi.c                   |  5 +----
+ drivers/pci/dwc/pcie-histb.c                  |  5 +----
+ drivers/pci/dwc/pcie-kirin.c                  |  5 +----
+ drivers/pci/dwc/pcie-qcom.c                   | 10 +---------
+ drivers/pci/dwc/pcie-spear13xx.c              |  5 +----
+ drivers/pci/ecam.c                            | 13 +------------
+ drivers/pci/endpoint/functions/pci-epf-test.c | 13 +------------
+ drivers/pci/endpoint/pci-ep-cfs.c             | 13 +------------
+ drivers/pci/endpoint/pci-epc-core.c           | 13 +------------
+ drivers/pci/endpoint/pci-epc-mem.c            | 13 +------------
+ drivers/pci/endpoint/pci-epf-core.c           | 13 +------------
+ drivers/pci/host/pci-aardvark.c               |  5 +----
+ drivers/pci/host/pci-host-common.c            | 13 +------------
+ drivers/pci/host/pci-host-generic.c           | 13 +------------
+ drivers/pci/host/pci-hyperv.c                 | 12 +-----------
+ drivers/pci/host/pci-mvebu.c                  |  5 +----
+ drivers/pci/host/pci-rcar-gen2.c              |  5 +----
+ drivers/pci/host/pci-thunder-pem.c            | 13 +------------
+ drivers/pci/host/pci-versatile.c              | 10 +---------
+ drivers/pci/host/pcie-altera-msi.c            | 13 +------------
+ drivers/pci/host/pcie-altera.c                | 13 +------------
+ drivers/pci/host/pcie-iproc-bcma.c            | 10 +---------
+ drivers/pci/host/pcie-iproc-msi.c             | 10 +---------
+ drivers/pci/host/pcie-iproc-platform.c        | 10 +---------
+ drivers/pci/host/pcie-iproc.c                 | 10 +---------
+ drivers/pci/host/pcie-iproc.h                 | 10 +---------
+ drivers/pci/host/pcie-mediatek.c              | 10 +---------
+ drivers/pci/host/pcie-rcar.c                  |  5 +----
+ drivers/pci/host/vmd.c                        | 10 +---------
+ drivers/pci/mmap.c                            |  5 +----
+ drivers/pci/pci-driver.c                      |  4 +---
+ drivers/pci/pci-mid.c                         |  5 +----
+ drivers/pci/pci-stub.c                        |  3 +--
+ drivers/pci/pcie/aer/aer_inject.c             |  7 +------
+ drivers/pci/pcie/aer/ecrc.c                   | 16 +---------------
+ drivers/pci/pcie/pme.c                        |  5 +----
+ drivers/pci/pcie/portdrv_acpi.c               |  5 +----
+ drivers/pci/pcie/ptm.c                        | 10 +---------
+ drivers/pci/switch/switchtec.c                | 11 +----------
+ drivers/pci/vc.c                              |  5 +----
+ include/linux/pci-ecam.h                      | 13 +------------
+ include/linux/pci-ep-cfs.h                    |  5 +----
+ include/linux/pci-epc.h                       |  5 +----
+ include/linux/pci-epf.h                       |  5 +----
+ 58 files changed, 58 insertions(+), 411 deletions(-)
+
+diff --git a/drivers/pci/dwc/pci-dra7xx.c b/drivers/pci/dwc/pci-dra7xx.c
+index e77a4ceed74c..47855f7c5a6f 100644
+--- a/drivers/pci/dwc/pci-dra7xx.c
++++ b/drivers/pci/dwc/pci-dra7xx.c
+@@ -1,13 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * pcie-dra7xx - PCIe controller driver for TI DRA7xx SoCs
+  *
+  * Copyright (C) 2013-2014 Texas Instruments Incorporated - http://www.ti.com
+  *
+  * Authors: Kishon Vijay Abraham I <kishon@ti.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/delay.h>
+diff --git a/drivers/pci/dwc/pci-exynos.c b/drivers/pci/dwc/pci-exynos.c
+index 5596fdedbb94..328cc9f53865 100644
+--- a/drivers/pci/dwc/pci-exynos.c
++++ b/drivers/pci/dwc/pci-exynos.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe host controller driver for Samsung EXYNOS SoCs
+  *
+@@ -5,10 +6,6 @@
+  *		http://www.samsung.com
+  *
+  * Author: Jingoo Han <jg1.han@samsung.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/clk.h>
+diff --git a/drivers/pci/dwc/pci-imx6.c b/drivers/pci/dwc/pci-imx6.c
+index b73483534a5b..4fddbd08b089 100644
+--- a/drivers/pci/dwc/pci-imx6.c
++++ b/drivers/pci/dwc/pci-imx6.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe host controller driver for Freescale i.MX6 SoCs
+  *
+@@ -5,10 +6,6 @@
+  *		http://www.kosagi.com
+  *
+  * Author: Sean Cross <xobs@kosagi.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/clk.h>
+diff --git a/drivers/pci/dwc/pci-keystone-dw.c b/drivers/pci/dwc/pci-keystone-dw.c
+index 2fb20b887d2a..99a0e7076221 100644
+--- a/drivers/pci/dwc/pci-keystone-dw.c
++++ b/drivers/pci/dwc/pci-keystone-dw.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * DesignWare application register space functions for Keystone PCI controller
+  *
+@@ -5,11 +6,6 @@
+  *		http://www.ti.com
+  *
+  * Author: Murali Karicheri <m-karicheri2@ti.com>
+- *
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/irq.h>
+diff --git a/drivers/pci/dwc/pci-keystone.c b/drivers/pci/dwc/pci-keystone.c
+index 5bee3af47588..8d8d49e44c50 100644
+--- a/drivers/pci/dwc/pci-keystone.c
++++ b/drivers/pci/dwc/pci-keystone.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe host controller driver for Texas Instruments Keystone SoCs
+  *
+@@ -6,10 +7,6 @@
+  *
+  * Author: Murali Karicheri <m-karicheri2@ti.com>
+  * Implementation based on pci-exynos.c and pcie-designware.c
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/irqchip/chained_irq.h>
+diff --git a/drivers/pci/dwc/pci-keystone.h b/drivers/pci/dwc/pci-keystone.h
+index 30b7bc2ac380..1dd1f3ef98e7 100644
+--- a/drivers/pci/dwc/pci-keystone.h
++++ b/drivers/pci/dwc/pci-keystone.h
+@@ -1,3 +1,4 @@
++/* SPDX-License-Identifier: GPL-2.0 */
+ /*
+  * Keystone PCI Controller's common includes
+  *
+@@ -5,11 +6,6 @@
+  *		http://www.ti.com
+  *
+  * Author: Murali Karicheri <m-karicheri2@ti.com>
+- *
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #define MAX_MSI_HOST_IRQS		8
+diff --git a/drivers/pci/dwc/pci-layerscape.c b/drivers/pci/dwc/pci-layerscape.c
+index 8f34c2fdc600..a7b4159631ae 100644
+--- a/drivers/pci/dwc/pci-layerscape.c
++++ b/drivers/pci/dwc/pci-layerscape.c
+@@ -1,13 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe host controller driver for Freescale Layerscape SoCs
+  *
+  * Copyright (C) 2014 Freescale Semiconductor.
+  *
+  * Author: Minghuan Lian <Minghuan.Lian@freescale.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/kernel.h>
+diff --git a/drivers/pci/dwc/pcie-armada8k.c b/drivers/pci/dwc/pcie-armada8k.c
+index 370d057c0046..b587352f8b9f 100644
+--- a/drivers/pci/dwc/pcie-armada8k.c
++++ b/drivers/pci/dwc/pcie-armada8k.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe host controller driver for Marvell Armada-8K SoCs
+  *
+@@ -7,10 +8,6 @@
+  *
+  * Author: Yehuda Yitshak <yehuday@marvell.com>
+  * Author: Shadi Ammouri <shadi@marvell.com>
+- *
+- * This file is licensed under the terms of the GNU General Public
+- * License version 2. This program is licensed "as is" without any
+- * warranty of any kind, whether express or implied.
+  */
+ 
+ #include <linux/clk.h>
+diff --git a/drivers/pci/dwc/pcie-artpec6.c b/drivers/pci/dwc/pcie-artpec6.c
+index 6653619db6a1..b89884919423 100644
+--- a/drivers/pci/dwc/pcie-artpec6.c
++++ b/drivers/pci/dwc/pcie-artpec6.c
+@@ -1,13 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe host controller driver for Axis ARTPEC-6 SoC
+  *
+  * Author: Niklas Cassel <niklas.cassel@axis.com>
+  *
+  * Based on work done by Phil Edworthy <phil@edworthys.org>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/delay.h>
+diff --git a/drivers/pci/dwc/pcie-designware-ep.c b/drivers/pci/dwc/pcie-designware-ep.c
+index d53d5f168363..2d71a2262a2a 100644
+--- a/drivers/pci/dwc/pcie-designware-ep.c
++++ b/drivers/pci/dwc/pcie-designware-ep.c
+@@ -1,20 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0
+ /**
+  * Synopsys DesignWare PCIe Endpoint controller driver
+  *
+  * Copyright (C) 2017 Texas Instruments
+  * Author: Kishon Vijay Abraham I <kishon@ti.com>
+- *
+- * This program is free software: you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 of
+- * the License as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #include <linux/of.h>
+diff --git a/drivers/pci/dwc/pcie-designware-host.c b/drivers/pci/dwc/pcie-designware-host.c
+index 81e2157a7cfb..0fc1d1db72f8 100644
+--- a/drivers/pci/dwc/pcie-designware-host.c
++++ b/drivers/pci/dwc/pcie-designware-host.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Synopsys DesignWare PCIe host controller driver
+  *
+@@ -5,10 +6,6 @@
+  *		http://www.samsung.com
+  *
+  * Author: Jingoo Han <jg1.han@samsung.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/irqdomain.h>
+diff --git a/drivers/pci/dwc/pcie-designware-plat.c b/drivers/pci/dwc/pcie-designware-plat.c
+index 168e2380f493..ebdf28bcd67d 100644
+--- a/drivers/pci/dwc/pcie-designware-plat.c
++++ b/drivers/pci/dwc/pcie-designware-plat.c
+@@ -1,13 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe RC driver for Synopsys DesignWare Core
+  *
+  * Copyright (C) 2015-2016 Synopsys, Inc. (www.synopsys.com)
+  *
+  * Authors: Joao Pinto <Joao.Pinto@synopsys.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ #include <linux/clk.h>
+ #include <linux/delay.h>
+diff --git a/drivers/pci/dwc/pcie-designware.c b/drivers/pci/dwc/pcie-designware.c
+index 88abdddee2ad..a3aaabc203e2 100644
+--- a/drivers/pci/dwc/pcie-designware.c
++++ b/drivers/pci/dwc/pcie-designware.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Synopsys DesignWare PCIe host controller driver
+  *
+@@ -5,10 +6,6 @@
+  *		http://www.samsung.com
+  *
+  * Author: Jingoo Han <jg1.han@samsung.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/delay.h>
+diff --git a/drivers/pci/dwc/pcie-designware.h b/drivers/pci/dwc/pcie-designware.h
+index e5d9d77b778e..948a461c1ac7 100644
+--- a/drivers/pci/dwc/pcie-designware.h
++++ b/drivers/pci/dwc/pcie-designware.h
+@@ -1,3 +1,4 @@
++/* SPDX-License-Identifier: GPL-2.0 */
+ /*
+  * Synopsys DesignWare PCIe host controller driver
+  *
+@@ -5,10 +6,6 @@
+  *		http://www.samsung.com
+  *
+  * Author: Jingoo Han <jg1.han@samsung.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #ifndef _PCIE_DESIGNWARE_H
+diff --git a/drivers/pci/dwc/pcie-hisi.c b/drivers/pci/dwc/pcie-hisi.c
+index a20179169e06..2658aaebb993 100644
+--- a/drivers/pci/dwc/pcie-hisi.c
++++ b/drivers/pci/dwc/pcie-hisi.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe host controller driver for HiSilicon SoCs
+  *
+@@ -6,10 +7,6 @@
+  * Authors: Zhou Wang <wangzhou1@hisilicon.com>
+  *          Dacai Zhu <zhudacai@hisilicon.com>
+  *          Gabriele Paoloni <gabriele.paoloni@huawei.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ #include <linux/interrupt.h>
+ #include <linux/init.h>
+diff --git a/drivers/pci/dwc/pcie-histb.c b/drivers/pci/dwc/pcie-histb.c
+index 33b01b734d7d..70b5c0b108bf 100644
+--- a/drivers/pci/dwc/pcie-histb.c
++++ b/drivers/pci/dwc/pcie-histb.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe host controller driver for HiSilicon STB SoCs
+  *
+@@ -5,10 +6,6 @@
+  *
+  * Authors: Ruqiang Ju <juruqiang@hisilicon.com>
+  *          Jianguo Sun <sunjianguo1@huawei.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/clk.h>
+diff --git a/drivers/pci/dwc/pcie-kirin.c b/drivers/pci/dwc/pcie-kirin.c
+index dc3033cf3c19..13d839bd6160 100644
+--- a/drivers/pci/dwc/pcie-kirin.c
++++ b/drivers/pci/dwc/pcie-kirin.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe host controller driver for Kirin Phone SoCs
+  *
+@@ -5,10 +6,6 @@
+  *		http://www.huawei.com
+  *
+  * Author: Xiaowei Song <songxiaowei@huawei.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <asm/compiler.h>
+diff --git a/drivers/pci/dwc/pcie-qcom.c b/drivers/pci/dwc/pcie-qcom.c
+index ce7ba5b7552a..b01294e899f9 100644
+--- a/drivers/pci/dwc/pcie-qcom.c
++++ b/drivers/pci/dwc/pcie-qcom.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Qualcomm PCIe root complex driver
+  *
+@@ -5,15 +6,6 @@
+  * Copyright 2015 Linaro Limited.
+  *
+  * Author: Stanimir Varbanov <svarbanov@mm-sol.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 and
+- * only version 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+  */
+ 
+ #include <linux/clk.h>
+diff --git a/drivers/pci/dwc/pcie-spear13xx.c b/drivers/pci/dwc/pcie-spear13xx.c
+index 709189d23b31..ecb58f7b7566 100644
+--- a/drivers/pci/dwc/pcie-spear13xx.c
++++ b/drivers/pci/dwc/pcie-spear13xx.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe host controller driver for ST Microelectronics SPEAr13xx SoCs
+  *
+@@ -6,10 +7,6 @@
+  * Copyright (C) 2010-2014 ST Microelectronics
+  * Pratyush Anand <pratyush.anand@gmail.com>
+  * Mohit Kumar <mohit.kumar.dhaka@gmail.com>
+- *
+- * This file is licensed under the terms of the GNU General Public
+- * License version 2. This program is licensed "as is" without any
+- * warranty of any kind, whether express or implied.
+  */
+ 
+ #include <linux/clk.h>
+diff --git a/drivers/pci/ecam.c b/drivers/pci/ecam.c
+index c228a2eb7faa..1a81af0ba961 100644
+--- a/drivers/pci/ecam.c
++++ b/drivers/pci/ecam.c
+@@ -1,17 +1,6 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Copyright 2016 Broadcom
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License, version 2, as
+- * published by the Free Software Foundation (the "GPL").
+- *
+- * This program is distributed in the hope that it will be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License version 2 (GPLv2) for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * version 2 (GPLv2) along with this source code.
+  */
+ 
+ #include <linux/device.h>
+diff --git a/drivers/pci/endpoint/functions/pci-epf-test.c b/drivers/pci/endpoint/functions/pci-epf-test.c
+index f9308c2f22e6..f9105c7f20e9 100644
+--- a/drivers/pci/endpoint/functions/pci-epf-test.c
++++ b/drivers/pci/endpoint/functions/pci-epf-test.c
+@@ -1,20 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0
+ /**
+  * Test driver to test endpoint functionality
+  *
+  * Copyright (C) 2017 Texas Instruments
+  * Author: Kishon Vijay Abraham I <kishon@ti.com>
+- *
+- * This program is free software: you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 of
+- * the License as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #include <linux/crc32.h>
+diff --git a/drivers/pci/endpoint/pci-ep-cfs.c b/drivers/pci/endpoint/pci-ep-cfs.c
+index 4f74386c1ced..9029608c8b1b 100644
+--- a/drivers/pci/endpoint/pci-ep-cfs.c
++++ b/drivers/pci/endpoint/pci-ep-cfs.c
+@@ -1,20 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0
+ /**
+  * configfs to configure the PCI endpoint
+  *
+  * Copyright (C) 2017 Texas Instruments
+  * Author: Kishon Vijay Abraham I <kishon@ti.com>
+- *
+- * This program is free software: you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 of
+- * the License as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #include <linux/module.h>
+diff --git a/drivers/pci/endpoint/pci-epc-core.c b/drivers/pci/endpoint/pci-epc-core.c
+index 42c2a1156325..71b72c63fddb 100644
+--- a/drivers/pci/endpoint/pci-epc-core.c
++++ b/drivers/pci/endpoint/pci-epc-core.c
+@@ -1,20 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0
+ /**
+  * PCI Endpoint *Controller* (EPC) library
+  *
+  * Copyright (C) 2017 Texas Instruments
+  * Author: Kishon Vijay Abraham I <kishon@ti.com>
+- *
+- * This program is free software: you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 of
+- * the License as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #include <linux/device.h>
+diff --git a/drivers/pci/endpoint/pci-epc-mem.c b/drivers/pci/endpoint/pci-epc-mem.c
+index 83b7d5d3fc3e..2bf8bd1f0563 100644
+--- a/drivers/pci/endpoint/pci-epc-mem.c
++++ b/drivers/pci/endpoint/pci-epc-mem.c
+@@ -1,20 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0
+ /**
+  * PCI Endpoint *Controller* Address Space Management
+  *
+  * Copyright (C) 2017 Texas Instruments
+  * Author: Kishon Vijay Abraham I <kishon@ti.com>
+- *
+- * This program is free software: you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 of
+- * the License as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #include <linux/io.h>
+diff --git a/drivers/pci/endpoint/pci-epf-core.c b/drivers/pci/endpoint/pci-epf-core.c
+index ae1611a62808..9f282ea632d2 100644
+--- a/drivers/pci/endpoint/pci-epf-core.c
++++ b/drivers/pci/endpoint/pci-epf-core.c
+@@ -1,20 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0
+ /**
+  * PCI Endpoint *Function* (EPF) library
+  *
+  * Copyright (C) 2017 Texas Instruments
+  * Author: Kishon Vijay Abraham I <kishon@ti.com>
+- *
+- * This program is free software: you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 of
+- * the License as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #include <linux/device.h>
+diff --git a/drivers/pci/host/pci-aardvark.c b/drivers/pci/host/pci-aardvark.c
+index 26ed0c08f209..b04d37b3c5de 100644
+--- a/drivers/pci/host/pci-aardvark.c
++++ b/drivers/pci/host/pci-aardvark.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Driver for the Aardvark PCIe controller, used on Marvell Armada
+  * 3700.
+@@ -5,10 +6,6 @@
+  * Copyright (C) 2016 Marvell
+  *
+  * Author: Hezi Shahmoon <hezi.shahmoon@marvell.com>
+- *
+- * This file is licensed under the terms of the GNU General Public
+- * License version 2.  This program is licensed "as is" without any
+- * warranty of any kind, whether express or implied.
+  */
+ 
+ #include <linux/delay.h>
+diff --git a/drivers/pci/host/pci-host-common.c b/drivers/pci/host/pci-host-common.c
+index 44a47d4f0b8f..31f2c231e893 100644
+--- a/drivers/pci/host/pci-host-common.c
++++ b/drivers/pci/host/pci-host-common.c
+@@ -1,18 +1,7 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Generic PCI host driver common code
+  *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+- *
+  * Copyright (C) 2014 ARM Limited
+  *
+  * Author: Will Deacon <will.deacon@arm.com>
+diff --git a/drivers/pci/host/pci-host-generic.c b/drivers/pci/host/pci-host-generic.c
+index 2f05511ce718..45319ee3b484 100644
+--- a/drivers/pci/host/pci-host-generic.c
++++ b/drivers/pci/host/pci-host-generic.c
+@@ -1,19 +1,8 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Simple, generic PCI host controller driver targetting firmware-initialised
+  * systems and virtual machines (e.g. the PCI emulation provided by kvmtool).
+  *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+- *
+  * Copyright (C) 2014 ARM Limited
+  *
+  * Author: Will Deacon <will.deacon@arm.com>
+diff --git a/drivers/pci/host/pci-hyperv.c b/drivers/pci/host/pci-hyperv.c
+index 6b8d060d07de..2faf38eab785 100644
+--- a/drivers/pci/host/pci-hyperv.c
++++ b/drivers/pci/host/pci-hyperv.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Copyright (c) Microsoft Corporation.
+  *
+@@ -34,17 +35,6 @@
+  * read and write handlers for config space must be aware of this mechanism.
+  * Similarly, device setup and teardown involves messages sent to and from
+  * the PCI back-end driver in Hyper-V.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published
+- * by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
+- * NON INFRINGEMENT.  See the GNU General Public License for more
+- * details.
+- *
+  */
+ 
+ #include <linux/kernel.h>
+diff --git a/drivers/pci/host/pci-mvebu.c b/drivers/pci/host/pci-mvebu.c
+index 8d88f19dc171..5d4dccfc9d81 100644
+--- a/drivers/pci/host/pci-mvebu.c
++++ b/drivers/pci/host/pci-mvebu.c
+@@ -1,11 +1,8 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe driver for Marvell Armada 370 and Armada XP SoCs
+  *
+  * Author: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+- *
+- * This file is licensed under the terms of the GNU General Public
+- * License version 2.  This program is licensed "as is" without any
+- * warranty of any kind, whether express or implied.
+  */
+ 
+ #include <linux/kernel.h>
+diff --git a/drivers/pci/host/pci-rcar-gen2.c b/drivers/pci/host/pci-rcar-gen2.c
+index e46de69f0380..a28370bb2b2a 100644
+--- a/drivers/pci/host/pci-rcar-gen2.c
++++ b/drivers/pci/host/pci-rcar-gen2.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  *  pci-rcar-gen2: internal PCI bus support
+  *
+@@ -5,10 +6,6 @@
+  * Copyright (C) 2013 Cogent Embedded, Inc.
+  *
+  * Author: Valentine Barshak <valentine.barshak@cogentembedded.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/delay.h>
+diff --git a/drivers/pci/host/pci-thunder-pem.c b/drivers/pci/host/pci-thunder-pem.c
+index 6e066f8b74df..f127ce8bd4ef 100644
+--- a/drivers/pci/host/pci-thunder-pem.c
++++ b/drivers/pci/host/pci-thunder-pem.c
+@@ -1,16 +1,5 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+- *
+  * Copyright (C) 2015 - 2016 Cavium, Inc.
+  */
+ 
+diff --git a/drivers/pci/host/pci-versatile.c b/drivers/pci/host/pci-versatile.c
+index d417acab0ecf..b5b59d058c1b 100644
+--- a/drivers/pci/host/pci-versatile.c
++++ b/drivers/pci/host/pci-versatile.c
+@@ -1,18 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Copyright 2004 Koninklijke Philips Electronics NV
+  *
+  * Conversion to platform driver and DT:
+  * Copyright 2014 Linaro Ltd.
+  *
+- * This software is licensed under the terms of the GNU General Public
+- * License version 2, as published by the Free Software Foundation, and
+- * may be copied, distributed, and modified under those terms.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+  * 14/04/2005 Initial version, colin.king@philips.com
+  */
+ #include <linux/kernel.h>
+diff --git a/drivers/pci/host/pcie-altera-msi.c b/drivers/pci/host/pcie-altera-msi.c
+index d8141f4865de..025ef7d9a046 100644
+--- a/drivers/pci/host/pcie-altera-msi.c
++++ b/drivers/pci/host/pcie-altera-msi.c
+@@ -1,21 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Altera PCIe MSI support
+  *
+  * Author: Ley Foon Tan <lftan@altera.com>
+  *
+  * Copyright Altera Corporation (C) 2013-2015. All rights reserved
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms and conditions of the GNU General Public License,
+- * version 2, as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+- *
+- * You should have received a copy of the GNU General Public License along with
+- * this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #include <linux/interrupt.h>
+diff --git a/drivers/pci/host/pcie-altera.c b/drivers/pci/host/pcie-altera.c
+index 5cc4f594d79a..2235f4760951 100644
+--- a/drivers/pci/host/pcie-altera.c
++++ b/drivers/pci/host/pcie-altera.c
+@@ -1,20 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Copyright Altera Corporation (C) 2013-2015. All rights reserved
+  *
+  * Author: Ley Foon Tan <lftan@altera.com>
+  * Description: Altera PCIe host controller driver
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms and conditions of the GNU General Public License,
+- * version 2, as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+- *
+- * You should have received a copy of the GNU General Public License along with
+- * this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #include <linux/delay.h>
+diff --git a/drivers/pci/host/pcie-iproc-bcma.c b/drivers/pci/host/pcie-iproc-bcma.c
+index f03d5e3612e9..603c83429cb3 100644
+--- a/drivers/pci/host/pcie-iproc-bcma.c
++++ b/drivers/pci/host/pcie-iproc-bcma.c
+@@ -1,15 +1,7 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Copyright (C) 2015 Broadcom Corporation
+  * Copyright (C) 2015 Hauke Mehrtens <hauke@hauke-m.de>
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License as
+- * published by the Free Software Foundation version 2.
+- *
+- * This program is distributed "as is" WITHOUT ANY WARRANTY of any
+- * kind, whether express or implied; without even the implied warranty
+- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+  */
+ 
+ #include <linux/kernel.h>
+diff --git a/drivers/pci/host/pcie-iproc-msi.c b/drivers/pci/host/pcie-iproc-msi.c
+index 990fc906d73d..9deb56989d72 100644
+--- a/drivers/pci/host/pcie-iproc-msi.c
++++ b/drivers/pci/host/pcie-iproc-msi.c
+@@ -1,14 +1,6 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Copyright (C) 2015 Broadcom Corporation
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License as
+- * published by the Free Software Foundation version 2.
+- *
+- * This program is distributed "as is" WITHOUT ANY WARRANTY of any
+- * kind, whether express or implied; without even the implied warranty
+- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+  */
+ 
+ #include <linux/interrupt.h>
+diff --git a/drivers/pci/host/pcie-iproc-platform.c b/drivers/pci/host/pcie-iproc-platform.c
+index a5073a921a04..3e6927c318f2 100644
+--- a/drivers/pci/host/pcie-iproc-platform.c
++++ b/drivers/pci/host/pcie-iproc-platform.c
+@@ -1,14 +1,6 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Copyright (C) 2015 Broadcom Corporation
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License as
+- * published by the Free Software Foundation version 2.
+- *
+- * This program is distributed "as is" WITHOUT ANY WARRANTY of any
+- * kind, whether express or implied; without even the implied warranty
+- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+  */
+ 
+ #include <linux/kernel.h>
+diff --git a/drivers/pci/host/pcie-iproc.c b/drivers/pci/host/pcie-iproc.c
+index 935909bbe5c4..331dab12daee 100644
+--- a/drivers/pci/host/pcie-iproc.c
++++ b/drivers/pci/host/pcie-iproc.c
+@@ -1,15 +1,7 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Copyright (C) 2014 Hauke Mehrtens <hauke@hauke-m.de>
+  * Copyright (C) 2015 Broadcom Corporation
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License as
+- * published by the Free Software Foundation version 2.
+- *
+- * This program is distributed "as is" WITHOUT ANY WARRANTY of any
+- * kind, whether express or implied; without even the implied warranty
+- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+  */
+ 
+ #include <linux/kernel.h>
+diff --git a/drivers/pci/host/pcie-iproc.h b/drivers/pci/host/pcie-iproc.h
+index a6b55cec9a66..944d546fba2a 100644
+--- a/drivers/pci/host/pcie-iproc.h
++++ b/drivers/pci/host/pcie-iproc.h
+@@ -1,14 +1,6 @@
++/* SPDX-License-Identifier: GPL-2.0 */
+ /*
+  * Copyright (C) 2014-2015 Broadcom Corporation
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License as
+- * published by the Free Software Foundation version 2.
+- *
+- * This program is distributed "as is" WITHOUT ANY WARRANTY of any
+- * kind, whether express or implied; without even the implied warranty
+- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+  */
+ 
+ #ifndef _PCIE_IPROC_H
+diff --git a/drivers/pci/host/pcie-mediatek.c b/drivers/pci/host/pcie-mediatek.c
+index db93efdf1d63..a8b20c5012a9 100644
+--- a/drivers/pci/host/pcie-mediatek.c
++++ b/drivers/pci/host/pcie-mediatek.c
+@@ -1,18 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * MediaTek PCIe host controller driver.
+  *
+  * Copyright (c) 2017 MediaTek Inc.
+  * Author: Ryder Lee <ryder.lee@mediatek.com>
+  *	   Honghui Zhang <honghui.zhang@mediatek.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+  */
+ 
+ #include <linux/clk.h>
+diff --git a/drivers/pci/host/pcie-rcar.c b/drivers/pci/host/pcie-rcar.c
+index 52ab3cb0a0bf..5efce1f237c5 100644
+--- a/drivers/pci/host/pcie-rcar.c
++++ b/drivers/pci/host/pcie-rcar.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe driver for Renesas R-Car SoCs
+  *  Copyright (C) 2014 Renesas Electronics Europe Ltd
+@@ -8,10 +9,6 @@
+  *  Copyright (C) 2009 - 2011  Paul Mundt
+  *
+  * Author: Phil Edworthy <phil.edworthy@renesas.com>
+- *
+- * This file is licensed under the terms of the GNU General Public
+- * License version 2.  This program is licensed "as is" without any
+- * warranty of any kind, whether express or implied.
+  */
+ 
+ #include <linux/clk.h>
+diff --git a/drivers/pci/host/vmd.c b/drivers/pci/host/vmd.c
+index 509893bc3e63..930a8fa08bd6 100644
+--- a/drivers/pci/host/vmd.c
++++ b/drivers/pci/host/vmd.c
+@@ -1,15 +1,7 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Volume Management Device driver
+  * Copyright (c) 2015, Intel Corporation.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms and conditions of the GNU General Public License,
+- * version 2, as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+  */
+ 
+ #include <linux/device.h>
+diff --git a/drivers/pci/mmap.c b/drivers/pci/mmap.c
+index 9a5e5a9055eb..814a3ce341fc 100644
+--- a/drivers/pci/mmap.c
++++ b/drivers/pci/mmap.c
+@@ -1,13 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * mmap.c — generic PCI resource mmap helper
+  *
+  * Copyright © 2017 Amazon.com, Inc. or its affiliates.
+  *
+  * Author: David Woodhouse <dwmw2@infradead.org>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/kernel.h>
+diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+index 14fd865a5120..b167adfabb5b 100644
+--- a/drivers/pci/pci-driver.c
++++ b/drivers/pci/pci-driver.c
+@@ -1,11 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * drivers/pci/pci-driver.c
+  *
+  * (C) Copyright 2002-2004, 2007 Greg Kroah-Hartman <greg@kroah.com>
+  * (C) Copyright 2007 Novell Inc.
+- *
+- * Released under the GPL v2 only.
+- *
+  */
+ 
+ #include <linux/pci.h>
+diff --git a/drivers/pci/pci-mid.c b/drivers/pci/pci-mid.c
+index a4ac940c7696..314e135014dc 100644
+--- a/drivers/pci/pci-mid.c
++++ b/drivers/pci/pci-mid.c
+@@ -1,13 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Intel MID platform PM support
+  *
+  * Copyright (C) 2016, Intel Corporation
+  *
+  * Author: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms and conditions of the GNU General Public License,
+- * version 2, as published by the Free Software Foundation.
+  */
+ 
+ #include <linux/init.h>
+diff --git a/drivers/pci/pci-stub.c b/drivers/pci/pci-stub.c
+index 886fb3570278..a952007b7608 100644
+--- a/drivers/pci/pci-stub.c
++++ b/drivers/pci/pci-stub.c
+@@ -1,11 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /* pci-stub - simple stub driver to reserve a pci device
+  *
+  * Copyright (C) 2008 Red Hat, Inc.
+  * Author:
+  *	Chris Wright
+  *
+- * This work is licensed under the terms of the GNU GPL, version 2.
+- *
+  * Usage is simple, allocate a new id to the stub driver and bind the
+  * device to it.  For example:
+  *
+diff --git a/drivers/pci/pcie/aer/aer_inject.c b/drivers/pci/pcie/aer/aer_inject.c
+index 2b6a59266689..7e2235484dab 100644
+--- a/drivers/pci/pcie/aer/aer_inject.c
++++ b/drivers/pci/pcie/aer/aer_inject.c
+@@ -1,3 +1,4 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe AER software error injection support.
+  *
+@@ -9,12 +10,6 @@
+  *
+  * Copyright 2009 Intel Corporation.
+  *     Huang Ying <ying.huang@intel.com>
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; version 2
+- * of the License.
+- *
+  */
+ 
+ #include <linux/module.h>
+diff --git a/drivers/pci/pcie/aer/ecrc.c b/drivers/pci/pcie/aer/ecrc.c
+index a2747a663bc9..26d3cac9e635 100644
+--- a/drivers/pci/pcie/aer/ecrc.c
++++ b/drivers/pci/pcie/aer/ecrc.c
+@@ -1,23 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  *    Enables/disables PCIe ECRC checking.
+  *
+  *    (C) Copyright 2009 Hewlett-Packard Development Company, L.P.
+  *    Andrew Patterson <andrew.patterson@hp.com>
+- *
+- *    This program is free software; you can redistribute it and/or modify
+- *    it under the terms of the GNU General Public License as published by
+- *    the Free Software Foundation; version 2 of the License.
+- *
+- *    This program is distributed in the hope that it will be useful,
+- *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *    MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+- *    General Public License for more details.
+- *
+- *    You should have received a copy of the GNU General Public License
+- *    along with this program; if not, write to the Free Software
+- *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+- *    02111-1307, USA.
+- *
+  */
+ 
+ #include <linux/kernel.h>
+diff --git a/drivers/pci/pcie/pme.c b/drivers/pci/pcie/pme.c
+index df290aa58dce..55bdef4fb558 100644
+--- a/drivers/pci/pcie/pme.c
++++ b/drivers/pci/pcie/pme.c
+@@ -1,13 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe Native PME support
+  *
+  * Copyright (C) 2007 - 2009 Intel Corp
+  * Copyright (C) 2007 - 2009 Shaohua Li <shaohua.li@intel.com>
+  * Copyright (C) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+- *
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License V2.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+  */
+ 
+ #include <linux/pci.h>
+diff --git a/drivers/pci/pcie/portdrv_acpi.c b/drivers/pci/pcie/portdrv_acpi.c
+index 6b8c2f1d0e71..319c94976873 100644
+--- a/drivers/pci/pcie/portdrv_acpi.c
++++ b/drivers/pci/pcie/portdrv_acpi.c
+@@ -1,11 +1,8 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCIe Port Native Services Support, ACPI-Related Part
+  *
+  * Copyright (C) 2010 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+- *
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License V2.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+  */
+ 
+ #include <linux/pci.h>
+diff --git a/drivers/pci/pcie/ptm.c b/drivers/pci/pcie/ptm.c
+index bab8ac63c4f3..1071b8c6208c 100644
+--- a/drivers/pci/pcie/ptm.c
++++ b/drivers/pci/pcie/ptm.c
+@@ -1,15 +1,7 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCI Express Precision Time Measurement
+  * Copyright (c) 2016, Intel Corporation.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms and conditions of the GNU General Public License,
+- * version 2, as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+  */
+ 
+ #include <linux/module.h>
+diff --git a/drivers/pci/switch/switchtec.c b/drivers/pci/switch/switchtec.c
+index 730cc897b94d..5c4c459cf092 100644
+--- a/drivers/pci/switch/switchtec.c
++++ b/drivers/pci/switch/switchtec.c
+@@ -1,16 +1,7 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * Microsemi Switchtec(tm) PCIe Management Driver
+  * Copyright (c) 2017, Microsemi Corporation
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms and conditions of the GNU General Public License,
+- * version 2, as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+- *
+  */
+ 
+ #include <linux/switchtec.h>
+diff --git a/drivers/pci/vc.c b/drivers/pci/vc.c
+index 1fa3a3219c45..825c4bddb5fd 100644
+--- a/drivers/pci/vc.c
++++ b/drivers/pci/vc.c
+@@ -1,12 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0
+ /*
+  * PCI Virtual Channel support
+  *
+  * Copyright (C) 2013 Red Hat, Inc.  All rights reserved.
+  *     Author: Alex Williamson <alex.williamson@redhat.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+  */
+ 
+ #include <linux/device.h>
+diff --git a/include/linux/pci-ecam.h b/include/linux/pci-ecam.h
+index 809c2f1873ac..baadad1aabbc 100644
+--- a/include/linux/pci-ecam.h
++++ b/include/linux/pci-ecam.h
+@@ -1,17 +1,6 @@
++/* SPDX-License-Identifier: GPL-2.0 */
+ /*
+  * Copyright 2016 Broadcom
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License, version 2, as
+- * published by the Free Software Foundation (the "GPL").
+- *
+- * This program is distributed in the hope that it will be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License version 2 (GPLv2) for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * version 2 (GPLv2) along with this source code.
+  */
+ #ifndef DRIVERS_PCI_ECAM_H
+ #define DRIVERS_PCI_ECAM_H
+diff --git a/include/linux/pci-ep-cfs.h b/include/linux/pci-ep-cfs.h
+index 263b89ea5705..f42b0fd4b4bc 100644
+--- a/include/linux/pci-ep-cfs.h
++++ b/include/linux/pci-ep-cfs.h
+@@ -1,12 +1,9 @@
++/* SPDX-License-Identifier: GPL-2.0+ */
+ /**
+  * PCI Endpoint ConfigFS header file
+  *
+  * Copyright (C) 2017 Texas Instruments
+  * Author: Kishon Vijay Abraham I <kishon@ti.com>
+- *
+- * This program is free software: you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 of
+- * the License as published by the Free Software Foundation.
+  */
+ 
+ #ifndef __LINUX_PCI_EP_CFS_H
+diff --git a/include/linux/pci-epc.h b/include/linux/pci-epc.h
+index f7a04e1af112..573730d490a7 100644
+--- a/include/linux/pci-epc.h
++++ b/include/linux/pci-epc.h
+@@ -1,12 +1,9 @@
++/* SPDX-License-Identifier: GPL-2.0 */
+ /**
+  * PCI Endpoint *Controller* (EPC) header file
+  *
+  * Copyright (C) 2017 Texas Instruments
+  * Author: Kishon Vijay Abraham I <kishon@ti.com>
+- *
+- * This program is free software: you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 of
+- * the License as published by the Free Software Foundation.
+  */
+ 
+ #ifndef __LINUX_PCI_EPC_H
+diff --git a/include/linux/pci-epf.h b/include/linux/pci-epf.h
+index 60d551a9a1ba..e897bf076701 100644
+--- a/include/linux/pci-epf.h
++++ b/include/linux/pci-epf.h
+@@ -1,12 +1,9 @@
++/* SPDX-License-Identifier: GPL-2.0 */
+ /**
+  * PCI Endpoint *Function* (EPF) header file
+  *
+  * Copyright (C) 2017 Texas Instruments
+  * Author: Kishon Vijay Abraham I <kishon@ti.com>
+- *
+- * This program is free software: you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 of
+- * the License as published by the Free Software Foundation.
+  */
+ 
+ #ifndef __LINUX_PCI_EPF_H
+-- 
+2.14.1
+

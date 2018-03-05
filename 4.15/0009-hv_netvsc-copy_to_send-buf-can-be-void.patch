@@ -1,0 +1,66 @@
+From 236d0b158ea93fd39e15a03c7db719ee4fa15007 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 12 Dec 2017 16:48:35 -0800
+Subject: [PATCH 09/55] hv_netvsc: copy_to_send buf can be void
+
+Since only caller does not care about return value.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 22 ++++++++--------------
+ 1 file changed, 8 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index e5d16a8cf0d6..53a366f7526b 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -701,19 +701,18 @@ static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
+ 	return NETVSC_INVALID_INDEX;
+ }
+ 
+-static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+-				   unsigned int section_index,
+-				   u32 pend_size,
+-				   struct hv_netvsc_packet *packet,
+-				   struct rndis_message *rndis_msg,
+-				   struct hv_page_buffer *pb,
+-				   struct sk_buff *skb)
++static void netvsc_copy_to_send_buf(struct netvsc_device *net_device,
++				    unsigned int section_index,
++				    u32 pend_size,
++				    struct hv_netvsc_packet *packet,
++				    struct rndis_message *rndis_msg,
++				    struct hv_page_buffer *pb,
++				    struct sk_buff *skb)
+ {
+ 	char *start = net_device->send_buf;
+ 	char *dest = start + (section_index * net_device->send_section_size)
+ 		     + pend_size;
+ 	int i;
+-	u32 msg_size = 0;
+ 	u32 padding = 0;
+ 	u32 page_count = packet->cp_partial ? packet->rmsg_pgcnt :
+ 		packet->page_buf_cnt;
+@@ -733,16 +732,11 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 		u32 len = pb[i].len;
+ 
+ 		memcpy(dest, (src + offset), len);
+-		msg_size += len;
+ 		dest += len;
+ 	}
+ 
+-	if (padding) {
++	if (padding)
+ 		memset(dest, 0, padding);
+-		msg_size += padding;
+-	}
+-
+-	return msg_size;
+ }
+ 
+ static inline int netvsc_send_pkt(
+-- 
+2.14.1
+

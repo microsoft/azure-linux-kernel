@@ -1,0 +1,57 @@
+From 2b0b4092e2c75e89279cc6e1f01ae7f7fffd8448 Mon Sep 17 00:00:00 2001
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 10 Jan 2018 17:42:38 +0100
+Subject: [PATCH 24/55] uio_hv_generic: fix type mismatch warnings
+
+I moved the virt_to_phys() conversion into hv_uio_probe() as part of
+a warning fix. Stephen's cleanup to remove the private mmap() function
+seems reasonable, but part of it reverted the change that I did to
+hide the warnings, so they are back now:
+
+drivers/uio/uio_hv_generic.c: In function 'hv_uio_probe':
+drivers/uio/uio_hv_generic.c:123:5: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+drivers/uio/uio_hv_generic.c:130:5: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+drivers/uio/uio_hv_generic.c:136:5: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+
+The type mismatch is now the result of the uio_mmap() definition, and
+the best way I see from here is to shut them up with a uintptr_t cast.
+
+Fixes: 9c40546c012c ("uio_hv_generic: use standard mmap for resources")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Sasha Levin <alexander.levin@microsoft.com>
+---
+ drivers/uio/uio_hv_generic.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/uio/uio_hv_generic.c b/drivers/uio/uio_hv_generic.c
+index 8c6b04a26c47..787598ad933d 100644
+--- a/drivers/uio/uio_hv_generic.c
++++ b/drivers/uio/uio_hv_generic.c
+@@ -169,20 +169,20 @@ hv_uio_probe(struct hv_device *dev,
+ 	/* mem resources */
+ 	pdata->info.mem[TXRX_RING_MAP].name = "txrx_rings";
+ 	pdata->info.mem[TXRX_RING_MAP].addr
+-		= (phys_addr_t)dev->channel->ringbuffer_pages;
++		= (uintptr_t)dev->channel->ringbuffer_pages;
+ 	pdata->info.mem[TXRX_RING_MAP].size
+ 		= dev->channel->ringbuffer_pagecount << PAGE_SHIFT;
+ 	pdata->info.mem[TXRX_RING_MAP].memtype = UIO_MEM_LOGICAL;
+ 
+ 	pdata->info.mem[INT_PAGE_MAP].name = "int_page";
+ 	pdata->info.mem[INT_PAGE_MAP].addr
+-		= (phys_addr_t)vmbus_connection.int_page;
++		= (uintptr_t)vmbus_connection.int_page;
+ 	pdata->info.mem[INT_PAGE_MAP].size = PAGE_SIZE;
+ 	pdata->info.mem[INT_PAGE_MAP].memtype = UIO_MEM_LOGICAL;
+ 
+ 	pdata->info.mem[MON_PAGE_MAP].name = "monitor_page";
+ 	pdata->info.mem[MON_PAGE_MAP].addr
+-		= (phys_addr_t)vmbus_connection.monitor_pages[1];
++		= (uintptr_t)vmbus_connection.monitor_pages[1];
+ 	pdata->info.mem[MON_PAGE_MAP].size = PAGE_SIZE;
+ 	pdata->info.mem[MON_PAGE_MAP].memtype = UIO_MEM_LOGICAL;
+ 
+-- 
+2.14.1
+
