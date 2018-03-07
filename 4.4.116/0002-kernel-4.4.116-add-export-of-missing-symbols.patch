@@ -1,0 +1,32 @@
+From ebb17be6e47a734e4e676c8d454e7bc6361e6d81 Mon Sep 17 00:00:00 2001
+From: your name <you@example.com>
+Date: Sun, 18 Feb 2018 08:52:41 -0800
+Subject: [PATCH 2/4] kernel 4.4.116 add export of missing symbols
+
+---
+ arch/x86/hyperv/hv_init.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index 1d7b547..1cd8e57 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -95,6 +95,7 @@ int hv_cpu_init(unsigned int cpu)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(hv_cpu_init);
+ 
+ /*
+  * This function is to be invoked early in the boot sequence after the
+@@ -178,6 +179,7 @@ free_vp_index:
+ 	kfree(hv_vp_index);
+ 	hv_vp_index = NULL;
+ }
++EXPORT_SYMBOL_GPL(hyperv_init);
+ 
+ /*
+  * This routine is called before kexec/kdump, it does the required cleanup.
+-- 
+2.7.4
+

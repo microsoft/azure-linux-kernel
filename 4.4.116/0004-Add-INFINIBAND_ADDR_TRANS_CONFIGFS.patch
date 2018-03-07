@@ -1,0 +1,32 @@
+From b4bd4dc2f3dc563afddb49761c2b032a2e226eef Mon Sep 17 00:00:00 2001
+From: your name <you@example.com>
+Date: Tue, 6 Mar 2018 13:46:23 -0800
+Subject: [PATCH 4/4] Add INFINIBAND_ADDR_TRANS_CONFIGFS
+
+---
+ drivers/infiniband/Kconfig | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index aa26f3c..018685f 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -54,6 +54,15 @@ config INFINIBAND_ADDR_TRANS
+ 	depends on INFINIBAND
+ 	default y
+ 
++config INFINIBAND_ADDR_TRANS_CONFIGFS
++	bool
++	depends on INFINIBAND_ADDR_TRANS && CONFIGFS_FS && !(INFINIBAND=y && CONFIGFS_FS=m)
++	default y
++	---help---
++	  ConfigFS support for RDMA communication manager (CM).
++	  This allows the user to config the default GID type that the CM
++	  uses for each device, when initiaing new connections.
++
+ source "drivers/infiniband/hw/mthca/Kconfig"
+ source "drivers/infiniband/hw/qib/Kconfig"
+ source "drivers/infiniband/hw/cxgb3/Kconfig"
+-- 
+2.7.4
+
