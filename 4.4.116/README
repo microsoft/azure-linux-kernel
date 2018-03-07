@@ -1,0 +1,28 @@
+1) On Ubuntu 1604, build kernel 4.4.116 from kernel.org.
+   with these patches:
+0001-hyperv-backport-vPCI-and-SRIOV-support-for-Linux-4.4.patch
+0002-kernel-4.4.116-add-export-of-missing-symbols.patch
+
+2) Apply patch #3,4 to add Melanox drivers:
+0003-OFED-port-to-4.4.patch
+0004-Add-INFINIBAND_ADDR_TRANS_CONFIGFS.patch
+
+3) Build kernel
+//Use "save_config2_OK" as the kernel config (example from Ubuntu 16.04)
+  (save_config1 is the file before removing extra modules to fix build error.)
+
+Basically, for running DPDK you need the following modules:
+IB code, mainly:
+drivers/infiniband/core/ib_core.ko
+drivers/infiniband/core/ib_uverbs.ko
+
+mlx4 drivers (for ConnectX-3):
+drivers/infiniband/hw/mlx4/mlx4_ib.ko
+drivers/net/ethernet/mellanox/mlx4/mlx4_en.ko
+drivers/net/ethernet/mellanox/mlx4/mlx4_core.ko
+
+mlx5 drivers (for ConnectX-4, ConnectX-5, etc):
+drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.ko
+drivers/infiniband/hw/mlx5/mlx5_ib.ko
+
+
