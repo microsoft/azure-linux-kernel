@@ -1,7 +1,7 @@
-HOWTO: make Mellanox OFED driver work with the upstream 3.10.88 kernel for
-Linux VM on Hyper-V.
+HOWTO: Enable SR-IOV with  Mellanox OFED driver on upstream 3.10.88 kernel for
+Linux VM on Hyper-V and Azure environment.
 
-1. Apply the below patches to make SR-IOV work with the 3.10.88 kernel
+1. Follow the below instructions for SR-IOV to work on 3.10.88 kernel
 
 1.1 Checkout the upstream 3.10.88 kernel
 https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/commit/?h=2ec142700ec00142cdcd8c6529ad77cb9ec7a026
@@ -12,43 +12,27 @@ https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/commit/?
 
 1.3 Use the "kernel-config" as the .config and build & install the kernel/drivers.
 
-1.4 Add a Mellanox ConnectX-3 VF to the VM and "lspci" should show
+1.4 If you're on a local Hyper-V host, add a Mellanox ConnectX-3 VF to the VM and "lspci" should show
 0002:00:02.0 Network controller: Mellanox Technologies MT27500/MT27520 Family [ConnectX-3/ConnectX-3 Pro Virtual Function]
 
-There is not a working version of in-kernel Mellanox driver for 3.10.88, so
-we have to use the OFED driver.
+If your VM is on Azure, follow this link to enable Accelerated Networking (i.e. SR-IOV for network)
+https://docs.microsoft.com/en-us/azure/virtual-network/create-vm-accelerated-networking-cli
 
-2. Enable the OFED driver
+Kernel 3.10.88 inbox mellanox driver does not support SR-IOV, please use the OFED driver.
 
-2.1 Download the related OFED driver from
+2. Steps to enable the OFED driver
+
+2.1 Download the latest OFED driver from:
 http://www.mellanox.com/page/products_dyn?product_family=26&mtag=linux_sw_drivers
-e.g. if the VM's distro is RHEL 7.4, we can use
-Download | Current Versions: 4.2-1.2.0.0 | RHEL/CentOS 7.4 | x86_64 | MLNX_OFED_LINUX-4.2-1.2.0.0-rhel7.4-x86_64.tgz. 
+*select related distribution.
 
-2.2 Copy the .tgz file into the VM and run “./mlnxofedinstall”, and we'll get
-an error, saying there is no pre-built binaries for this version of kernel,
-so we need to build the OFED driver from source code.
-
-2.3 Uncompress the src/MLNX_OFED_SRC-4.2-1.2.0.0.tgz, and run
+2.2 Uncompress the src/MLNX_OFED_SRC-4.2-1.2.0.0.tgz, and run
 src/MLNX_OFED_SRC-4.2-1.2.0.0/install.pl. After installing the necessary
 prerequisite packages, we'll start to build the OFED drivers and this can take ~30
 minutes, and finally the generated drivers will be installed automatically with
-no error.  We can notice these files are installed:
+no error.
 
-[root@localhost ~]# find /lib/modules/3.10.88+/extra/ -type f |grep mlx
-/lib/modules/3.10.88+/extra/mlnx-ofa_kernel/compat/mlx_compat.ko
-/lib/modules/3.10.88+/extra/mlnx-ofa_kernel/drivers/net/ethernet/mellanox/mlx5/fpga/mlx5_fpga_tools.ko
-/lib/modules/3.10.88+/extra/mlnx-ofa_kernel/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.ko
-/lib/modules/3.10.88+/extra/mlnx-ofa_kernel/drivers/net/ethernet/mellanox/mlxfw/mlxfw.ko
-/lib/modules/3.10.88+/extra/mlnx-ofa_kernel/drivers/net/ethernet/mellanox/mlx4/mlx4_core.ko
-/lib/modules/3.10.88+/extra/mlnx-ofa_kernel/drivers/net/ethernet/mellanox/mlx4/mlx4_en.ko
-/lib/modules/3.10.88+/extra/mlnx-ofa_kernel/drivers/infiniband/hw/mlx5/mlx5_ib.ko
-/lib/modules/3.10.88+/extra/mlnx-ofa_kernel/drivers/infiniband/hw/mlx4/mlx4_ib.ko
-
-[root@localhost ~]# rpm -qf /lib/modules/3.10.88+/extra/mlnx*
-mlnx-ofa_kernel-modules-4.2-OFED.4.2.1.2.0.1.gf8de107.kver.3.10.88+.x86_64
-
-2.4 Reboot the VM, and the MLX OFED driver should load fine.
+2.3 Reboot the VM, and the MLX OFED driver should load fine.
 
 [root@localhost ~]# lspci -s 0002:00:02.0 -vvv
 0002:00:02.0 Network controller: Mellanox Technologies MT27500/MT27520 Family [ConnectX-3/ConnectX-3 Pro Virtual Function]
@@ -118,7 +102,16 @@ mlnx-ofa_kernel-modules-4.2-OFED.4.2.1.2.0.1.gf8de107.kver.3.10.88+.x86_64
 [   15.177138] mlx4_en: enP2p0s2: Steering Mode 2
 [   15.199897] mlx4_en: enP2p0s2: Link Up
 
-And "ifconfig" should show the VF interface "enP2p0s2".
+Verify:
 
-Note: the patchset backported the transparent SR-IOV VF patch, so we should set up the IP to 
-the ethX interface rather than the enP2p0s2 interface.
+Check for activity on the VF using "ethtool -S eth0 | grep vf_" command. If you see output such as below, SR-IOV (accelerated networking)
+is working.
+
+vf_rx_packets: 992956
+vf_rx_bytes: 2749784180
+vf_tx_packets: 2656684
+vf_tx_bytes: 1099443970
+vf_tx_dropped: 0
+
+Note: Hyper-V: the patchset backported the transparent SR-IOV VF patch, so we should set IP address to
+the ethX interface and not the VF interface.
