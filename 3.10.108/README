@@ -1,7 +1,7 @@
-HOWTO: make Mellanox OFED driver work with the upstream 3.10.108 kernel for
-Linux VM on Hyper-V.
+HOWTO: Enable SR-IOV with  Mellanox OFED driver on upstream 3.10.88 kernel for
+Linux VM on Hyper-V and Azure environment.
 
-1. apply the below patches to make SR-IOV work with the 3.10.108 kernel
+1. Follow the below instruction to enable SR-IOV on 3.10.88 kernel
 
 1.1 checkout the upstream 3.10.108 kernel
 https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/commit/?h=linux-3.10.y&id=e7a59c7f266809d17dcde20fd2055e23e7eb6895
@@ -13,58 +13,27 @@ https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/commit/?
 
 1.3 use the "kernel-config" as the .config and build & install the kernel/drivers.
 
-1.4 Add a Mellanox ConnectX-3 VF to the VM and "lspci" should show
+1.4 If you're on a local Hyper-V host, add a Mellanox ConnectX-3 VF to the VM and "lspci" should show
 0002:00:02.0 Network controller: Mellanox Technologies MT27500/MT27520 Family [ConnectX-3/ConnectX-3 Pro Virtual Function]
 
-There is not a working version of in-kernel Mellanox driver for 3.10.108, so
-we have to use the OFED driver.
+If your VM is on Azure, follow this link to enable Accelerated Networking (i.e. SR-IOV for network)
+ https://docs.microsoft.com/en-us/azure/virtual-network/create-vm-accelerated-networking-cli
 
+Kernel 3.10.108  inbox mellanox driver does not support SR-IOV, please use the OFED driver.
 
-2. enable the OFED driver
+2. Steps to enable the OFED driver
 
-2.1 Download the related OFED driver
+2.1 Download the latest OFED driver from:
 http://www.mellanox.com/page/products_dyn?product_family=26&mtag=linux_sw_drivers
-e.g. if the VM's distro is Ubuntu 16.04, we can use
-Download | Current Versions: 4.2-1.2.0.0 | Ubuntu 16.04 | x86_64 |  MLNX_OFED_LINUX-4.2-1.2.0.0-ubuntu16.04-x86_64.iso.
+*select related distribution.
 
-2.2 Copy the .iso into the VM and run “./mlnxofedinstall”.
-We can get an error about missing DKMS support. Let's run “apt-get install dkms” to fix it.
-
-2.3 Re-run the script and we'll get another error “DKMS is disabled for
-3.10.108+ kernel, MLNX_OFED_LINUX does not have non-DKMS driver packages
-available for this kernel”. It means we need to build the OFED driver from
-source code.
-
-2.4 Uncompress the src/MLNX_OFED_SRC-4.2-1.2.0.0.tgz, and run
+2.2 Uncompress the src/MLNX_OFED_SRC-4.2-1.2.0.0.tgz, and run
 src/MLNX_OFED_SRC-4.2-1.2.0.0/install.pl. After installing the necessary
 prerequisite packages, we'll start to build the OFED drivers and this can take ~30
 minutes, and finally the generated drivers will be installed automatically with
-no error.  We can notice these files are installed:
+no error.
 
-root@u1604:~# ls /lib/modules/3.10.108+/updates/*
-/lib/modules/3.10.108+/updates/ib_iser.ko
-/lib/modules/3.10.108+/updates/mst_pciconf.ko
-/lib/modules/3.10.108+/updates/knem.ko
-/lib/modules/3.10.108+/updates/mst_pci.ko
-
-/lib/modules/3.10.108+/updates/dkms:
-9pnet_rdma.ko  ib_ipath.ko  ib_mthca.ko  ib_ucm.ko     iw_cm.ko
-mlx4_core.ko  mlx5_fpga_tools.ko  ocrdma.ko
-ib_addr.ko     ib_ipoib.ko  ib_qib.ko    ib_umad.ko    iw_cxgb3.ko  mlx4_en.ko
-mlx5_ib.ko          rdma_cm.ko
-ib_cm.ko       ib_iser.ko   ib_sa.ko     ib_uverbs.ko  iw_cxgb4.ko  mlx4_ib.ko
-mlx_compat.ko       rdma_ucm.ko
-ib_core.ko     ib_mad.ko    ib_srpt.ko   iw_c2.ko      iw_nes.ko
-mlx5_core.ko  mlxfw.ko            rds_rdma.ko
-
-root@u1604:~# dpkg-query -S  /lib/modules/3.10.108+/updates/*
-mlnx-ofed-kernel-modules: /lib/modules/3.10.108+/updates/dkms
-iser-modules: /lib/modules/3.10.108+/updates/ib_iser.ko
-knem-modules: /lib/modules/3.10.108+/updates/knem.ko
-kernel-mft-modules: /lib/modules/3.10.108+/updates/mst_pciconf.ko
-kernel-mft-modules: /lib/modules/3.10.108+/updates/mst_pci.ko
-
-2.5 Reboot the VM, and the MLX OFED driver should load fine.
+2.3 Reboot the VM, and the MLX OFED driver should load fine.
 
 root@u1604:~# lspci -s 0002:00:02.0 -vvv
 0002:00:02.0 Network controller: Mellanox Technologies MT27500/MT27520 Family [ConnectX-3/ConnectX-3 Pro Virtual Function]
@@ -133,7 +102,17 @@ root@u1604:~# dmesg |grep -i mlx
 [   11.078676] mlx4_en: enP2p0s2: Steering Mode 2
 [   11.099536] mlx4_en: enP2p0s2: Link Up
 
-And "ifconfig" should show the VF interface "enP2p0s2".
+Verify:
 
-Note: the patchset backported the transparent SR-IOV VF patch, so we should set up the IP to 
-the ethX interface rather than the enP2p0s2 interface.
+Check for activity on the VF using "ethtool -S eth0 | grep vf_" command. If you see output such as below, SR-IOV (accelerated networking)
+is working.
+
+vf_rx_packets: 992956
+vf_rx_bytes: 2749784180
+vf_tx_packets: 2656684
+vf_tx_bytes: 1099443970
+vf_tx_dropped: 0
+
+Note: Hyper-V: the patchset backported the transparent SR-IOV VF patch, so we should set IP address to
+the ethX interface and not the VF interface.
+
