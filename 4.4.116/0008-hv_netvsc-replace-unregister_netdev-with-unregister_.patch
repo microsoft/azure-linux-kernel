@@ -1,0 +1,26 @@
+From ac16c7a38654b4b9494b9b411ac53d74391818fd Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Wed, 15 Aug 2018 22:09:38 +0300
+Subject: [PATCH] hv_netvsc: replace unregister_netdev with unregister_netdevice
+
+This fixes the unloading hang
+---
+ drivers/net/hyperv/netvsc_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 176cbfa..c381c1b 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1736,7 +1736,7 @@ static int netvsc_remove(struct hv_device *dev)
+ 	if (vf_netdev)
+ 		netvsc_unregister_vf(vf_netdev);
+ 
+-	unregister_netdev(net);
++	unregister_netdevice(net);
+ 
+ 	rndis_filter_device_remove(dev);
+ 	rtnl_unlock();
+-- 
+2.1.4
+
