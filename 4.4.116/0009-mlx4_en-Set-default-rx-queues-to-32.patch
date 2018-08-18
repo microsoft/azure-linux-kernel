@@ -1,0 +1,25 @@
+From bd95b4f22f43012c93381f89515ba6b9694e229e Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Sat, 18 Aug 2018 12:55:53 +0000
+Subject: [PATCH] mlx4_en: Set default rx queues to 32
+
+---
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 23701be..79f4236 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -87,7 +87,7 @@
+ 
+ #define MLX4_EN_PAGE_SHIFT	12
+ #define MLX4_EN_PAGE_SIZE	(1 << MLX4_EN_PAGE_SHIFT)
+-#define DEF_RX_RINGS		16
++#define DEF_RX_RINGS		32
+ #define MAX_RX_RINGS		128
+ #define MIN_RX_RINGS		4
+ #define LOG_TXBB_SIZE		6
+-- 
+2.1.4
+
