@@ -1,0 +1,19 @@
+commit 39be01ade9d26362d913f918543e8aef8784d691
+Author: root <root@haiyangz-toutiao-w-1.dugwoapfq1juxjhvgamii5uyvb.xx.internal.cloudapp.net>
+Date:   Thu Aug 23 21:41:12 2018 +0000
+
+    HACK: force the L3 cache group for Intel vCPUs in HyperV
+
+diff --git a/arch/x86/kernel/cpu/intel_cacheinfo.c b/arch/x86/kernel/cpu/intel_cacheinfo.c
+index b4ca91c..2ab3e49 100644
+--- a/arch/x86/kernel/cpu/intel_cacheinfo.c
++++ b/arch/x86/kernel/cpu/intel_cacheinfo.c
+@@ -604,6 +604,8 @@ cpuid4_cache_lookup_regs(int index, struct _cpuid4_info_regs *this_leaf)
+ 	if (eax.split.type == CTYPE_NULL)
+ 		return -EIO; /* better error ? */
+ 
++	if (eax.split.level == 3)
++		eax.split.num_threads_sharing = (num_processors/nr_node_ids) - 1;
+ 	this_leaf->eax = eax;
+ 	this_leaf->ebx = ebx;
+ 	this_leaf->ecx = ecx;
