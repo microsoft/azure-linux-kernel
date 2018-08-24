@@ -1,8 +1,11 @@
-commit 39be01ade9d26362d913f918543e8aef8784d691
-Author: root <root@haiyangz-toutiao-w-1.dugwoapfq1juxjhvgamii5uyvb.xx.internal.cloudapp.net>
-Date:   Thu Aug 23 21:41:12 2018 +0000
+From 14be599f4adb53689b5e4c00ec57e4f10f4a12d6 Mon Sep 17 00:00:00 2001
+From: Michael Kelley <Michael.H.Kelley@microsoft.com>
+Date: Fri, 24 Aug 2018 00:09:57 +0000
+Subject: [PATCH] HACK: force the L3 cache group for Intel vCPUs in HyperV
 
-    HACK: force the L3 cache group for Intel vCPUs in HyperV
+---
+ arch/x86/kernel/cpu/intel_cacheinfo.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/arch/x86/kernel/cpu/intel_cacheinfo.c b/arch/x86/kernel/cpu/intel_cacheinfo.c
 index b4ca91c..2ab3e49 100644
@@ -17,3 +20,6 @@ index b4ca91c..2ab3e49 100644
  	this_leaf->eax = eax;
  	this_leaf->ebx = ebx;
  	this_leaf->ecx = ecx;
+-- 
+2.1.4
+
