@@ -1,0 +1,52 @@
+From 2aedacd25156c9beba0b2ad763c866404a988a53 Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Sat, 20 Oct 2018 07:55:30 +0800
+Subject: [PATCH] Fix the interrupt affinity issue
+
+With the patch, all the Mellanox VF's interrupts should spread to
+all the CPUs rather than only CPU0.
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+---
+ drivers/pci/pci-hyperv.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/pci/pci-hyperv.c b/drivers/pci/pci-hyperv.c
+index ff51e70..b5407c0 100644
+--- a/drivers/pci/pci-hyperv.c
++++ b/drivers/pci/pci-hyperv.c
+@@ -788,12 +788,11 @@ struct irq_cfg *irqd_cfg(struct irq_data *irq_data)
+ }
+ 
+ /* Interrupt management hooks */
+-static int hv_set_affinity(struct irq_data *data, const struct cpumask *mask,
++static int hv_set_affinity(struct irq_data *data, const struct cpumask *dest,
+ 			   bool force)
+ {
+ 	struct msi_desc *msi_desc = data->msi_desc;
+ 	struct irq_cfg *cfg = irqd_cfg(data);
+-	struct cpumask *dest = cfg->domain;
+ 	struct retarget_msi_interrupt *params;
+ 	struct hv_pcibus_device *hbus;
+ 	struct pci_bus *pbus;
+@@ -853,7 +852,7 @@ static int hv_set_affinity(struct irq_data *data, const struct cpumask *mask,
+ 		 */
+ 		var_size = 1 + HV_VP_SET_BANK_COUNT_MAX;
+ 
+-		for_each_cpu_and(cpu, dest, cpu_online_mask) {
++		for_each_cpu_and(cpu, cfg->domain, cpu_online_mask) {
+ 			cpu_vmbus = vmbus_cpu_number_to_vp_number(cpu);
+ 
+ 			if (cpu_vmbus >= HV_VP_SET_BANK_COUNT_MAX * 64) {
+@@ -867,7 +866,7 @@ static int hv_set_affinity(struct irq_data *data, const struct cpumask *mask,
+ 				(1ULL << (cpu_vmbus & 63));
+ 		}
+ 	} else {
+-		for_each_cpu_and(cpu, dest, cpu_online_mask) {
++		for_each_cpu_and(cpu, cfg->domain, cpu_online_mask) {
+ 			params->int_target.vp_mask |=
+ 				(1ULL << vmbus_cpu_number_to_vp_number(cpu));
+ 		}
+-- 
+1.8.3.1
+

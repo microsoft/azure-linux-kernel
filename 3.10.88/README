@@ -6,9 +6,10 @@ Linux VM on Hyper-V and Azure environment.
 1.1 Checkout the upstream 3.10.88 kernel
 https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/commit/?h=2ec142700ec00142cdcd8c6529ad77cb9ec7a026
 
-1.2 Apply the 2 patches
+1.2 Apply the patches
 0001-hack-pci-res-code-to-make-OFED-driver-work.patch
 0002-vmbus-backport-for-3.10.88.patch
+0003-Fix-the-interrupt-affinity-issue.patch
 
 1.3 Use the "kernel-config" as the .config and build & install the kernel/drivers.
 
