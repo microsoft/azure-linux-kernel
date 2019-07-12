@@ -1,0 +1,278 @@
+From bc7546d0f6c4ed2f139617d44af3a4268e7aa549 Mon Sep 17 00:00:00 2001
+Message-Id: <bc7546d0f6c4ed2f139617d44af3a4268e7aa549.1562718058.git.joseph.salisbury@microsoft.com>
+In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sat, 11 Feb 2017 23:02:22 -0700
+Subject: vmbus: remove conditional locking of vmbus_write
+Reply-To: joseph.salisbury@microsoft.com
+
+All current usage of vmbus write uses the acquire_lock flag, therefore
+having it be optional is unnecessary. This also fixes a sparse warning
+since sparse doesn't like when a function has conditional locking.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ drivers/hv/channel.c      | 18 ++++--------------
+ drivers/hv/channel_mgmt.c |  1 -
+ drivers/hv/hyperv_vmbus.h |  4 +---
+ drivers/hv/ring_buffer.c  | 36 +++++++++++++++---------------------
+ include/linux/hyperv.h    | 19 ++-----------------
+ 5 files changed, 22 insertions(+), 56 deletions(-)
+
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index 5dd0e5668b7b..bd0f682d84e7 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -666,7 +666,6 @@ int vmbus_sendpacket_ctl(struct vmbus_channel *channel, void *buffer,
+ 	u32 packetlen_aligned = ALIGN(packetlen, sizeof(u64));
+ 	struct kvec bufferlist[3];
+ 	u64 aligned_data = 0;
+-	bool lock = channel->acquire_ring_lock;
+ 	int num_vecs = ((bufferlen != 0) ? 3 : 1);
+ 
+ 
+@@ -685,9 +684,7 @@ int vmbus_sendpacket_ctl(struct vmbus_channel *channel, void *buffer,
+ 	bufferlist[2].iov_base = &aligned_data;
+ 	bufferlist[2].iov_len = (packetlen_aligned - packetlen);
+ 
+-	return hv_ringbuffer_write(channel, bufferlist, num_vecs,
+-				   lock, kick_q);
+-
++	return hv_ringbuffer_write(channel, bufferlist, num_vecs);
+ }
+ EXPORT_SYMBOL(vmbus_sendpacket_ctl);
+ 
+@@ -735,12 +732,10 @@ int vmbus_sendpacket_pagebuffer_ctl(struct vmbus_channel *channel,
+ 	u32 packetlen_aligned;
+ 	struct kvec bufferlist[3];
+ 	u64 aligned_data = 0;
+-	bool lock = channel->acquire_ring_lock;
+ 
+ 	if (pagecount > MAX_PAGE_BUFFER_COUNT)
+ 		return -EINVAL;
+ 
+-
+ 	/*
+ 	 * Adjust the size down since vmbus_channel_packet_page_buffer is the
+ 	 * largest size we support
+@@ -772,8 +767,7 @@ int vmbus_sendpacket_pagebuffer_ctl(struct vmbus_channel *channel,
+ 	bufferlist[2].iov_base = &aligned_data;
+ 	bufferlist[2].iov_len = (packetlen_aligned - packetlen);
+ 
+-	return hv_ringbuffer_write(channel, bufferlist, 3,
+-				   lock, kick_q);
++	return hv_ringbuffer_write(channel, bufferlist, 3);
+ }
+ EXPORT_SYMBOL_GPL(vmbus_sendpacket_pagebuffer_ctl);
+ 
+@@ -808,7 +802,6 @@ int vmbus_sendpacket_mpb_desc(struct vmbus_channel *channel,
+ 	u32 packetlen_aligned;
+ 	struct kvec bufferlist[3];
+ 	u64 aligned_data = 0;
+-	bool lock = channel->acquire_ring_lock;
+ 
+ 	packetlen = desc_size + bufferlen;
+ 	packetlen_aligned = ALIGN(packetlen, sizeof(u64));
+@@ -828,8 +821,7 @@ int vmbus_sendpacket_mpb_desc(struct vmbus_channel *channel,
+ 	bufferlist[2].iov_base = &aligned_data;
+ 	bufferlist[2].iov_len = (packetlen_aligned - packetlen);
+ 
+-	return hv_ringbuffer_write(channel, bufferlist, 3,
+-				   lock, true);
++	return hv_ringbuffer_write(channel, bufferlist, 3);
+ }
+ EXPORT_SYMBOL_GPL(vmbus_sendpacket_mpb_desc);
+ 
+@@ -847,7 +839,6 @@ int vmbus_sendpacket_multipagebuffer(struct vmbus_channel *channel,
+ 	u32 packetlen_aligned;
+ 	struct kvec bufferlist[3];
+ 	u64 aligned_data = 0;
+-	bool lock = channel->acquire_ring_lock;
+ 	u32 pfncount = NUM_PAGES_SPANNED(multi_pagebuffer->offset,
+ 					 multi_pagebuffer->len);
+ 
+@@ -886,8 +877,7 @@ int vmbus_sendpacket_multipagebuffer(struct vmbus_channel *channel,
+ 	bufferlist[2].iov_base = &aligned_data;
+ 	bufferlist[2].iov_len = (packetlen_aligned - packetlen);
+ 
+-	return hv_ringbuffer_write(channel, bufferlist, 3,
+-				   lock, true);
++	return hv_ringbuffer_write(channel, bufferlist, 3);
+ }
+ EXPORT_SYMBOL_GPL(vmbus_sendpacket_multipagebuffer);
+ 
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index 8ff781cb2acd..c231cc991b24 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -331,7 +331,6 @@ static struct vmbus_channel *alloc_channel(void)
+ 	if (!channel)
+ 		return NULL;
+ 
+-	channel->acquire_ring_lock = true;
+ 	spin_lock_init(&channel->inbound_lock);
+ 	spin_lock_init(&channel->lock);
+ 
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 636521095e98..62114f69f027 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -381,9 +381,7 @@ int hv_ringbuffer_init(struct hv_ring_buffer_info *ring_info,
+ void hv_ringbuffer_cleanup(struct hv_ring_buffer_info *ring_info);
+ 
+ int hv_ringbuffer_write(struct vmbus_channel *channel,
+-		    struct kvec *kv_list,
+-		    u32 kv_count, bool lock,
+-		    bool kick_q);
++			struct kvec *kv_list, u32 kv_count);
+ 
+ int hv_ringbuffer_read(struct vmbus_channel *channel,
+ 		       void *buffer, u32 buflen, u32 *buffer_actual_len,
+diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
+index e94ed1c22c8b..f30bd41642be 100644
+--- a/drivers/hv/ring_buffer.c
++++ b/drivers/hv/ring_buffer.c
+@@ -77,8 +77,7 @@ u32 hv_end_read(struct hv_ring_buffer_info *rbi)
+  * host logic is fixed.
+  */
+ 
+-static void hv_signal_on_write(u32 old_write, struct vmbus_channel *channel,
+-			       bool kick_q)
++static void hv_signal_on_write(u32 old_write, struct vmbus_channel *channel)
+ {
+ 	struct hv_ring_buffer_info *rbi = &channel->outbound;
+ 
+@@ -201,7 +200,8 @@ static u32 hv_copyto_ringbuffer(
+ 	memcpy(ring_buffer + start_write_offset, src, srclen);
+ 
+ 	start_write_offset += srclen;
+-	start_write_offset %= ring_buffer_size;
++	if (start_write_offset >= ring_buffer_size)
++		start_write_offset -= ring_buffer_size;
+ 
+ 	return start_write_offset;
+ }
+@@ -285,17 +285,15 @@ void hv_ringbuffer_cleanup(struct hv_ring_buffer_info *ring_info)
+ 
+ /* Write to the ring buffer. */
+ int hv_ringbuffer_write(struct vmbus_channel *channel,
+-		    struct kvec *kv_list, u32 kv_count, bool lock,
+-		    bool kick_q)
++			struct kvec *kv_list, u32 kv_count)
+ {
+-	int i = 0;
++	int i;
+ 	u32 bytes_avail_towrite;
+-	u32 totalbytes_towrite = 0;
+-
++	u32 totalbytes_towrite = sizeof(u64);
+ 	u32 next_write_location;
+ 	u32 old_write;
+-	u64 prev_indices = 0;
+-	unsigned long flags = 0;
++	u64 prev_indices;
++	unsigned long flags;
+ 	struct hv_ring_buffer_info *outring_info = &channel->outbound;
+ 
+ 	if (channel->rescind)
+@@ -304,10 +302,7 @@ int hv_ringbuffer_write(struct vmbus_channel *channel,
+ 	for (i = 0; i < kv_count; i++)
+ 		totalbytes_towrite += kv_list[i].iov_len;
+ 
+-	totalbytes_towrite += sizeof(u64);
+-
+-	if (lock)
+-		spin_lock_irqsave(&outring_info->ring_lock, flags);
++	spin_lock_irqsave(&outring_info->ring_lock, flags);
+ 
+ 	bytes_avail_towrite = hv_get_bytes_to_write(outring_info);
+ 
+@@ -315,10 +310,9 @@ int hv_ringbuffer_write(struct vmbus_channel *channel,
+ 	 * If there is only room for the packet, assume it is full.
+ 	 * Otherwise, the next time around, we think the ring buffer
+ 	 * is empty since the read index == write index.
+-	 */
++ 	*/
+ 	if (bytes_avail_towrite <= totalbytes_towrite) {
+-		if (lock)
+-			spin_unlock_irqrestore(&outring_info->ring_lock, flags);
++		spin_unlock_irqrestore(&outring_info->ring_lock, flags);
+ 		return -EAGAIN;
+ 	}
+ 
+@@ -344,20 +338,20 @@ int hv_ringbuffer_write(struct vmbus_channel *channel,
+ 
+ 	/* Issue a full memory barrier before updating the write index */
+ 	virt_mb();
+-
++	
+ 	/* Now, update the write location */
+ 	hv_set_next_write_location(outring_info, next_write_location);
+ 
+ 
+-	if (lock)
+-		spin_unlock_irqrestore(&outring_info->ring_lock, flags);
++	spin_unlock_irqrestore(&outring_info->ring_lock, flags);
+ 
+-	hv_signal_on_write(old_write, channel, kick_q);
++	hv_signal_on_write(old_write, channel);
+ 
+ 	if (channel->rescind)
+ 		return -ENODEV;
+ 
+ 	return 0;
++
+ }
+ 
+ int hv_ringbuffer_read(struct vmbus_channel *channel,
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 45523f75681b..6730f191f380 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -858,16 +858,6 @@ struct vmbus_channel {
+ 	 * signaling control.
+ 	 */
+ 	enum hv_signal_policy  signal_policy;
+-	/*
+-	 * On the channel send side, many of the VMBUS
+-	 * device drivers explicity serialize access to the
+-	 * outgoing ring buffer. Give more control to the
+-	 * VMBUS device drivers in terms how to serialize
+-	 * accesss to the outgoing ring buffer.
+-	 * The default behavior will be to aquire the
+-	 * ring lock to preserve the current behavior.
+-	 */
+-	bool acquire_ring_lock;
+ 	/*
+ 	 * For performance critical channels (storage, networking
+ 	 * etc,), Hyper-V has a mechanism to enhance the throughput
+@@ -908,11 +898,6 @@ struct vmbus_channel {
+ 
+ };
+ 
+-static inline void set_channel_lock_state(struct vmbus_channel *c, bool state)
+-{
+-	c->acquire_ring_lock = state;
+-}
+-
+ static inline bool is_hvsock_channel(const struct vmbus_channel *c)
+ {
+ 	return !!(c->offermsg.offer.chn_flags &
+@@ -1478,9 +1463,9 @@ void vmbus_set_event(struct vmbus_channel *channel);
+ 
+ /* Get the start of the ring buffer. */
+ static inline void *
+-hv_get_ring_buffer(struct hv_ring_buffer_info *ring_info)
++hv_get_ring_buffer(const struct hv_ring_buffer_info *ring_info)
+ {
+-	return (void *)ring_info->ring_buffer->buffer;
++	return ring_info->ring_buffer->buffer;
+ }
+ 
+ /*
+-- 
+2.17.1
+

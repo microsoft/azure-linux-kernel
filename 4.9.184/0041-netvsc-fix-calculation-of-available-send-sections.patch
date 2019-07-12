@@ -1,0 +1,100 @@
+From 6adfecf41dddbb0bedf56782b3f68cd5ae2d269f Mon Sep 17 00:00:00 2001
+Message-Id: <6adfecf41dddbb0bedf56782b3f68cd5ae2d269f.1562718058.git.joseph.salisbury@microsoft.com>
+In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Mon, 24 Apr 2017 18:33:38 -0700
+Subject: netvsc: fix calculation of available send sections
+Reply-To: joseph.salisbury@microsoft.com
+
+My change (introduced in 4.11) to use find_first_clear_bit
+incorrectly assumed that the size argument was words, not bits.
+The effect was only a small limited number of the available send
+sections were being actually used. This can cause performance loss
+with some workloads.
+
+Since map_words is now used only during initialization, it can
+be on stack instead of in per-device data.
+
+Fixes: b58a185801da ("netvsc: simplify get next send section")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit fdfb70d275223b9d69d5d3abe1f88507da579139)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  1 -
+ drivers/net/hyperv/netvsc.c     | 30 ++++++++----------------------
+ 2 files changed, 8 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 408e955c9298..34b317de6bff 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -748,7 +748,6 @@ struct netvsc_device {
+ 	u32 send_section_cnt;
+ 	u32 send_section_size;
+ 	unsigned long *send_section_map;
+-	int map_words;
+ 
+ 	/* Used for NetVSP initialization protocol */
+ 	struct completion channel_init_wait;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 094b6f82c90a..f3358c3701ab 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -258,6 +258,7 @@ static int netvsc_init_buf(struct hv_device *device)
+ 	struct netvsc_device *net_device;
+ 	struct nvsp_message *init_packet;
+ 	struct net_device *ndev;
++	size_t map_words;
+ 	int node;
+ 
+ 	net_device = get_outbound_net_device(device);
+@@ -423,11 +424,9 @@ static int netvsc_init_buf(struct hv_device *device)
+ 		 net_device->send_section_size, net_device->send_section_cnt);
+ 
+ 	/* Setup state for managing the send buffer. */
+-	net_device->map_words = DIV_ROUND_UP(net_device->send_section_cnt,
+-					     BITS_PER_LONG);
++	map_words = DIV_ROUND_UP(net_device->send_section_cnt, BITS_PER_LONG);
+ 
+-	net_device->send_section_map = kcalloc(net_device->map_words,
+-					       sizeof(ulong), GFP_KERNEL);
++	net_device->send_section_map = kcalloc(map_words, sizeof(ulong), GFP_KERNEL);
+ 	if (net_device->send_section_map == NULL) {
+ 		ret = -ENOMEM;
+ 		goto cleanup;
+@@ -707,25 +706,12 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+ 
+ static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
+ {
+-	unsigned long index;
+-	u32 max_words = net_device->map_words;
+-	unsigned long *map_addr = (unsigned long *)net_device->send_section_map;
+-	u32 section_cnt = net_device->send_section_cnt;
+-	int ret_val = NETVSC_INVALID_INDEX;
+-	int i;
+-	int prev_val;
++	unsigned long *map_addr = net_device->send_section_map;
++	unsigned int i;
+ 
+-	for (i = 0; i < max_words; i++) {
+-		if (!~(map_addr[i]))
+-			continue;
+-		index = ffz(map_addr[i]);
+-		prev_val = sync_test_and_set_bit(index, &map_addr[i]);
+-		if (prev_val)
+-			continue;
+-		if ((index + (i * BITS_PER_LONG)) >= section_cnt)
+-			break;
+-		ret_val = (index + (i * BITS_PER_LONG));
+-		break;
++	for_each_clear_bit(i, map_addr, net_device->send_section_cnt) {
++		if (sync_test_and_set_bit(i, map_addr) == 0)
++			return i;
+ 	}
+ 	return ret_val;
+ }
+-- 
+2.17.1
+

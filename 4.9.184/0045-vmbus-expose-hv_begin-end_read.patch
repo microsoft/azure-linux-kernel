@@ -1,0 +1,93 @@
+From 4516ac4d41d10bacf8f416748ea9200cd17c06ac Mon Sep 17 00:00:00 2001
+Message-Id: <4516ac4d41d10bacf8f416748ea9200cd17c06ac.1562718058.git.joseph.salisbury@microsoft.com>
+In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sat, 11 Feb 2017 23:02:23 -0700
+Subject: vmbus: expose hv_begin/end_read
+Reply-To: joseph.salisbury@microsoft.com
+
+In order to implement NAPI in netvsc, the driver needs access to
+control host interrupt mask.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ drivers/hv/hyperv_vmbus.h |  4 ----
+ drivers/hv/ring_buffer.c  |  2 +-
+ include/linux/hyperv.h    | 30 ++++++++++++++++++++++++++++++
+ 3 files changed, 31 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 62114f69f027..df52cbc78b45 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -390,10 +390,6 @@ int hv_ringbuffer_read(struct vmbus_channel *channel,
+ void hv_ringbuffer_get_debuginfo(struct hv_ring_buffer_info *ring_info,
+ 			    struct hv_ring_buffer_debug_info *debug_info);
+ 
+-void hv_begin_read(struct hv_ring_buffer_info *rbi);
+-
+-u32 hv_end_read(struct hv_ring_buffer_info *rbi);
+-
+ /*
+  * Maximum channels is determined by the size of the interrupt page
+  * which is PAGE_SIZE. 1/2 of PAGE_SIZE is for send endpoint interrupt
+diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
+index bc1e1ef8687f..3d00c5d0421b 100644
+--- a/drivers/hv/ring_buffer.c
++++ b/drivers/hv/ring_buffer.c
+@@ -32,7 +32,7 @@
+ 
+ #include "hyperv_vmbus.h"
+ 
+-#define VMBUS_PKT_TRAILER	8
++#define VMBUS_PKT_TRAILER       8
+ 
+ /*
+  * When we write to the ring buffer, check if the host needs to
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 3c9b6fc62db9..1d6f14352fc7 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1516,6 +1516,36 @@ static inline  void hv_signal_on_read(struct vmbus_channel *channel)
+ 	return;
+ }
+ 
++/*
++ * Mask off host interrupt callback notifications
++ */
++static inline void hv_begin_read(struct hv_ring_buffer_info *rbi)
++{
++	rbi->ring_buffer->interrupt_mask = 1;
++
++	/* make sure mask update is not reordered */
++	virt_mb();
++}
++
++/*
++ * Re-enable host callback and return number of outstanding bytes
++ */
++static inline u32 hv_end_read(struct hv_ring_buffer_info *rbi)
++{
++
++	rbi->ring_buffer->interrupt_mask = 0;
++
++	/* make sure mask update is not reordered */
++	virt_mb();
++
++	/*
++	 * Now check to see if the ring buffer is still empty.
++	 * If it is not, we raced and we need to process new
++	 * incoming messages.
++	 */
++	return hv_get_bytes_to_read(rbi);
++}
++
+ /*
+  * An API to support in-place processing of incoming VMBUS packets.
+  */
+-- 
+2.17.1
+
