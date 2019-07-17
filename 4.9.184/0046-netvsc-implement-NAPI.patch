@@ -1,0 +1,410 @@
+From 23a7850fa5b5afdadeb20dd957149e129d17b370 Mon Sep 17 00:00:00 2001
+Message-Id: <23a7850fa5b5afdadeb20dd957149e129d17b370.1562718058.git.joseph.salisbury@microsoft.com>
+In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Mon, 27 Feb 2017 10:26:49 -0800
+Subject: netvsc: implement NAPI
+Reply-To: joseph.salisbury@microsoft.com
+
+Use NAPI (softirq), to handle receive packets and send completions.
+Previously this was handled by tasklet.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 15a863bf7436124e799ba175a801e25f7b57191e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |   2 +
+ drivers/net/hyperv/netvsc.c       | 213 ++++++++++++++----------------
+ drivers/net/hyperv/netvsc_drv.c   |   7 +-
+ drivers/net/hyperv/rndis_filter.c |   2 +
+ 4 files changed, 106 insertions(+), 118 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 34b317de6bff..ea9d66bc446b 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -194,6 +194,7 @@ int netvsc_recv_callback(struct net_device *net,
+ 			 const struct ndis_tcp_ip_checksum_info *csum_info,
+ 			 const struct ndis_pkt_8021q_info *vlan);
+ void netvsc_channel_cb(void *context);
++int netvsc_poll(struct napi_struct *napi, int budget);
+ int rndis_filter_open(struct netvsc_device *nvdev);
+ int rndis_filter_close(struct netvsc_device *nvdev);
+ int rndis_filter_device_add(struct hv_device *dev,
+@@ -718,6 +719,7 @@ struct net_device_context {
+ /* Per channel data */
+ struct netvsc_channel {
+ 	struct vmbus_channel *channel;
++	struct napi_struct napi;
+ 	struct multi_send_data msd;
+ 	struct multi_recv_comp mrc;
+ 	atomic_t queue_sends;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 5f558823101f..761aa2c4cf5f 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -577,6 +577,7 @@ void netvsc_device_remove(struct hv_device *device)
+ 	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+ 	struct netvsc_device *net_device = net_device_ctx->nvdev;
++	int i;
+ 
+ 	netvsc_disconnect_vsp(device);
+ 
+@@ -591,6 +592,9 @@ void netvsc_device_remove(struct hv_device *device)
+ 	/* Now, we can close the channel safely */
+ 	vmbus_close(device->channel);
+ 
++	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
++		napi_disable(&net_device->chan_table[0].napi);
++
+ 	/* Release all resources */
+ 	vfree(net_device->sub_cb_buf);
+ 	free_netvsc_device(net_device);
+@@ -1103,7 +1107,7 @@ static inline struct recv_comp_data *get_recv_comp_slot(
+ 	return rcd;
+ }
+ 
+-static void netvsc_receive(struct net_device *ndev,
++static int netvsc_receive(struct net_device *ndev,
+ 		   struct netvsc_device *net_device,
+ 		   struct net_device_context *net_device_ctx,
+ 		   struct hv_device *device,
+@@ -1113,20 +1117,19 @@ static void netvsc_receive(struct net_device *ndev,
+ {
+ 	const struct vmtransfer_page_packet_header *vmxferpage_packet
+ 		= container_of(desc, const struct vmtransfer_page_packet_header, d);
++	u16 q_idx = channel->offermsg.offer.sub_channel_index;
+ 	char *recv_buf = net_device->recv_buf;
+ 	u32 status = NVSP_STAT_SUCCESS;
+ 	int i;
+ 	int count = 0;
+ 	int ret;
+-	struct recv_comp_data *rcd;
+-	u16 q_idx = channel->offermsg.offer.sub_channel_index;
+ 
+ 	/* Make sure this is a valid nvsp packet */
+ 	if (unlikely(nvsp->hdr.msg_type != NVSP_MSG1_TYPE_SEND_RNDIS_PKT)) {
+ 		netif_err(net_device_ctx, rx_err, ndev,
+ 			  "Unknown nvsp packet type received %u\n",
+ 			  nvsp->hdr.msg_type);
+-		return;
++		return 0;
+ 	}
+ 
+ 	if (unlikely(vmxferpage_packet->xfer_pageset_id != NETVSC_RECEIVE_BUFFER_ID)) {
+@@ -1134,7 +1137,7 @@ static void netvsc_receive(struct net_device *ndev,
+ 			  "Invalid xfer page set id - expecting %x got %x\n",
+ 			  NETVSC_RECEIVE_BUFFER_ID,
+ 			  vmxferpage_packet->xfer_pageset_id);
+-		return;
++		return 0;
+ 	}
+ 
+ 	count = vmxferpage_packet->range_cnt;
+@@ -1150,26 +1153,26 @@ static void netvsc_receive(struct net_device *ndev,
+ 					      channel, data, buflen);
+ 	}
+ 
+-	if (!net_device->chan_table[q_idx].mrc.buf) {
++	if (net_device->chan_table[q_idx].mrc.buf) {
++		struct recv_comp_data *rcd;
++
++		rcd = get_recv_comp_slot(net_device, channel, q_idx);
++		if (rcd) {
++			rcd->tid = vmxferpage_packet->d.trans_id;
++			rcd->status = status;
++		} else {
++			netdev_err(ndev, "Recv_comp full buf q:%hd, tid:%llx\n",
++				   q_idx, vmxferpage_packet->d.trans_id);
++		}
++	} else {
+ 		ret = netvsc_send_recv_completion(channel,
+ 						  vmxferpage_packet->d.trans_id,
+ 						  status);
+ 		if (ret)
+ 			netdev_err(ndev, "Recv_comp q:%hd, tid:%llx, err:%d\n",
+ 				   q_idx, vmxferpage_packet->d.trans_id, ret);
+-		return;
+ 	}
+-
+-	rcd = get_recv_comp_slot(net_device, channel, q_idx);
+-
+-	if (!rcd) {
+-		netdev_err(ndev, "Recv_comp full buf q:%hd, tid:%llx\n",
+-			   q_idx, vmxferpage_packet->d.trans_id);
+-		return;
+-	}
+-
+-	rcd->tid = vmxferpage_packet->d.trans_id;
+-	rcd->status = status;
++	return count;
+ }
+ 
+ static void netvsc_send_table(struct hv_device *hdev,
+@@ -1219,12 +1222,12 @@ static inline void netvsc_receive_inband(struct hv_device *hdev,
+ 	}
+ }
+ 
+-static void netvsc_process_raw_pkt(struct hv_device *device,
+-				   struct vmbus_channel *channel,
+-				   struct netvsc_device *net_device,
+-				   struct net_device *ndev,
+-				   u64 request_id,
+-				   const struct vmpacket_descriptor *desc)
++static int netvsc_process_raw_pkt(struct hv_device *device,
++				  struct vmbus_channel *channel,
++				  struct netvsc_device *net_device,
++				  struct net_device *ndev,
++				  u64 request_id,
++				  const struct vmpacket_descriptor *desc)
+ {
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+ 	struct nvsp_message *nvmsg = hv_pkt_data(desc);
+@@ -1235,8 +1238,8 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
+ 		break;
+ 
+ 	case VM_PKT_DATA_USING_XFER_PAGES:
+-		netvsc_receive(ndev, net_device, net_device_ctx,
+-			       device, channel, desc, nvmsg);
++		return netvsc_receive(ndev, net_device, net_device_ctx,
++				      device, channel, desc, nvmsg);
+ 		break;
+ 
+ 	case VM_PKT_DATA_INBAND:
+@@ -1248,103 +1251,76 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
+ 			   desc->type, request_id);
+ 		break;
+ 	}
++
++	return 0;
+ }
+ 
+-void netvsc_channel_cb(void *context)
++static struct hv_device *netvsc_channel_to_device(struct vmbus_channel *channel)
+ {
+-	int ret;
+-	struct vmbus_channel *channel = (struct vmbus_channel *)context;
++	struct vmbus_channel *primary = channel->primary_channel;
++
++	return primary ? primary->device_obj : channel->device_obj;
++}
++
++int netvsc_poll(struct napi_struct *napi, int budget)
++{
++	struct netvsc_channel *nvchan
++		= container_of(napi, struct netvsc_channel, napi);
++	struct vmbus_channel *channel = nvchan->channel;
++	struct hv_device *device = netvsc_channel_to_device(channel);
+ 	u16 q_idx = channel->offermsg.offer.sub_channel_index;
+-	struct hv_device *device;
+-	struct netvsc_device *net_device;
+-	u32 bytes_recvd;
+-	u64 request_id;
+-	struct vmpacket_descriptor *desc;
+-	unsigned char *buffer;
+-	int bufferlen = NETVSC_PACKET_SIZE;
+-	struct net_device *ndev;
++	struct net_device *ndev = hv_get_drvdata(device);
++	struct netvsc_device *net_device = net_device_to_netvsc_device(ndev);
++	const struct vmpacket_descriptor *desc;
++	int work_done = 0;
+ 
+-	if (channel->primary_channel != NULL)
+-		device = channel->primary_channel->device_obj;
+-	else
+-		device = channel->device_obj;
++	desc = hv_pkt_iter_first(channel);
++	while (desc) {
++		int count;
+ 
+-	net_device = get_inbound_net_device(device);
+-	if (!net_device)
+-		return;
+-	ndev = hv_get_drvdata(device);
+-	buffer = get_per_channel_state(channel);
+-
+-	/* commit_rd_index() -> hv_signal_on_read() needs this. */
+-	init_cached_read_index(channel);
+-
+-	do {
+-		desc = get_next_pkt_raw(channel);
+-		if (desc != NULL) {
+-			netvsc_process_raw_pkt(device,
+-					       channel,
+-					       net_device,
+-					       ndev,
+-					       desc->trans_id,
+-					       desc);
+-
+-			put_pkt_raw(channel, desc);
+-			need_to_commit = true;
+-			continue;
+-		}
+-		if (need_to_commit) {
+-			need_to_commit = false;
+-			commit_rd_index(channel);
+-		}
++		count = netvsc_process_raw_pkt(device, channel, net_device,
++					       ndev, desc->trans_id, desc);
++		work_done += count;
++		desc = __hv_pkt_iter_next(channel, desc);
+ 
+-		ret = vmbus_recvpacket_raw(channel, buffer, bufferlen,
+-					   &bytes_recvd, &request_id);
+-		if (ret == 0) {
+-			if (bytes_recvd > 0) {
+-				desc = (struct vmpacket_descriptor *)buffer;
+-				netvsc_process_raw_pkt(device,
+-						       channel,
+-						       net_device,
+-						       ndev,
+-						       request_id,
+-						       desc);
+-			} else {
+-				/*
+-				 * We are done for this pass.
+-				 */
+-				break;
+-			}
+-
+-		} else if (ret == -ENOBUFS) {
+-			if (bufferlen > NETVSC_PACKET_SIZE)
+-				kfree(buffer);
+-			/* Handle large packet */
+-			buffer = kmalloc(bytes_recvd, GFP_ATOMIC);
+-			if (buffer == NULL) {
+-				/* Try again next time around */
+-				netdev_err(ndev,
+-					   "unable to allocate buffer of size "
+-					   "(%d)!!\n", bytes_recvd);
+-				break;
+-			}
+-
+-			bufferlen = bytes_recvd;
++		/* If receive packet budget is exhausted, reschedule */
++		if (work_done >= budget) {
++			work_done = budget;
++			break;
+ 		}
++	}
++	hv_pkt_iter_close(channel);
+ 
+-		init_cached_read_index(channel);
++	/* If ring is empty and NAPI is not doing polling */
++	if (work_done < budget &&
++	    napi_complete_done(napi, work_done) &&
++	    hv_end_read(&channel->inbound) != 0)
++		napi_reschedule(napi);
+ 
+-	} while (1);
++	netvsc_chk_recv_comp(net_device, channel, q_idx);
++	return work_done;
++}
+ 
+-	if (bufferlen > NETVSC_PACKET_SIZE)
+-		kfree(buffer);
++void netvsc_channel_cb(void *context)
++{
++	sruct vmbus_channel *channel = context;
++	struct hv_device *device = netvsc_channel_to_device(channel);
++	u16 q_idx = channel->offermsg.offer.sub_channel_index;
++	struct netvsc_device *net_device;
++	struct net_device *ndev;
+ 
+-	foreach_vmbus_pkt(desc, channel) {
+-		netvsc_process_raw_pkt(device, channel, net_device,
+-				       ndev, desc->trans_id, desc);
++	ndev = hv_get_drvdata(device);
++	if (unlikely(!ndev))
++		return;
+ 
+-	}
++	net_device = net_device_to_netvsc_device(ndev);
++	if (unlikely(net_device->destroy) &&
++		netvsc_channel_idle(net_device, q_idx))
++		return;
+ 
+-	netvsc_chk_recv_comp(net_device, channel, q_idx);
++	/* disable interupts from host */
++	hv_begin_read(&channel->inbound);
++	napi_schedule(&net_device->chan_table[q_idx].napi);
+ }
+ 
+ /*
+@@ -1366,7 +1342,10 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 
+ 	net_device->ring_size = ring_size;
+ 
+-	set_per_channel_state(device->channel, net_device->cb_buffer);
++	/* Because the device uses NAPI, all the interrupt batching and
++	 * control is done via Net softirq, not the channel handling
++	 */
++	set_channel_read_mode(device->channel, HV_CALL_ISR);
+ 
+ 	/* Open the channel */
+ 	ret = vmbus_open(device->channel, ring_size * PAGE_SIZE,
+@@ -1385,8 +1364,16 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	 * chn_table with the default channel to use it before subchannels are
+ 	 * opened.
+ 	 */
+-	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
+-		net_device->chan_table[i].channel = device->channel;
++	for (i = 0; i < VRSS_CHANNEL_MAX; i++) {
++		struct netvsc_channel *nvchan = &net_device->chan_table[i];
++
++		nvchan->channel = device->channel;
++		netif_napi_add(ndev, &nvchan->napi,
++			       netvsc_poll, NAPI_POLL_WEIGHT);
++	}
++
++	/* Enable NAPI handler for init callbacks */
++	napi_enable(&net_device->chan_table[0].napi);
+ 
+ 	/* Writing nvdev pointer unlocks netvsc_send(), make sure chn_table is
+ 	 * populated.
+@@ -1406,6 +1393,8 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	return ret;
+ 
+ close:
++	napi_disable(&net_device->chan_table[0].napi);
++
+ 	/* Now, we can close the channel safely */
+ 	vmbus_close(device->channel);
+ 
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index ce7a4a442df4..78030fee848c 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -695,12 +695,7 @@ int netvsc_recv_callback(struct net_device *net,
+ 		++rx_stats->multicast;
+ 	u64_stats_update_end(&rx_stats->syncp);
+ 
+-	/*
+-	 * Pass the skb back up. Network stack will deallocate the skb when it
+-	 * is done.
+-	 * TODO - use NAPI?
+-	 */
+-	netif_rx(skb);
++	netif_receive_skb(skb);
+ 	rcu_read_unlock();
+ 
+ 	return 0;
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 7589d18b81a3..f923d4ac8036 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1000,6 +1000,8 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 	if (ret == 0)
+ 		nvscdev->chan_table[chn_index].channel = new_sc;
+ 
++	napi_enable(&nvscdev->chan_table[chn_index].napi);
++
+ 	spin_lock_irqsave(&nvscdev->sc_lock, flags);
+ 	nvscdev->num_sc_offered--;
+ 	spin_unlock_irqrestore(&nvscdev->sc_lock, flags);
+-- 
+2.17.1
+

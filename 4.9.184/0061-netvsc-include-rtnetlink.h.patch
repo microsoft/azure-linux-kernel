@@ -1,0 +1,48 @@
+From 10438a608f2c1d7563f0c8cf2d559dbecfd04927 Mon Sep 17 00:00:00 2001
+Message-Id: <10438a608f2c1d7563f0c8cf2d559dbecfd04927.1562718058.git.joseph.salisbury@microsoft.com>
+In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Mon, 24 Jul 2017 10:57:29 -0700
+Subject: netvsc: include rtnetlink.h
+Reply-To: joseph.salisbury@microsoft.com
+
+Since these files use rtnl_derefernce make sure and include rtnetlink.h
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 27f5aa92ccafbe1bbc695307e3dee41a0e924c28)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c   | 2 ++
+ drivers/net/hyperv/rndis_filter.c | 1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 1a5f4be5385a..d79c4015f7a9 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -34,6 +34,8 @@
+ #include <linux/if_vlan.h>
+ #include <linux/in.h>
+ #include <linux/slab.h>
++#include <linux/rtnetlink.h>
++
+ #include <net/arp.h>
+ #include <net/route.h>
+ #include <net/sock.h>
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 6e8d47d04311..5a07b654f405 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -28,6 +28,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/nls.h>
+ #include <linux/vmalloc.h>
++#include <linux/rtnetlink.h>
+ 
+ #include "hyperv_net.h"
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,241 @@
+From a2c01997b577e8be71e8e0b8c9c22f703e27beac Mon Sep 17 00:00:00 2001
+Message-Id: <a2c01997b577e8be71e8e0b8c9c22f703e27beac.1562718058.git.joseph.salisbury@microsoft.com>
+In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 22 Mar 2017 14:51:01 -0700
+Subject: netvsc: uses RCU instead of removal flag
+Reply-To: joseph.salisbury@microsoft.com
+
+It is cleaner to use RCU protected pointer (nvdev_ctx->nvdev)
+to indicate device is in removed state, rather than having a separate
+boolean flag. By using the pointer the context can be checked
+by static checkers and dynamic lockdep.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit a0be450e19d397e9ff215e32ed31bc51339b460a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  3 ---
+ drivers/net/hyperv/netvsc.c     | 20 ++++++---------
+ drivers/net/hyperv/netvsc_drv.c | 44 +++++++++++----------------------
+ 3 files changed, 23 insertions(+), 44 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index a93f4cd96b74..12506473b1b6 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -705,9 +705,6 @@ struct net_device_context {
+ 	u32 speed;
+ 	struct netvsc_ethtool_stats eth_stats;
+ 
+-	/* the device is going away */
+-	bool start_remove;
+-
+ 	/* State to manage the associated VF interface. */
+ 	struct net_device __rcu *vf_netdev;
+ 
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 1dec6db70926..70327797e3b4 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -636,7 +636,6 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+ {
+ 	struct sk_buff *skb = (struct sk_buff *)(unsigned long)packet->trans_id;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+ 	struct vmbus_channel *channel = device->channel;
+ 	int num_outstanding_sends;
+ 	u16 q_idx = 0;
+@@ -674,7 +673,6 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+ 		wake_up(&net_device->wait_drain);
+ 
+ 	if (netif_tx_queue_stopped(netdev_get_tx_queue(ndev, q_idx)) &&
+-	    !net_device_ctx->start_remove &&
+ 	    (hv_ringbuf_avail_percent(&channel->outbound) > RING_AVAIL_PERCENT_HIWATER ||
+ 	     queue_sends < 1))
+ 		netif_tx_wake_queue(netdev_get_tx_queue(ndev, q_idx));
+@@ -728,7 +726,7 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 				   u32 pend_size,
+ 				   struct hv_netvsc_packet *packet,
+ 				   struct rndis_message *rndis_msg,
+-				   struct hv_page_buffer **pb,
++				   struct hv_page_buffer *pb,
+ 				   struct sk_buff *skb)
+ {
+ 	char *start = net_device->send_buf;
+@@ -752,9 +750,9 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 	}
+ 
+ 	for (i = 0; i < page_count; i++) {
+-		char *src = phys_to_virt((*pb)[i].pfn << PAGE_SHIFT);
+-		u32 offset = (*pb)[i].offset;
+-		u32 len = (*pb)[i].len;
++		char *src = phys_to_virt((pb)[i].pfn << PAGE_SHIFT);
++		u32 offset = (pb)[i].offset;
++		u32 len = (pb)[i].len;
+ 
+ 		memcpy(dest, (src + offset), len);
+ 		msg_size += len;
+@@ -773,7 +771,7 @@ static inline int netvsc_send_pkt(
+ 	struct hv_device *device,
+ 	struct hv_netvsc_packet *packet,
+ 	struct netvsc_device *net_device,
+-	struct hv_page_buffer **pb,
++	struct hv_page_buffer *pb,
+ 	struct sk_buff *skb)
+ {
+ 	struct nvsp_message nvmsg;
+@@ -821,8 +819,8 @@ static inline int netvsc_send_pkt(
+ 		xmit_more = false;
+ 
+ 	if (packet->page_buf_cnt) {
+-		pgbuf = packet->cp_partial ? (*pb) +
+-			packet->rmsg_pgcnt : (*pb);
++		pgbuf = packet->cp_partial ? (pb) +
++			packet->rmsg_pgcnt : (pb);
+ 		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
+ 						      pgbuf,
+ 						      packet->page_buf_cnt,
+@@ -879,7 +877,7 @@ static inline void move_pkt_msd(struct hv_netvsc_packet **msd_send,
+ int netvsc_send(struct hv_device *device,
+ 		struct hv_netvsc_packet *packet,
+ 		struct rndis_message *rndis_msg,
+-		struct hv_page_buffer **pb,
++		struct hv_page_buffer *pb,
+ 		struct sk_buff *skb)
+ {
+ 	struct netvsc_device *net_device;
+@@ -1373,8 +1371,6 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	/* Writing nvdev pointer unlocks netvsc_send(), make sure chn_table is
+ 	 * populated.
+ 	 */
+-	wmb();
+-
+ 	rcu_assign_pointer(net_device_ctx->nvdev, net_device);
+ 
+ 	/* Connect with the NetVsp */
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index eaa21c01cbde..0676f7fe2357 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -769,7 +769,7 @@ static int netvsc_set_channels(struct net_device *net,
+ 	if (count > net->num_tx_queues || count > net->num_rx_queues)
+ 		return -EINVAL;
+ 
+-	if (net_device_ctx->start_remove || !nvdev || nvdev->destroy)
++	if (!nvdev || nvdev->destroy)
+ 		return -ENODEV;
+ 
+ 	if (nvdev->nvsp_version < NVSP_PROTOCOL_VERSION_5)
+@@ -782,7 +782,6 @@ static int netvsc_set_channels(struct net_device *net,
+ 	if (ret)
+ 		return ret;
+ 
+-	net_device_ctx->start_remove = true;
+ 	rndis_filter_device_remove(dev, nvdev);
+ 
+ 	ret = netvsc_set_queues(net, dev, count);
+@@ -791,8 +790,8 @@ static int netvsc_set_channels(struct net_device *net,
+ 	else
+ 		netvsc_set_queues(net, dev, nvdev->num_chn);
+ 
+-	netvsc_open(net);
+-	net_device_ctx->start_remove = false;
++	if (was_running)
++		ret = netvsc_open(net);
+ 
+ 	/* We may have missed link change notifications */
+ 	schedule_delayed_work(&net_device_ctx->dwork, 0);
+@@ -863,14 +862,13 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	struct netvsc_device_info device_info;
+ 	int ret;
+ 
+-	if (ndevctx->start_remove || !nvdev || nvdev->destroy)
++	if (!nvdev || nvdev->destroy)
+ 		return -ENODEV;
+ 
+ 	ret = netvsc_close(ndev);
+ 	if (ret)
+ 		goto out;
+ 
+-	ndevctx->start_remove = true;
+ 	rndis_filter_device_remove(hdev, nvdev);
+ 
+ 	ndev->mtu = mtu;
+@@ -883,7 +881,8 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 
+ out:
+ 	netvsc_open(ndev);
+-	ndevctx->start_remove = false;
++	if (was_running)
++		ret = netvsc_open(ndev);
+ 
+ 	/* We may have missed link change notifications */
+ 	schedule_delayed_work(&ndevctx->dwork, 0);
+@@ -1189,16 +1188,11 @@ static void netvsc_link_change(struct work_struct *w)
+ 	bool notify = false, reschedule = false;
+ 	unsigned long flags, next_reconfig, delay;
+ 
+-	/* if changes are happening, comeback later */
+-	if (!rtnl_trylock()) {
+-		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
+-		return;
+-	}
+-
+-	if (ndev_ctx->start_remove)
++	rtnl_lock();
++	net_device = rtnl_dereference(ndev_ctx->nvdev);
++	if (!net_device)
+ 		goto out_unlock;
+ 
+-	net_device = rtnl_dereference(ndev_ctx->nvdev);
+ 	rdev = net_device->extension;
+ 
+ 	next_reconfig = ndev_ctx->last_reconfig + LINKCHANGE_INT;
+@@ -1465,8 +1459,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 
+ 	hv_set_drvdata(dev, net);
+ 
+-	net_device_ctx->start_remove = false;
+-
+ 	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
+ 	INIT_WORK(&net_device_ctx->work, do_set_multicast);
+ 
+@@ -1537,26 +1529,20 @@ static int netvsc_remove(struct hv_device *dev)
+ 	ndev_ctx = netdev_priv(net);
+ 	net_device = ndev_ctx->nvdev;
+ 
+-	/* Avoid racing with netvsc_change_mtu()/netvsc_set_channels()
+-	 * removing the device.
+-	 */
+-	rtnl_lock();
+-	ndev_ctx->start_remove = true;
+-	rtnl_unlock();
++	netif_device_detach(net);
+ 
+ 	cancel_delayed_work_sync(&ndev_ctx->dwork);
+ 	cancel_work_sync(&ndev_ctx->work);
+ 
+-	/* Stop outbound asap */
+-	netif_tx_disable(net);
+-
+-	unregister_netdev(net);
+-
+ 	/*
+ 	 * Call to the vsc driver to let it know that the device is being
+-	 * removed
++	 * removed. Also blocks mtu and channel changes.
+ 	 */
++	rtnl_lock();
+ 	rndis_filter_device_remove(dev, ndev_ctx->nvdev);
++	rtnl_unlock();
++
++	unregister_netdev(net);
+ 
+ 	hv_set_drvdata(dev, NULL);
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,223 @@
+From fb4fd60176ed3a17fa1eab12d264e996c69ee31d Mon Sep 17 00:00:00 2001
+Message-Id: <fb4fd60176ed3a17fa1eab12d264e996c69ee31d.1562718058.git.joseph.salisbury@microsoft.com>
+In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 16 Aug 2017 08:56:26 -0700
+Subject: vmbus: remove unused vmbus_sendpacket_ctl
+Reply-To: joseph.salisbury@microsoft.com
+
+The only usage of vmbus_sendpacket_ctl was by vmbus_sendpacket.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 5dd0fb9b9ffc0ef9b312d05604f4ad0fffc50505)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel.c        | 41 ++++++++------------
+ drivers/net/hyperv/netvsc.c | 77 +++++++++++++------------------------
+ include/linux/hyperv.h      |  8 ----
+ 3 files changed, 43 insertions(+), 83 deletions(-)
+
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index f57203788cad..f0ef99faa6b2 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -655,9 +655,23 @@ void vmbus_close(struct vmbus_channel *channel)
+ }
+ EXPORT_SYMBOL_GPL(vmbus_close);
+ 
+-int vmbus_sendpacket_ctl(struct vmbus_channel *channel, void *buffer,
++/**
++ * vmbus_sendpacket() - Send the specified buffer on the given channel
++ * @channel: Pointer to vmbus_channel structure.
++ * @buffer: Pointer to the buffer you want to receive the data into.
++ * @bufferlen: Maximum size of what the the buffer will hold
++ * @requestid: Identifier of the request
++ * @type: Type of packet that is being send e.g. negotiate, time
++ * packet etc.
++ *
++ * Sends data in @buffer directly to hyper-v via the vmbus
++ * This will send the data unparsed to hyper-v.
++ *
++ * Mainly used by Hyper-V drivers.
++ */
++int vmbus_sendpacket(struct vmbus_channel *channel, void *buffer,
+ 			   u32 bufferlen, u64 requestid,
+-			   enum vmbus_packet_type type, u32 flags, bool kick_q)
++			   enum vmbus_packet_type type, u32 flags)
+ {
+ 	struct vmpacket_descriptor desc;
+ 	u32 packetlen = sizeof(struct vmpacket_descriptor) + bufferlen;
+@@ -684,29 +698,6 @@ int vmbus_sendpacket_ctl(struct vmbus_channel *channel, void *buffer,
+ 
+ 	return hv_ringbuffer_write(channel, bufferlist, num_vecs);
+ }
+-EXPORT_SYMBOL(vmbus_sendpacket_ctl);
+-
+-/**
+- * vmbus_sendpacket() - Send the specified buffer on the given channel
+- * @channel: Pointer to vmbus_channel structure.
+- * @buffer: Pointer to the buffer you want to receive the data into.
+- * @bufferlen: Maximum size of what the the buffer will hold
+- * @requestid: Identifier of the request
+- * @type: Type of packet that is being send e.g. negotiate, time
+- * packet etc.
+- *
+- * Sends data in @buffer directly to hyper-v via the vmbus
+- * This will send the data unparsed to hyper-v.
+- *
+- * Mainly used by Hyper-V drivers.
+- */
+-int vmbus_sendpacket(struct vmbus_channel *channel, void *buffer,
+-			   u32 bufferlen, u64 requestid,
+-			   enum vmbus_packet_type type, u32 flags)
+-{
+-	return vmbus_sendpacket_ctl(channel, buffer, bufferlen, requestid,
+-				    type, flags, true);
+-}
+ EXPORT_SYMBOL(vmbus_sendpacket);
+ 
+ /*
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 770f847bbd27..c0ce9201d072 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -743,79 +743,54 @@ static inline int netvsc_send_pkt(
+ 	struct sk_buff *skb)
+ {
+ 	struct nvsp_message nvmsg;
+-	struct netvsc_channel *nvchan
+-		= &net_device->chan_table[packet->q_idx];
++	struct nvsp_1_message_send_rndis_packet * const rpkt =
++		&nvmsg.msg.v1_msg.send_rndis_pkt;
++	struct netvsc_channel * const nvchan =
++		&net_device->chan_table[packet->q_idx];
+ 	struct vmbus_channel *out_channel = nvchan->channel;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct netdev_queue *txq = netdev_get_tx_queue(ndev, packet->q_idx);
+ 	u64 req_id;
+ 	int ret;
+-	struct hv_page_buffer *pgbuf;
+ 	u32 ring_avail = hv_ringbuf_avail_percent(&out_channel->outbound);
+-	bool xmit_more = (skb != NULL) ? skb->xmit_more : false;
+ 
+ 	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
+-	if (skb != NULL) {
+-		/* 0 is RMC_DATA; */
+-		nvmsg.msg.v1_msg.send_rndis_pkt.channel_type = 0;
+-	} else {
+-		/* 1 is RMC_CONTROL; */
+-		nvmsg.msg.v1_msg.send_rndis_pkt.channel_type = 1;
+-	}
++	if (skb)
++		rpkt->channel_type = 0;         /* 0 is RMC_DATA */
++	else
++		rpkt->channel_type = 1;         /* 1 is RMC_CONTROL */
+ 
+-	nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_index =
+-		packet->send_buf_index;
++		rpkt->send_buf_section_index = packet->send_buf_index;
+ 	if (packet->send_buf_index == NETVSC_INVALID_INDEX)
+-		nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_size = 0;
++		rpkt->send_buf_section_size = 0;
+ 	else
+-		nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_size =
+-			packet->total_data_buflen;
++		rpkt->send_buf_section_size = packet->total_data_buflen;
+ 
+ 	req_id = (ulong)skb;
+ 
+ 	if (out_channel->rescind)
+ 		return -ENODEV;
+ 
+-	/*
+-	 * It is possible that once we successfully place this packet
+-	 * on the ringbuffer, we may stop the queue. In that case, we want
+-	 * to notify the host independent of the xmit_more flag. We don't
+-	 * need to be precise here; in the worst case we may signal the host
+-	 * unnecessarily.
+-	 */
+-	if (ring_avail < (RING_AVAIL_PERCENT_LOWATER + 1))
+-		xmit_more = false;
+-
+ 	if (packet->page_buf_cnt) {
+-		pgbuf = packet->cp_partial ? (pb) +
+-			packet->rmsg_pgcnt : (pb);
+-		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
+-						      pgbuf,
+-						      packet->page_buf_cnt,
+-						      &nvmsg,
+-						      sizeof(struct nvsp_message),
+-						      req_id,
+-						      VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED,
+-						      !xmit_more);
++		if (packet->cp_partial)
++			pb += packet->rmsg_pgcnt;
++
++		ret = vmbus_sendpacket_pagebuffer(out_channel,
++						  pb, packet->page_buf_cnt,
++						  &nvmsg, sizeof(nvmsg),
++						  req_id);
+ 	} else {
+-		ret = vmbus_sendpacket_ctl(out_channel, &nvmsg,
+-					   sizeof(struct nvsp_message),
+-					   req_id,
+-					   VM_PKT_DATA_INBAND,
+-					   VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED,
+-					   !xmit_more);
++		ret = vmbus_sendpacket(out_channel,
++				       &nvmsg, sizeof(nvmsg),
++				       req_id, VM_PKT_DATA_INBAND,
++				       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
+ 	}
+ 
+ 	if (ret == 0) {
+-		atomic_inc(&net_device->num_outstanding_sends);
+ 		atomic_inc_return(&nvchan->queue_sends);
+ 
+-		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
++		if (ring_avail < RING_AVAIL_PERCENT_LOWATER)
+ 			netif_tx_stop_queue(txq);
+-
+-			if (atomic_read(&nvchan->queue_sends) < 1)
+-				netif_tx_wake_queue(txq);
+-		}
+ 	} else if (ret == -EAGAIN) {
+ 		netif_tx_stop_queue(txq);
+ 		if (atomic_read(&nvchan->queue_sends) < 1) {
+@@ -823,8 +798,10 @@ static inline int netvsc_send_pkt(
+ 			ret = -ENOSPC;
+ 		}
+ 	} else {
+-		netdev_err(ndev, "Unable to send packet %p ret %d\n",
+-			   packet, ret);
++		netdev_err(ndev,
++			   "Unable to send packet pages %u len %u, ret %d\n",
++			    packet->page_buf_cnt, packet->total_data_buflen,
++			    ret);
+ 	}
+ 
+ 	return ret;
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 1d6f14352fc7..e0cd6bd748ee 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1037,14 +1037,6 @@ extern int vmbus_sendpacket(struct vmbus_channel *channel,
+ 				  enum vmbus_packet_type type,
+ 				  u32 flags);
+ 
+-extern int vmbus_sendpacket_ctl(struct vmbus_channel *channel,
+-				  void *buffer,
+-				  u32 bufferLen,
+-				  u64 requestid,
+-				  enum vmbus_packet_type type,
+-				  u32 flags,
+-				  bool kick_q);
+-
+ extern int vmbus_sendpacket_pagebuffer(struct vmbus_channel *channel,
+ 					    struct hv_page_buffer pagebuffers[],
+ 					    u32 pagecount,
+-- 
+2.17.1
+
