@@ -1,7 +1,4 @@
-From 49919001f803d61dcea00be9e24b1e6e73d1de50 Mon Sep 17 00:00:00 2001
-Message-Id: <49919001f803d61dcea00be9e24b1e6e73d1de50.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 6724b7f793435d00afb0e7299080b4172f286408 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:57 -0700
 Subject: Drivers: hv: vmbus: Define an API to retrieve virtual processor index

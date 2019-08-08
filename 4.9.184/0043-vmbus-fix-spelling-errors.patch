@@ -1,7 +1,4 @@
-From 26eae3d0e72e2e11b0f79748ead2ef9092a20e85 Mon Sep 17 00:00:00 2001
-Message-Id: <26eae3d0e72e2e11b0f79748ead2ef9092a20e85.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 92d62299ca33afdcc8ed8faf521aec1a058d2cde Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 4 Mar 2017 18:27:14 -0700
 Subject: vmbus: fix spelling errors

@@ -1,7 +1,4 @@
-From 5ff7fdf285b10b9249bf6e33d2418626d4a1afc4 Mon Sep 17 00:00:00 2001
-Message-Id: <5ff7fdf285b10b9249bf6e33d2418626d4a1afc4.1562718057.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From e9b916bcb80afb23bdd50b56843ee85ee9dd87e3 Mon Sep 17 00:00:00 2001
 From: Eric Dumazet <edumazet@google.com>
 Date: Tue, 15 Nov 2016 10:15:13 -0800
 Subject: net: busy-poll: return busypolling status to drivers

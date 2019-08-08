@@ -1,7 +1,4 @@
-From 02b9a02e0767d24466fd8af01bb3919d26e8143a Mon Sep 17 00:00:00 2001
-Message-Id: <02b9a02e0767d24466fd8af01bb3919d26e8143a.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 7e805290bd5dc69c89f2d9dad2aafed14b617509 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sat, 28 Jan 2017 12:37:15 -0700
 Subject: Drivers: hv: restore TSC page cleanup before kexec

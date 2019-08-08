@@ -1,7 +1,4 @@
-From 30f0d290baaf99433c4643ea404139baad7010be Mon Sep 17 00:00:00 2001
-Message-Id: <30f0d290baaf99433c4643ea404139baad7010be.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From cb0f877c8330125cbc1cd20f5f20d7750fc63889 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:03 -0800
 Subject: netvsc: allow more flexible setting of number of channels

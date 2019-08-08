@@ -1,7 +1,4 @@
-From 597be7ec348c19d3e9f656cde0baff111be23b48 Mon Sep 17 00:00:00 2001
-Message-Id: <597be7ec348c19d3e9f656cde0baff111be23b48.1562718059.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 3b2d01c91535390ca05c849acf40f7ff6b4b846c Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:15 +0200
 Subject: x86/hyper-v: Introduce fast hypercall implementation

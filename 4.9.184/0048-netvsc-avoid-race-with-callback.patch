@@ -1,7 +1,4 @@
-From 672f4511eebb9e6fa516cf601ea948b23fb7b09d Mon Sep 17 00:00:00 2001
-Message-Id: <672f4511eebb9e6fa516cf601ea948b23fb7b09d.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From c5ecee17dad796a44ca0b24510e6cce1c79195f7 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Thu, 16 Mar 2017 16:12:37 -0700
 Subject: netvsc: avoid race with callback

@@ -1,7 +1,4 @@
-From fda0812a0b772d3768e42ab256117c3c61f2bbf5 Mon Sep 17 00:00:00 2001
-Message-Id: <fda0812a0b772d3768e42ab256117c3c61f2bbf5.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 1a7f6b049ea42c1e8984c5940c5c150210b09a5d Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 11 Feb 2017 23:02:20 -0700
 Subject: vmbus: change to per channel tasklet
@@ -14,6 +11,8 @@ cpu.
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 631e63a9f346cb657761ae22138f294718696501)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
 ---
  drivers/hv/channel.c      |   2 +-
  drivers/hv/channel_mgmt.c |  16 ++---

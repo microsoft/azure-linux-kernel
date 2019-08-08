@@ -1,7 +1,4 @@
-From 6051353de117614f2474ad769045ce0cfa07c4f2 Mon Sep 17 00:00:00 2001
-Message-Id: <6051353de117614f2474ad769045ce0cfa07c4f2.1562718059.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 652a9404f2a04ec124763368ac6177cded55e205 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:20 +0200
 Subject: x86/hyper-v: Support extended CPU ranges for TLB flush hypercalls

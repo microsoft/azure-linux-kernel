@@ -1,7 +1,4 @@
-From 90558fcacd1797dc3791de38477eccbea8b03526 Mon Sep 17 00:00:00 2001
-Message-Id: <90558fcacd1797dc3791de38477eccbea8b03526.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 36d6750a2f37b71e985dfcf1c64a9981770fe91c Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:52 -0700
 Subject: Drivers: hv: util: Use hv_get_current_tick() to get current tick

@@ -1,7 +1,4 @@
-From 75cbb4d86dd4c722f01850c1854f78142f378e5b Mon Sep 17 00:00:00 2001
-Message-Id: <75cbb4d86dd4c722f01850c1854f78142f378e5b.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From a8732b3413bba21a34b2a95869ebb8f8222a216c Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Fri, 28 Jul 2017 08:59:42 -0700
 Subject: netvsc: fix warnings reported by lockdep

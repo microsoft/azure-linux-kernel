@@ -1,7 +1,4 @@
-From 02cb0ecf9d4ed7f12a8dd0c107824fe8ac80bc8c Mon Sep 17 00:00:00 2001
-Message-Id: <02cb0ecf9d4ed7f12a8dd0c107824fe8ac80bc8c.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 8f37f9ae971b708a5d308bd3acae3689815b4390 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 9 Aug 2017 17:46:03 -0700
 Subject: netvsc: delay setup of VF device
@@ -21,7 +18,7 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  2 files changed, 13 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index ac7f0a8d6a60..b5f0edd70a10 100644
+index 5ac73bd40c32..b95d130a5aa5 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
 @@ -726,7 +726,7 @@ struct net_device_context {

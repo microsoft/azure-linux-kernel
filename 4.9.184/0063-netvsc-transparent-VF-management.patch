@@ -1,7 +1,4 @@
-From c07a5d2d886694df6438b894f6ca6bc39fd0ec4e Mon Sep 17 00:00:00 2001
-Message-Id: <c07a5d2d886694df6438b894f6ca6bc39fd0ec4e.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 0ce8613ec1572c06f7677e74bcc28e974bdb6786 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 1 Aug 2017 19:58:53 -0700
 Subject: netvsc: transparent VF management
@@ -19,15 +16,17 @@ functionality into the kernel.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 0c195567a8f6e82ea5535cd9f1d54a1626dd233e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
 ---
  drivers/hv/connection.c           |  54 ++-
  drivers/net/hyperv/hyperv_net.h   |  38 ++-
  drivers/net/hyperv/netvsc.c       | 196 ++++++-----
  drivers/net/hyperv/netvsc_drv.c   | 532 +++++++++++++++++++++++-------
- drivers/net/hyperv/rndis_filter.c |  87 ++---
+ drivers/net/hyperv/rndis_filter.c |  85 ++---
  drivers/pci/host/pci-hyperv.c     |  44 +++
  net/core/skbuff.c                 |   1 +
- 7 files changed, 645 insertions(+), 307 deletions(-)
+ 7 files changed, 644 insertions(+), 306 deletions(-)
 
 diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
 index 87cc584cca2f..11b268cce320 100644
@@ -98,7 +97,7 @@ index 87cc584cca2f..11b268cce320 100644
  
  /*
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 5c090517f8e7..bbb8bfb49e76 100644
+index 5c090517f8e7..07ed15108436 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
 @@ -27,6 +27,7 @@
@@ -114,7 +113,7 @@ index 5c090517f8e7..bbb8bfb49e76 100644
  
  	enum rndis_device_state state;
 -	bool link_state;
-+	
++
  	atomic_t new_req_id;
  
  	spinlock_t request_lock;
@@ -1501,10 +1500,10 @@ index 2d5fe125f5d4..684d9750332a 100644
  		return NOTIFY_DONE;
  	}
 diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index c45985431cbd..88367895350f 100644
+index c45985431cbd..975ad9765a89 100644
 --- a/drivers/net/hyperv/rndis_filter.c
 +++ b/drivers/net/hyperv/rndis_filter.c
-@@ -214,12 +214,12 @@ static void dump_rndis_message(struct hv_device *hv_dev,
+@@ -214,11 +214,11 @@ static void dump_rndis_message(struct hv_device *hv_dev,
  static int rndis_filter_send_request(struct rndis_device *dev,
  				  struct rndis_request *req)
  {
@@ -1513,12 +1512,10 @@ index c45985431cbd..88367895350f 100644
  	struct hv_page_buffer page_buf[2];
  	struct hv_page_buffer *pb = page_buf;
  	struct net_device_context *net_device_ctx = netdev_priv(dev->ndev);
--
 +	int ret;
-+	
+ 
  	/* Setup the packet to send it */
  	packet = &req->pkt;
- 
 @@ -245,7 +245,7 @@ static int rndis_filter_send_request(struct rndis_device *dev,
  	}
  

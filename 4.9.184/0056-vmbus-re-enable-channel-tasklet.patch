@@ -1,7 +1,4 @@
-From a948815fcdc5ebdc8f3dfb0bb5e3ef002999ab1d Mon Sep 17 00:00:00 2001
-Message-Id: <a948815fcdc5ebdc8f3dfb0bb5e3ef002999ab1d.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From d9dfb967f13566ef355682d749cb13ffb29b9c51 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sun, 25 Jun 2017 12:47:46 -0700
 Subject: vmbus: re-enable channel tasklet

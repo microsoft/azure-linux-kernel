@@ -1,7 +1,4 @@
-From b387aa142321e309510d90519465f85e250f2693 Mon Sep 17 00:00:00 2001
-Message-Id: <b387aa142321e309510d90519465f85e250f2693.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 71143d5c083199b0effe965a9d1cd7af1a6737a3 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 22 Mar 2017 14:51:00 -0700
 Subject: netvsc: use RCU to protect inner device structure

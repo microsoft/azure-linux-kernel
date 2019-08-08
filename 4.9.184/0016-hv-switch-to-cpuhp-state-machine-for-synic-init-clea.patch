@@ -1,7 +1,4 @@
-From 973d09e429a4126749c6f4c0593cd228c0c0a642 Mon Sep 17 00:00:00 2001
-Message-Id: <973d09e429a4126749c6f4c0593cd228c0c0a642.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 050abffffcbe10d76293cddce1bad98667a2b697 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 7 Dec 2016 14:53:11 -0800
 Subject: hv: switch to cpuhp state machine for synic init/cleanup

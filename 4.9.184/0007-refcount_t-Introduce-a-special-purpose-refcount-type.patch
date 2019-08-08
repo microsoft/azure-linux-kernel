@@ -1,7 +1,4 @@
-From af57a75dddd729f631d081d2000e86fee9342ec4 Mon Sep 17 00:00:00 2001
-Message-Id: <af57a75dddd729f631d081d2000e86fee9342ec4.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 85b070221c96b71dc661f5c23a7eafb74550498f Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Mon, 14 Nov 2016 18:06:19 +0100
 Subject: refcount_t: Introduce a special purpose refcount type

@@ -1,7 +1,4 @@
-From 4edc83bc5e6ba9396cbad6989274b1f7a9a65c2c Mon Sep 17 00:00:00 2001
-Message-Id: <4edc83bc5e6ba9396cbad6989274b1f7a9a65c2c.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From c85b6e36671f89227b510a9d1d7d38340e057bfd Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sat, 4 Feb 2017 09:57:14 -0700
 Subject: hv_utils: implement Hyper-V PTP source

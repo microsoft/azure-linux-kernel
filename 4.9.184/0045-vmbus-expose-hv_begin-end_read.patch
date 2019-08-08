@@ -1,7 +1,4 @@
-From 4516ac4d41d10bacf8f416748ea9200cd17c06ac Mon Sep 17 00:00:00 2001
-Message-Id: <4516ac4d41d10bacf8f416748ea9200cd17c06ac.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 499b3f75a36d11169d32570570747135d37811cf Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 11 Feb 2017 23:02:23 -0700
 Subject: vmbus: expose hv_begin/end_read
@@ -13,6 +10,8 @@ control host interrupt mask.
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 6e47dd3e2938f41d75045bbcb64aa9df3a463b2a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
 ---
  drivers/hv/hyperv_vmbus.h |  4 ----
  drivers/hv/ring_buffer.c  |  2 +-
@@ -35,7 +34,7 @@ index 62114f69f027..df52cbc78b45 100644
   * Maximum channels is determined by the size of the interrupt page
   * which is PAGE_SIZE. 1/2 of PAGE_SIZE is for send endpoint interrupt
 diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
-index bc1e1ef8687f..3d00c5d0421b 100644
+index 5b3ab53d8250..deb08ef4bf54 100644
 --- a/drivers/hv/ring_buffer.c
 +++ b/drivers/hv/ring_buffer.c
 @@ -32,7 +32,7 @@

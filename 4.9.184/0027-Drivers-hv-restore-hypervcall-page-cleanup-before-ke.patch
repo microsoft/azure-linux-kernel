@@ -1,7 +1,4 @@
-From fa9011fbb79d11bde757865d468f3110a89e247a Mon Sep 17 00:00:00 2001
-Message-Id: <fa9011fbb79d11bde757865d468f3110a89e247a.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 60d48e761d797e74d9d70037b81df24fbe779d3b Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sat, 28 Jan 2017 12:37:14 -0700
 Subject: Drivers: hv: restore hypervcall page cleanup before kexec

@@ -1,7 +1,4 @@
-From 52d2f96ea58f6e86471a7a16154f720be449f15d Mon Sep 17 00:00:00 2001
-Message-Id: <52d2f96ea58f6e86471a7a16154f720be449f15d.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From c5c713c4c16d227284fd6d3a3ce100d15582f85b Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:49 -0700
 Subject: Drivers: hv: vmbus: Move the check for hypercall page setup

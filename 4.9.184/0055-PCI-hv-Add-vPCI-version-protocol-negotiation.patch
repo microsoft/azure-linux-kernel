@@ -1,7 +1,4 @@
-From c85d724a604688f4ab9a4a2459818a7395c714a9 Mon Sep 17 00:00:00 2001
-Message-Id: <c85d724a604688f4ab9a4a2459818a7395c714a9.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 21ec6dbf83d39effe8ae9252a5b3992420af73f9 Mon Sep 17 00:00:00 2001
 From: Jork Loeser <jloeser@microsoft.com>
 Date: Wed, 24 May 2017 13:41:27 -0700
 Subject: PCI: hv: Add vPCI version protocol negotiation

@@ -1,7 +1,4 @@
-From 82417bddffebbccc7bd133a81db3b79251a0aa2e Mon Sep 17 00:00:00 2001
-Message-Id: <82417bddffebbccc7bd133a81db3b79251a0aa2e.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From c8d0b1cee8b0957aa5ef4bc608ffd65557dbca2f Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:10 -0800
 Subject: netvsc: simplify rndis_filter_remove

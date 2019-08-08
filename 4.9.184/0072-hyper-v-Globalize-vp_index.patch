@@ -1,7 +1,4 @@
-From 4affb0ba883c7a31266a0d341c1fcef0b7f647da Mon Sep 17 00:00:00 2001
-Message-Id: <4affb0ba883c7a31266a0d341c1fcef0b7f647da.1562718059.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From edbeea922123c065d063beb1ef945642f0ce2f06 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:18 +0200
 Subject: hyper-v: Globalize vp_index

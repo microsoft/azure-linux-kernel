@@ -1,7 +1,4 @@
-From e3733b2cbad94b44b2990a662aad0084dac296ea Mon Sep 17 00:00:00 2001
-Message-Id: <e3733b2cbad94b44b2990a662aad0084dac296ea.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From c2f5e1385216e8fdbdd5375808bb3005307db9f5 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 11 Feb 2017 23:02:19 -0700
 Subject: vmbus: put related per-cpu variable together
@@ -14,6 +11,8 @@ a single per-cpu array.
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 37cdd991fac810a727cd285629d1640fcf53cd19)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
 ---
  drivers/hv/channel_mgmt.c |  35 ++++++----
  drivers/hv/connection.c   |  33 ++++------

@@ -1,7 +1,4 @@
-From 1d7383c92b69bb90702e1093e50b12e9cf18c23f Mon Sep 17 00:00:00 2001
-Message-Id: <1d7383c92b69bb90702e1093e50b12e9cf18c23f.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From bd542a708694cdc1834bb055289bbd65050f2c7c Mon Sep 17 00:00:00 2001
 From: Alex Ng <alexng@messages.microsoft.com>
 Date: Sun, 6 Nov 2016 13:14:10 -0800
 Subject: Drivers: hv: vss: Improve log messages.

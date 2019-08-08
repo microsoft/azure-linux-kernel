@@ -1,7 +1,4 @@
-From 0dee90f1adee83bf610c15422e31be468e5a0d52 Mon Sep 17 00:00:00 2001
-Message-Id: <0dee90f1adee83bf610c15422e31be468e5a0d52.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 692b24ac347508b5371b9e9c90cfc0d86848551c Mon Sep 17 00:00:00 2001
 From: Andy Lutomirski <luto@kernel.org>
 Date: Sun, 28 May 2017 10:00:10 -0700
 Subject: x86/mm: Pass flush_tlb_info to flush_tlb_others() etc
@@ -38,6 +35,8 @@ Cc: Thomas Gleixner <tglx@linutronix.de>
 Cc: linux-mm@kvack.org
 [ Fix build warning. ]
 Signed-off-by: Ingo Molnar <mingo@kernel.org>
+(backported from commit a2055abe9c6789cedef29abbdaa488a087faccc3)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
 ---
  arch/x86/include/asm/paravirt.h       |  6 +--
  arch/x86/include/asm/paravirt_types.h |  5 +--

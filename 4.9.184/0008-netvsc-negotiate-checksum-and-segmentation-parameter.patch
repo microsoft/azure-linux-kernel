@@ -1,7 +1,4 @@
-From 3bf6d3386ec30710efd6661958945f1586907963 Mon Sep 17 00:00:00 2001
-Message-Id: <3bf6d3386ec30710efd6661958945f1586907963.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From d1cf2309cf317d36f6a53e5f75400ef00d13a8ed Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:05:59 -0800
 Subject: netvsc: negotiate checksum and segmentation parameters
@@ -20,6 +17,8 @@ Also:
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 23312a3be999c22ec70c0fdf9f01cdee05fac986)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
 ---
  drivers/net/hyperv/hyperv_net.h   | 149 +++++++++++++++++++++++++++---
  drivers/net/hyperv/netvsc_drv.c   |  92 ++++++++----------
