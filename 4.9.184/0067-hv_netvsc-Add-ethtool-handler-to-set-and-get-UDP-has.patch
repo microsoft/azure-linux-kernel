@@ -1,4 +1,4 @@
-From e6d7219a17921b6f53ebcef36f4bd3fb77015135 Mon Sep 17 00:00:00 2001
+From 581d2eb1f701803d9d033fcd371df44df4c4a2f1 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Mon, 21 Aug 2017 19:22:39 -0700
 Subject: hv_netvsc: Add ethtool handler to set and get UDP hash levels

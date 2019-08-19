@@ -1,4 +1,4 @@
-From 77c7679cfd8aa159d60749c46161e4b2a17c899b Mon Sep 17 00:00:00 2001
+From ceef9a2956ca358e0bae9b4d1eb9ae3fd986af16 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 22 Mar 2017 14:51:01 -0700
 Subject: netvsc: uses RCU instead of removal flag

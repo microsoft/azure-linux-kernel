@@ -1,4 +1,4 @@
-From a8732b3413bba21a34b2a95869ebb8f8222a216c Mon Sep 17 00:00:00 2001
+From 9fa58039097fce158dd3e0fb5b3d53dd1140bea9 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Fri, 28 Jul 2017 08:59:42 -0700
 Subject: netvsc: fix warnings reported by lockdep

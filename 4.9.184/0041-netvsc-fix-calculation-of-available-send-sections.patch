@@ -1,4 +1,4 @@
-From ddbc1ba254e22321bbc5bf024381d3a21a80152f Mon Sep 17 00:00:00 2001
+From b2b12582d46433760d9ac758c58a123358754b94 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Mon, 24 Apr 2017 18:33:38 -0700
 Subject: netvsc: fix calculation of available send sections

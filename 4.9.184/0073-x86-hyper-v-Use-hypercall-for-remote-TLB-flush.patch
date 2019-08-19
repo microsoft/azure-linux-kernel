@@ -1,4 +1,4 @@
-From ae8959a17bf16fc7b4bee08f8c5a9e2addb9ef7d Mon Sep 17 00:00:00 2001
+From f327acc643b1d370efdf9c5bdfe45f5be72d2d50 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:19 +0200
 Subject: x86/hyper-v: Use hypercall for remote TLB flush

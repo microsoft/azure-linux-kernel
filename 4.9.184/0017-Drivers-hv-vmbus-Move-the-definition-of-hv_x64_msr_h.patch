@@ -1,4 +1,4 @@
-From b6238fe29f603f0477f0d8b0cc2f87d71f18180e Mon Sep 17 00:00:00 2001
+From 11dca3b94a9abec25542d26956cbc63c4a243529 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Wed, 18 Jan 2017 16:45:00 -0700
 Subject: Drivers: hv: vmbus: Move the definition of

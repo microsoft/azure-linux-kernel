@@ -1,4 +1,4 @@
-From c20b984b6ccece2a315c0d35d932b27ec8eb82b6 Mon Sep 17 00:00:00 2001
+From 9b7af1e6cf7546fae3953a49b5de8d3511f13d5c Mon Sep 17 00:00:00 2001
 From: Jarod Wilson <jarod@redhat.com>
 Date: Thu, 20 Oct 2016 13:55:21 -0400
 Subject: net: use core MTU range checking in virt drivers
