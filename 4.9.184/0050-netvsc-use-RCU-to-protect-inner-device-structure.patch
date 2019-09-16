@@ -1,4 +1,4 @@
-From d360715f716e92f2866c04830395fe159d3fbfdc Mon Sep 17 00:00:00 2001
+From 10c999922848825734472dd653038a9e6f00ea4f Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 22 Mar 2017 14:51:00 -0700
 Subject: netvsc: use RCU to protect inner device structure

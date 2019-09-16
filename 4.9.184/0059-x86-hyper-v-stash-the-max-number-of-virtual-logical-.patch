@@ -1,4 +1,4 @@
-From 17bdb9c7dee0ac5f90abcaa9ee604559bd8fdff5 Mon Sep 17 00:00:00 2001
+From 7752740afd58f45697dc5cd6ce7e1b4ca67d363d Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sun, 25 Jun 2017 10:06:41 -0700
 Subject: x86/hyper-v: stash the max number of virtual/logical processor

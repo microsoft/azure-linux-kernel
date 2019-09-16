@@ -1,4 +1,4 @@
-From 76c393020ba810c30bdd45ec4ef7e65f3e4c52de Mon Sep 17 00:00:00 2001
+From 94352a01f378ddb3f7b0a58afecbee7653158df8 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Thu, 5 Oct 2017 13:39:24 +0200
 Subject: x86/hyperv: Don't use percpu areas for pcpu_flush/pcpu_flush_ex
