@@ -1,0 +1,70 @@
+From 210bb0f1524b22ebb6e5a1499eea4af6b8bb7745 Mon Sep 17 00:00:00 2001
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Wed, 3 Feb 2016 04:04:36 +0100
+Subject: ethtool: add speed/duplex validation functions
+Reply-To: joseph.salisbury@microsoft.com
+
+Add functions which check if the speed/duplex are defined.
+
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 103a8ad1fa3b261c78dfc842cb315defe9d40be0)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/uapi/linux/ethtool.h | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 08f47e0e9f8d..177105b7b56d 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -1316,11 +1316,45 @@ enum ethtool_sfeatures_retval_bits {
+ 
+ #define SPEED_UNKNOWN		-1
+ 
++static inline int ethtool_validate_speed(__u32 speed)
++{
++	switch (speed) {
++	case SPEED_10:
++	case SPEED_100:
++	case SPEED_1000:
++	case SPEED_2500:
++	case SPEED_5000:
++	case SPEED_10000:
++	case SPEED_20000:
++	case SPEED_25000:
++	case SPEED_40000:
++	case SPEED_50000:
++	case SPEED_56000:
++	case SPEED_100000:
++	case SPEED_UNKNOWN:
++		return 1;
++	}
++
++	return 0;
++}
++
+ /* Duplex, half or full. */
+ #define DUPLEX_HALF		0x00
+ #define DUPLEX_FULL		0x01
+ #define DUPLEX_UNKNOWN		0xff
+ 
++static inline int ethtool_validate_duplex(__u8 duplex)
++{
++	switch (duplex) {
++	case DUPLEX_HALF:
++	case DUPLEX_FULL:
++	case DUPLEX_UNKNOWN:
++		return 1;
++	}
++
++	return 0;
++}
++
+ /* Which connector port. */
+ #define PORT_TP			0x00
+ #define PORT_AUI		0x01
+-- 
+2.17.1
+

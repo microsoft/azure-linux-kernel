@@ -1,0 +1,109 @@
+From c8cd4da95eff59236bd909b3ef4d141ec249e7d9 Mon Sep 17 00:00:00 2001
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 27 Dec 2015 18:23:01 +0200
+Subject: asm-generic: implement virt_xxx memory barriers
+Reply-To: joseph.salisbury@microsoft.com
+
+Guests running within virtual machines might be affected by SMP effects even if
+the guest itself is compiled without SMP support.  This is an artifact of
+interfacing with an SMP host while running an UP kernel.  Using mandatory
+barriers for this use-case would be possible but is often suboptimal.
+
+In particular, virtio uses a bunch of confusing ifdefs to work around
+this, while xen just uses the mandatory barriers.
+
+To better handle this case, low-level virt_mb() etc macros are made available.
+These are implemented trivially using the low-level __smp_xxx macros,
+the purpose of these wrappers is to annotate those specific cases.
+
+These have the same effect as smp_mb() etc when SMP is enabled, but generate
+identical code for SMP and non-SMP systems. For example, virtual machine guests
+should use virt_mb() rather than smp_mb() when synchronizing against a
+(possibly SMP) host.
+
+Suggested-by: David Miller <davem@davemloft.net>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+(cherry picked from commit 6a65d26385bf487926a0616650927303058551e3)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ Documentation/memory-barriers.txt | 28 +++++++++++++++++++++++-----
+ include/asm-generic/barrier.h     | 11 +++++++++++
+ 2 files changed, 34 insertions(+), 5 deletions(-)
+
+diff --git a/Documentation/memory-barriers.txt b/Documentation/memory-barriers.txt
+index aef9487303d0..8f4a93aae19f 100644
+--- a/Documentation/memory-barriers.txt
++++ b/Documentation/memory-barriers.txt
+@@ -1655,17 +1655,18 @@ macro is a good place to start looking.
+ SMP memory barriers are reduced to compiler barriers on uniprocessor compiled
+ systems because it is assumed that a CPU will appear to be self-consistent,
+ and will order overlapping accesses correctly with respect to itself.
++However, see the subsection on "Virtual Machine Guests" below.
+ 
+ [!] Note that SMP memory barriers _must_ be used to control the ordering of
+ references to shared memory on SMP systems, though the use of locking instead
+ is sufficient.
+ 
+ Mandatory barriers should not be used to control SMP effects, since mandatory
+-barriers unnecessarily impose overhead on UP systems. They may, however, be
+-used to control MMIO effects on accesses through relaxed memory I/O windows.
+-These are required even on non-SMP systems as they affect the order in which
+-memory operations appear to a device by prohibiting both the compiler and the
+-CPU from reordering them.
++barriers impose unnecessary overhead on both SMP and UP systems. They may,
++however, be used to control MMIO effects on accesses through relaxed memory I/O
++windows.  These barriers are required even on non-SMP systems as they affect
++the order in which memory operations appear to a device by prohibiting both the
++compiler and the CPU from reordering them.
+ 
+ 
+ There are some more advanced barrier functions:
+@@ -2948,6 +2949,23 @@ The Alpha defines the Linux kernel's memory barrier model.
+ 
+ See the subsection on "Cache Coherency" above.
+ 
++VIRTUAL MACHINE GUESTS
++-------------------
++
++Guests running within virtual machines might be affected by SMP effects even if
++the guest itself is compiled without SMP support.  This is an artifact of
++interfacing with an SMP host while running an UP kernel.  Using mandatory
++barriers for this use-case would be possible but is often suboptimal.
++
++To handle this case optimally, low-level virt_mb() etc macros are available.
++These have the same effect as smp_mb() etc when SMP is enabled, but generate
++identical code for SMP and non-SMP systems. For example, virtual machine guests
++should use virt_mb() rather than smp_mb() when synchronizing against a
++(possibly SMP) host.
++
++These are equivalent to smp_mb() etc counterparts in all other respects,
++in particular, they do not control MMIO effects: to control
++MMIO effects, use mandatory barriers.
+ 
+ ============
+ EXAMPLE USES
+diff --git a/include/asm-generic/barrier.h b/include/asm-generic/barrier.h
+index 90f39888e678..f6687cca4968 100644
+--- a/include/asm-generic/barrier.h
++++ b/include/asm-generic/barrier.h
+@@ -192,5 +192,16 @@ do {									\
+ 
+ #endif
+ 
++/* Barriers for virtual machine guests when talking to an SMP host */
++#define virt_mb() __smp_mb()
++#define virt_rmb() __smp_rmb()
++#define virt_wmb() __smp_wmb()
++#define virt_read_barrier_depends() __smp_read_barrier_depends()
++#define virt_store_mb(var, value) __smp_store_mb(var, value)
++#define virt_mb__before_atomic() __smp_mb__before_atomic()
++#define virt_mb__after_atomic()	__smp_mb__after_atomic()
++#define virt_store_release(p, v) __smp_store_release(p, v)
++#define virt_load_acquire(p) __smp_load_acquire(p)
++
+ #endif /* !__ASSEMBLY__ */
+ #endif /* __ASM_GENERIC_BARRIER_H */
+-- 
+2.17.1
+

@@ -1,0 +1,81 @@
+From fe189c35576a9b90f02f4dd2d757c18d79a400f1 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Thu, 19 Jan 2017 11:51:49 -0700
+Subject: Drivers: hv: vmbus: Move the check for hypercall page setup
+Reply-To: joseph.salisbury@microsoft.com
+
+As part of the effort to separate out architecture specific code, move the
+check for detecting if the hypercall page is setup.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 73638cddaad861a5ebb2b119d8b318d4bded8f8d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c       | 15 +++++++++++++++
+ arch/x86/include/asm/mshyperv.h |  1 +
+ drivers/hv/hv.c                 |  7 +------
+ 3 files changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index ce5fc7394814..d289bc29d282 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -235,3 +235,18 @@ void hyperv_report_panic(struct pt_regs *regs)
+ 	wrmsrl(HV_X64_MSR_CRASH_CTL, HV_CRASH_CTL_CRASH_NOTIFY);
+ }
+ EXPORT_SYMBOL_GPL(hyperv_report_panic);
++
++bool hv_is_hypercall_page_setup(void)
++{
++	union hv_x64_msr_hypercall_contents hypercall_msr;
++
++	/* Check if the hypercall page is setup */
++	hypercall_msr.as_uint64 = 0;
++	rdmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
++
++	if (!hypercall_msr.enable)
++		return false;
++
++	return true;
++}
++EXPORT_SYMBOL_GPL(hv_is_hypercall_page_setup);
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index 64e682d88684..c843ef64defe 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -115,5 +115,6 @@ void hv_remove_crash_handler(void);
+ #if IS_ENABLED(CONFIG_HYPERV)
+ void hyperv_init(void);
+ void hyperv_report_panic(struct pt_regs *regs);
++bool hv_is_hypercall_page_setup(void);
+ #endif
+ #endif
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index 7eb0bc67c37e..08a9a87160a8 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -50,7 +50,6 @@ struct hv_context hv_context = {
+  */
+ int hv_init(void)
+ {
+-	union hv_x64_msr_hypercall_contents hypercall_msr;
+ 
+ 	memset(hv_context.synic_event_page, 0, sizeof(void *) * NR_CPUS);
+ 	memset(hv_context.synic_message_page, 0,
+@@ -64,11 +63,7 @@ int hv_init(void)
+ 	memset(hv_context.clk_evt, 0,
+ 	       sizeof(void *) * NR_CPUS);
+ 
+-	/* See if the hypercall page is already set */
+-	hypercall_msr.as_uint64 = 0;
+-	rdmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+-
+-	if (!hypercall_msr.enable)
++	if (!hv_is_hypercall_page_setup())
+ 		return -ENOTSUPP;
+ 
+ 	return 0;
+-- 
+2.17.1
+

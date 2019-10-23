@@ -1,0 +1,53 @@
+From 659cd2d26625aa75e236251819d0638169ed18da Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Tue, 24 Jan 2017 13:06:00 -0800
+Subject: netvsc: report number of rx queues in ethtool
+Reply-To: joseph.salisbury@microsoft.com
+
+Report actual number of receive queues to ethtool.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit b448f4e89272ba26a73f28b0b3dd93e749b30c86)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 112e75cc7f15..95606e36a4f0 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -994,6 +994,21 @@ static void netvsc_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ 	}
+ }
+ 
++static int
++netvsc_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
++		 u32 *rules)
++{
++	struct net_device_context *ndc = netdev_priv(dev);
++	struct netvsc_device *nvdev = ndc->nvdev;
++
++	switch (info->cmd) {
++	case ETHTOOL_GRXRINGS:
++		info->data = nvdev->num_chn;
++		return 0;
++	}
++	return -EOPNOTSUPP;
++}
++
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void netvsc_poll_controller(struct net_device *net)
+ {
+@@ -1014,6 +1029,7 @@ static const struct ethtool_ops ethtool_ops = {
+ 	.get_ts_info	= ethtool_op_get_ts_info,
+ 	.get_settings	= netvsc_get_settings,
+ 	.set_settings	= netvsc_set_settings,
++	.get_rxnfc	= netvsc_get_rxnfc,
+ };
+ 
+ static const struct net_device_ops device_ops = {
+-- 
+2.17.1
+
