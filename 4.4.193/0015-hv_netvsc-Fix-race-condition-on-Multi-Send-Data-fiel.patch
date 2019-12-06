@@ -1,0 +1,52 @@
+From 46bc38e278f434c15cce181e7c6cdf349bee4c7f Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Thu, 10 Dec 2015 12:19:35 -0800
+Subject: hv_netvsc: Fix race condition on Multi-Send Data field
+Reply-To: joseph.salisbury@microsoft.com
+
+In commit 2a04ae8acb14 ("hv_netvsc: remove locking in netvsc_send()"), the
+locking for MSD (Multi-Send Data) field was removed. This could cause a
+race condition between RNDIS control messages and data packets processing,
+because these two types of traffic are not synchronized.
+This patch fixes this issue by sending control messages out directly
+without reading MSD field.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit cf8190e4c26c8ccf87d80793f8f1f7fe150cdf8c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index cd5b65e869ca..5cacd68b4063 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -867,6 +867,14 @@ int netvsc_send(struct hv_device *device,
+ 	packet->send_buf_index = NETVSC_INVALID_INDEX;
+ 	packet->cp_partial = false;
+ 
++	/* Send control message directly without accessing msd (Multi-Send
++	 * Data) field which may be changed during data packet processing.
++	 */
++	if (!skb) {
++		cur_send = packet;
++		goto send_now;
++	}
++
+ 	msdp = &net_device->msd[q_idx];
+ 
+ 	/* batch packets in send buffer if possible */
+@@ -939,6 +947,7 @@ int netvsc_send(struct hv_device *device,
+ 		}
+ 	}
+ 
++send_now:
+ 	if (cur_send)
+ 		ret = netvsc_send_pkt(cur_send, net_device, pb, skb);
+ 
+-- 
+2.17.1
+

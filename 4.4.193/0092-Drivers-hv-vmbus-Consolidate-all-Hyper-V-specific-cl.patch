@@ -1,0 +1,359 @@
+From 95daca9a72f03b1e69c03d3e950043c07e47f4b6 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Thu, 19 Jan 2017 11:51:46 -0700
+Subject: Drivers: hv: vmbus: Consolidate all Hyper-V specific clocksource code
+Reply-To: joseph.salisbury@microsoft.com
+
+As part of the effort to separate out architecture specific code,
+consolidate all Hyper-V specific clocksource code to an architecture
+specific code.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 63ed4e0c67df332681ebfef6eca6852da28d6300)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c       | 105 ++++++++++++++++++++++++++++++++
+ arch/x86/include/asm/mshyperv.h |  12 ++++
+ arch/x86/kernel/cpu/mshyperv.c  |  23 -------
+ drivers/hv/hv.c                 |  95 -----------------------------
+ drivers/hv/hyperv_vmbus.h       |   8 ---
+ 5 files changed, 117 insertions(+), 126 deletions(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index b5c8e04deacb..860233af4568 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -24,6 +24,79 @@
+ #include <linux/version.h>
+ #include <linux/vmalloc.h>
+ #include <linux/mm.h>
++#include <linux/clockchips.h>
++
++
++#ifdef CONFIG_X86_64
++
++static struct ms_hyperv_tsc_page *tsc_pg;
++
++static u64 read_hv_clock_tsc(struct clocksource *arg)
++{
++	u64 current_tick;
++
++	if (tsc_pg->tsc_sequence != 0) {
++		/*
++		 * Use the tsc page to compute the value.
++		 */
++
++		while (1) {
++			u64 tmp;
++			u32 sequence = tsc_pg->tsc_sequence;
++			u64 cur_tsc;
++			u64 scale = tsc_pg->tsc_scale;
++			s64 offset = tsc_pg->tsc_offset;
++
++			rdtscll(cur_tsc);
++			/* current_tick = ((cur_tsc *scale) >> 64) + offset */
++			asm("mulq %3"
++				: "=d" (current_tick), "=a" (tmp)
++				: "a" (cur_tsc), "r" (scale));
++
++			current_tick += offset;
++			if (tsc_pg->tsc_sequence == sequence)
++				return current_tick;
++
++			if (tsc_pg->tsc_sequence != 0)
++				continue;
++			/*
++			 * Fallback using MSR method.
++			 */
++			break;
++		}
++	}
++	rdmsrl(HV_X64_MSR_TIME_REF_COUNT, current_tick);
++	return current_tick;
++}
++
++static struct clocksource hyperv_cs_tsc = {
++		.name		= "hyperv_clocksource_tsc_page",
++		.rating		= 400,
++		.read		= read_hv_clock_tsc,
++		.mask		= CLOCKSOURCE_MASK(64),
++		.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
++};
++#endif
++
++static u64 read_hv_clock_msr(struct clocksource *arg)
++{
++	u64 current_tick;
++	/*
++	 * Read the partition counter to get the current tick count. This count
++	 * is set to 0 when the partition is created and is incremented in
++	 * 100 nanosecond units.
++	 */
++	rdmsrl(HV_X64_MSR_TIME_REF_COUNT, current_tick);
++	return current_tick;
++}
++
++static struct clocksource hyperv_cs_msr = {
++	.name		= "hyperv_clocksource_msr",
++	.rating		= 400,
++	.read		= read_hv_clock_msr,
++	.mask		= CLOCKSOURCE_MASK(64),
++	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
++};
+ 
+ static void *hypercall_pg;
+ /*
+@@ -31,6 +104,7 @@ static void *hypercall_pg;
+  * hypervisor has been detected.
+  *
+  * 1. Setup the hypercall page.
++ * 2. Register Hyper-V specific clocksource.
+  */
+ void hyperv_init(void)
+ {
+@@ -58,6 +132,37 @@ void hyperv_init(void)
+ 	hypercall_msr.enable = 1;
+ 	hypercall_msr.guest_physical_address = vmalloc_to_pfn(hypercall_pg);
+ 	wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
++
++	/*
++	 * Register Hyper-V specific clocksource.
++	 */
++#ifdef CONFIG_X86_64
++	if (ms_hyperv.features & HV_X64_MSR_REFERENCE_TSC_AVAILABLE) {
++		union hv_x64_msr_hypercall_contents tsc_msr;
++
++		tsc_pg = __vmalloc(PAGE_SIZE, GFP_KERNEL, PAGE_KERNEL);
++		if (!tsc_pg) {
++			clocksource_register_hz(&hyperv_cs_msr, NSEC_PER_SEC/100);
++			return;
++		}
++
++		rdmsrl(HV_X64_MSR_REFERENCE_TSC, tsc_msr.as_uint64);
++
++		tsc_msr.enable = 1;
++		tsc_msr.guest_physical_address = vmalloc_to_pfn(tsc_pg);
++
++		wrmsrl(HV_X64_MSR_REFERENCE_TSC, tsc_msr.as_uint64);
++		clocksource_register_hz(&hyperv_cs_tsc, NSEC_PER_SEC/100);
++		return;
++	}
++#endif
++	/*
++	 * For 32 bit guests just use the MSR based mechanism for reading
++	 * the partition counter.
++	 */
++
++	if (ms_hyperv.features & HV_X64_MSR_TIME_REF_COUNT_AVAILABLE)
++		clocksource_register_hz(&hyperv_cs_msr, NSEC_PER_SEC/100);
+ }
+ 
+ /*
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index ed8e07399071..adfe8cc9f7e3 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -25,6 +25,18 @@ union hv_x64_msr_hypercall_contents {
+ 	};
+ };
+ 
++/*
++ * TSC page layout.
++ */
++
++struct ms_hyperv_tsc_page {
++	volatile u32 tsc_sequence;
++	u32 reserved1;
++	volatile u64 tsc_scale;
++	volatile s64 tsc_offset;
++	u64 reserved2[509];
++};
++
+ /*
+  * The guest OS needs to register the guest ID with the hypervisor.
+  * The guest ID is a 64 bit entity and the structure of this ID is
+diff --git a/arch/x86/kernel/cpu/mshyperv.c b/arch/x86/kernel/cpu/mshyperv.c
+index b744cacfab58..bceb62ecb1c0 100644
+--- a/arch/x86/kernel/cpu/mshyperv.c
++++ b/arch/x86/kernel/cpu/mshyperv.c
+@@ -133,26 +133,6 @@ static uint32_t  __init ms_hyperv_platform(void)
+ 	return 0;
+ }
+ 
+-static cycle_t read_hv_clock(struct clocksource *arg)
+-{
+-	cycle_t current_tick;
+-	/*
+-	 * Read the partition counter to get the current tick count. This count
+-	 * is set to 0 when the partition is created and is incremented in
+-	 * 100 nanosecond units.
+-	 */
+-	rdmsrl(HV_X64_MSR_TIME_REF_COUNT, current_tick);
+-	return current_tick;
+-}
+-
+-static struct clocksource hyperv_cs = {
+-	.name		= "hyperv_clocksource",
+-	.rating		= 400, /* use this when running on Hyperv*/
+-	.read		= read_hv_clock,
+-	.mask		= CLOCKSOURCE_MASK(64),
+-	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
+-};
+-
+ static unsigned char hv_get_nmi_reason(void)
+ {
+ 	return 0;
+@@ -208,9 +188,6 @@ static void __init ms_hyperv_init_platform(void)
+ 			     "hv_nmi_unknown");
+ #endif
+ 
+-	if (ms_hyperv.features & HV_X64_MSR_TIME_REF_COUNT_AVAILABLE)
+-		clocksource_register_hz(&hyperv_cs, NSEC_PER_SEC/100);
+-
+ #ifdef CONFIG_X86_IO_APIC
+ 	no_timer_check = 1;
+ #endif
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index b8a27bad502f..ea8699751821 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -88,56 +88,6 @@ static int query_hypervisor_info(void)
+ 	return max_leaf;
+ }
+ 
+-#ifdef CONFIG_X86_64
+-static cycle_t read_hv_clock_tsc(struct clocksource *arg)
+-{
+-	cycle_t current_tick;
+-	struct ms_hyperv_tsc_page *tsc_pg = hv_context.tsc_page;
+-
+-	if (tsc_pg->tsc_sequence != -1) {
+-		/*
+-		 * Use the tsc page to compute the value.
+-		 */
+-
+-		while (1) {
+-			cycle_t tmp;
+-			u32 sequence = tsc_pg->tsc_sequence;
+-			u64 cur_tsc;
+-			u64 scale = tsc_pg->tsc_scale;
+-			s64 offset = tsc_pg->tsc_offset;
+-
+-			rdtscll(cur_tsc);
+-			/* current_tick = ((cur_tsc *scale) >> 64) + offset */
+-			asm("mulq %3"
+-				: "=d" (current_tick), "=a" (tmp)
+-				: "a" (cur_tsc), "r" (scale));
+-
+-			current_tick += offset;
+-			if (tsc_pg->tsc_sequence == sequence)
+-				return current_tick;
+-
+-			if (tsc_pg->tsc_sequence != -1)
+-				continue;
+-			/*
+-			 * Fallback using MSR method.
+-			 */
+-			break;
+-		}
+-	}
+-	rdmsrl(HV_X64_MSR_TIME_REF_COUNT, current_tick);
+-	return current_tick;
+-}
+-
+-static struct clocksource hyperv_cs_tsc = {
+-		.name           = "hyperv_clocksource_tsc_page",
+-		.rating         = 425,
+-		.read           = read_hv_clock_tsc,
+-		.mask           = CLOCKSOURCE_MASK(64),
+-		.flags          = CLOCK_SOURCE_IS_CONTINUOUS,
+-};
+-#endif
+-
+-
+ /*
+  * hv_init - Main initialization routine.
+  *
+@@ -170,29 +120,7 @@ int hv_init(void)
+ 	if (!hypercall_msr.enable)
+ 		return -ENOTSUPP;
+ 
+-#ifdef CONFIG_X86_64
+-	if (ms_hyperv.features & HV_X64_MSR_REFERENCE_TSC_AVAILABLE) {
+-		union hv_x64_msr_hypercall_contents tsc_msr;
+-		void *va_tsc;
+-
+-		va_tsc = __vmalloc(PAGE_SIZE, GFP_KERNEL, PAGE_KERNEL);
+-		if (!va_tsc)
+-			goto cleanup;
+-		hv_context.tsc_page = va_tsc;
+-
+-		rdmsrl(HV_X64_MSR_REFERENCE_TSC, tsc_msr.as_uint64);
+-
+-		tsc_msr.enable = 1;
+-		tsc_msr.guest_physical_address = vmalloc_to_pfn(va_tsc);
+-
+-		wrmsrl(HV_X64_MSR_REFERENCE_TSC, tsc_msr.as_uint64);
+-		clocksource_register_hz(&hyperv_cs_tsc, NSEC_PER_SEC/100);
+-	}
+-#endif
+ 	return 0;
+-
+-cleanup:
+-	return -ENOTSUPP;
+ }
+ 
+ /*
+@@ -203,29 +131,6 @@ cleanup:
+ void hv_cleanup(bool crash)
+ {
+ 
+-#ifdef CONFIG_X86_64
+-	union hv_x64_msr_hypercall_contents hypercall_msr;
+-	/*
+-	 * Cleanup the TSC page based CS.
+-	 */
+-	if (ms_hyperv.features & HV_X64_MSR_REFERENCE_TSC_AVAILABLE) {
+-		/*
+-		 * Crash can happen in an interrupt context and unregistering
+-		 * a clocksource is impossible and redundant in this case.
+-		 */
+-		if (!oops_in_progress) {
+-			clocksource_change_rating(&hyperv_cs_tsc, 10);
+-			clocksource_unregister(&hyperv_cs_tsc);
+-		}
+-
+-		hypercall_msr.as_uint64 = 0;
+-		wrmsrl(HV_X64_MSR_REFERENCE_TSC, hypercall_msr.as_uint64);
+-		if (!crash) {
+-			vfree(hv_context.tsc_page);
+-			hv_context.tsc_page = NULL;
+-		}
+-	}
+-#endif
+ }
+ 
+ /*
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 9595519f69bf..745225981083 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -507,14 +507,6 @@ struct hv_context {
+ 
+ extern struct hv_context hv_context;
+ 
+-struct ms_hyperv_tsc_page {
+-	volatile u32 tsc_sequence;
+-	u32 reserved1;
+-	volatile u64 tsc_scale;
+-	volatile s64 tsc_offset;
+-	u64 reserved2[509];
+-};
+-
+ struct hv_ring_buffer_debug_info {
+ 	u32 current_interrupt_mask;
+ 	u32 current_read_index;
+-- 
+2.17.1
+

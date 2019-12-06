@@ -1,7 +1,4 @@
-From a629cc7d39c92def63365c1314fdd50d990a4641 Mon Sep 17 00:00:00 2001
-Message-Id: <a629cc7d39c92def63365c1314fdd50d990a4641.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From b8628573536665a09144bc69ed9eee8ac812b5d1 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:00 -0800
 Subject: netvsc: report number of rx queues in ethtool

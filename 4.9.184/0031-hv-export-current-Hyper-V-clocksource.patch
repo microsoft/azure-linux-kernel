@@ -1,7 +1,4 @@
-From dd46b19297f9993eb7d4e610d56a5306242fee03 Mon Sep 17 00:00:00 2001
-Message-Id: <dd46b19297f9993eb7d4e610d56a5306242fee03.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From d0bc0d4261fc3329926b1335a89dfd2f6618f2f7 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sat, 4 Feb 2017 09:57:13 -0700
 Subject: hv: export current Hyper-V clocksource

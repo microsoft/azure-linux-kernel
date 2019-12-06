@@ -1,7 +1,4 @@
-From 907ca642c765cdd16e94fb25f49fd3eec406edb2 Mon Sep 17 00:00:00 2001
-Message-Id: <907ca642c765cdd16e94fb25f49fd3eec406edb2.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From c607f30ed9b3ea0742eee344c2f85c0a8ae5a84a Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 7 Jun 2017 15:53:49 -0700
 Subject: netvsc: move filter setting to rndis_device

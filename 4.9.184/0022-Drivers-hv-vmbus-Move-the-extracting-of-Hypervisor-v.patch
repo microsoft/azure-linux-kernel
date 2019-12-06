@@ -1,7 +1,4 @@
-From 9033a84fb8062637e3dae20ea7ec8931df13e9de Mon Sep 17 00:00:00 2001
-Message-Id: <9033a84fb8062637e3dae20ea7ec8931df13e9de.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From a5870d319efe00a741e619eb7170b2ec70bd0917 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:47 -0700
 Subject: Drivers: hv: vmbus: Move the extracting of Hypervisor version

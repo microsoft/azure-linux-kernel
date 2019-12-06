@@ -1,7 +1,4 @@
-From bc9fe7a13541d82cdcb55afa28a5ecb2640e0146 Mon Sep 17 00:00:00 2001
-Message-Id: <bc9fe7a13541d82cdcb55afa28a5ecb2640e0146.1562718059.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 7ea0d5a1542337492654fc9998fc9b7f3973f702 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:19 +0200
 Subject: x86/hyper-v: Use hypercall for remote TLB flush

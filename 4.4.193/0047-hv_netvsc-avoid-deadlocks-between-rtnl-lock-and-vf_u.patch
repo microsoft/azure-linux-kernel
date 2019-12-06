@@ -1,0 +1,124 @@
+From 2a4d87e154b1a68573ac0ac7e8e4efd8687cf3c1 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Mon, 15 Aug 2016 17:48:40 +0200
+Subject: hv_netvsc: avoid deadlocks between rtnl lock and vf_use_cnt wait
+Reply-To: joseph.salisbury@microsoft.com
+
+Here is a deadlock scenario:
+- netvsc_vf_up() schedules netvsc_notify_peers() work and quits.
+- netvsc_vf_down() runs before netvsc_notify_peers() gets executed. As it
+  is being executed from netdev notifier chain we hold rtnl lock when we
+  get here.
+- we enter while (atomic_read(&net_device_ctx->vf_use_cnt) != 0) loop and
+  wait till netvsc_notify_peers() drops vf_use_cnt.
+- netvsc_notify_peers() starts on some other CPU but netdev_notify_peers()
+  will hang on rtnl_lock().
+- deadlock!
+
+Instead of introducing additional synchronization I suggest we drop
+gwrk.dwrk completely and call NETDEV_NOTIFY_PEERS directly. As we're
+acting under rtnl lock this is legitimate.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit d072218f214929194db06069564495b6b9fff34a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  7 -------
+ drivers/net/hyperv/netvsc_drv.c | 33 +++++----------------------------
+ 2 files changed, 5 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 4b257002f714..ed8b9528e24e 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -643,12 +643,6 @@ struct netvsc_reconfig {
+ 	u32 event;
+ };
+ 
+-struct garp_wrk {
+-	struct work_struct dwrk;
+-	struct net_device *netdev;
+-	struct net_device_context *net_device_ctx;
+-};
+-
+ /* The context of the netvsc device  */
+ struct net_device_context {
+ 	/* point back to our device context */
+@@ -666,7 +660,6 @@ struct net_device_context {
+ 
+ 	struct work_struct work;
+ 	u32 msg_enable; /* debug level */
+-	struct garp_wrk gwrk;
+ 
+ 	struct netvsc_stats __percpu *tx_stats;
+ 	struct netvsc_stats __percpu *rx_stats;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 2e78e5745529..ba28f32229e3 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1144,17 +1144,6 @@ static void netvsc_free_netdev(struct net_device *netdev)
+ 	free_netdev(netdev);
+ }
+ 
+-static void netvsc_notify_peers(struct work_struct *wrk)
+-{
+-	struct garp_wrk *gwrk;
+-
+-	gwrk = container_of(wrk, struct garp_wrk, dwrk);
+-
+-	netdev_notify_peers(gwrk->netdev);
+-
+-	atomic_dec(&gwrk->net_device_ctx->vf_use_cnt);
+-}
+-
+ static struct net_device *get_netvsc_net_device(char *mac)
+ {
+ 	struct net_device *dev, *found = NULL;
+@@ -1246,15 +1235,8 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
+ 
+ 	netif_carrier_off(ndev);
+ 
+-	/*
+-	 * Now notify peers. We are scheduling work to
+-	 * notify peers; take a reference to prevent
+-	 * the VF interface from vanishing.
+-	 */
+-	atomic_inc(&net_device_ctx->vf_use_cnt);
+-	net_device_ctx->gwrk.netdev = vf_netdev;
+-	net_device_ctx->gwrk.net_device_ctx = net_device_ctx;
+-	schedule_work(&net_device_ctx->gwrk.dwrk);
++	/* Now notify peers through VF device. */
++	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, vf_netdev);
+ 
+ 	return NOTIFY_OK;
+ }
+@@ -1293,13 +1275,9 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
+ 	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
+ 	rndis_filter_close(netvsc_dev);
+ 	netif_carrier_on(ndev);
+-	/*
+-	 * Notify peers.
+-	 */
+-	atomic_inc(&net_device_ctx->vf_use_cnt);
+-	net_device_ctx->gwrk.netdev = ndev;
+-	net_device_ctx->gwrk.net_device_ctx = net_device_ctx;
+-	schedule_work(&net_device_ctx->gwrk.dwrk);
++
++	/* Now notify peers through netvsc device. */
++	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, ndev);
+ 
+ 	return NOTIFY_OK;
+ }
+@@ -1372,7 +1350,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 	hv_set_drvdata(dev, net);
+ 	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
+ 	INIT_WORK(&net_device_ctx->work, do_set_multicast);
+-	INIT_WORK(&net_device_ctx->gwrk.dwrk, netvsc_notify_peers);
+ 
+ 	spin_lock_init(&net_device_ctx->lock);
+ 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
+-- 
+2.17.1
+

@@ -1,7 +1,4 @@
-From a4fa958688262c2ed9106092b19148a025756ed4 Mon Sep 17 00:00:00 2001
-Message-Id: <a4fa958688262c2ed9106092b19148a025756ed4.1562718059.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 92fd1d7303c41315c4781eee74ba6099d1820bd7 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:17 +0200
 Subject: x86/hyper-v: Implement rep hypercalls

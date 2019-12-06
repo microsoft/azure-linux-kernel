@@ -1,7 +1,4 @@
-From 7f3bf6c9ec09ce430919b3a3b53ae77c1e251745 Mon Sep 17 00:00:00 2001
-Message-Id: <7f3bf6c9ec09ce430919b3a3b53ae77c1e251745.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 6c69474eaa502ac1f18b4b5b915d8b29f1fcec01 Mon Sep 17 00:00:00 2001
 From: Jork Loeser <jloeser@microsoft.com>
 Date: Wed, 24 May 2017 13:41:28 -0700
 Subject: PCI: hv: Use vPCI protocol version 1.2

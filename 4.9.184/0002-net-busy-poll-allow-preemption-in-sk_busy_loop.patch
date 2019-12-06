@@ -1,7 +1,4 @@
-From 7176da315bfdb9e2763d931c35e3234a13e4d7a1 Mon Sep 17 00:00:00 2001
-Message-Id: <7176da315bfdb9e2763d931c35e3234a13e4d7a1.1562718057.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 49dd89d17d8580014a3f8c82771cf4285ed2680e Mon Sep 17 00:00:00 2001
 From: Eric Dumazet <edumazet@google.com>
 Date: Tue, 15 Nov 2016 10:15:11 -0800
 Subject: net: busy-poll: allow preemption in sk_busy_loop()

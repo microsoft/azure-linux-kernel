@@ -1,7 +1,4 @@
-From 10438a608f2c1d7563f0c8cf2d559dbecfd04927 Mon Sep 17 00:00:00 2001
-Message-Id: <10438a608f2c1d7563f0c8cf2d559dbecfd04927.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From b61e6a1933532f6bd3b4e0adae12e447092bc658 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Mon, 24 Jul 2017 10:57:29 -0700
 Subject: netvsc: include rtnetlink.h

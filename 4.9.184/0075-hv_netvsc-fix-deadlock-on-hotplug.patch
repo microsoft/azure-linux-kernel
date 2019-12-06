@@ -1,7 +1,4 @@
-From c82c46d27c911b9a7a95cc980199f5d58622cf02 Mon Sep 17 00:00:00 2001
-Message-Id: <c82c46d27c911b9a7a95cc980199f5d58622cf02.1562718059.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From da6e9104d66d01b6204bd4c97e50c00e5d5b18ae Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Wed, 6 Sep 2017 13:53:05 -0700
 Subject: hv_netvsc: fix deadlock on hotplug
@@ -93,7 +90,7 @@ index 6ccf09b87c00..20039af1a554 100644
  
  	atomic_t next_gpadl_handle;
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index e059d967be74..4ed1b5351882 100644
+index d02601bbae80..a4c534e03f1e 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
 @@ -151,6 +151,8 @@ struct netvsc_device_info {
@@ -143,7 +140,7 @@ index e059d967be74..4ed1b5351882 100644
  	spinlock_t sc_lock; /* Protects num_sc_offered variable */
  	u32 num_sc_offered;
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index c0ce9201d072..8075144802ef 100644
+index c0ce9201d072..55fec984bcaa 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
 @@ -73,6 +73,8 @@ static struct netvsc_device *alloc_net_device(void)
@@ -213,7 +210,7 @@ index c0ce9201d072..8075144802ef 100644
  
  	if (unlikely(filled > NAPI_POLL_WEIGHT)) {
 -		send_recv_completions(nvchan);
-+		send_recv_completions(ndev, nvdev, nvchan);	
++		send_recv_completions(ndev, nvdev, nvchan);
  		recv_comp_slot_avail(nvdev, mrc, &filled, &avail);
  	}
  
@@ -441,7 +438,7 @@ index 00144ae34849..73d2499fd48b 100644
  
  	unregister_netdev(net);
 diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 88367895350f..8253ea67a6ab 100644
+index 975ad9765a89..15e3e16a6e8d 100644
 --- a/drivers/net/hyperv/rndis_filter.c
 +++ b/drivers/net/hyperv/rndis_filter.c
 @@ -717,7 +717,7 @@ rndis_filter_set_offload_params(struct net_device *ndev,
@@ -737,7 +734,7 @@ index 88367895350f..8253ea67a6ab 100644
  
  int rndis_filter_open(struct netvsc_device *nvdev)
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 7ba742d14ce8..1443739392f0 100644
+index 7ba742d14ce8..e5279d44d8b4 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
 @@ -4892,6 +4892,19 @@ __sum16 __skb_gro_checksum_complete(struct sk_buff *skb)
@@ -772,7 +769,7 @@ index 7ba742d14ce8..1443739392f0 100644
 -							   &remsd->csd);
 -			remsd = next;
 -		}
-+ 		net_rps_send_ipi(remsd);
++		net_rps_send_ipi(remsd);
  	} else
  #endif
  		local_irq_enable();

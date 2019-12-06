@@ -1,7 +1,4 @@
-From 937207cb915f361f5c3297886076147fca46c722 Mon Sep 17 00:00:00 2001
-Message-Id: <937207cb915f361f5c3297886076147fca46c722.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 5a44f3a564876fde32ecbbedd78232339b1c6aed Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:07 -0800
 Subject: netvsc: group all per-channel state together
@@ -11,6 +8,8 @@ Put all the per-channel state together in one data struct.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit b8b835a89b2f7a7fe681983dfe5c489cb9ad9500)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
 ---
  drivers/net/hyperv/hyperv_net.h   | 19 +++----
  drivers/net/hyperv/netvsc.c       | 85 +++++++++++++++----------------

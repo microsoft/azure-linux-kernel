@@ -1,7 +1,4 @@
-From 0031b7731339a7117b427248fd86b7ea61a2a807 Mon Sep 17 00:00:00 2001
-Message-Id: <0031b7731339a7117b427248fd86b7ea61a2a807.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 77a26e0250fba7e15417518c807add2cfdbd21d4 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 19 Jul 2017 11:53:15 -0700
 Subject: netvsc: change logic for change mtu and set_queues

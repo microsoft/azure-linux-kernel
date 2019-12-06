@@ -1,7 +1,4 @@
-From e7104c2e0b4dc4374b0e7204485431f320bd3320 Mon Sep 17 00:00:00 2001
-Message-Id: <e7104c2e0b4dc4374b0e7204485431f320bd3320.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 2427dac34083e53143cb836a397f47c188abac7a Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Thu, 31 Aug 2017 16:16:12 -0700
 Subject: netvsc: cleanup datapath switch

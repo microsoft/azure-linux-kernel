@@ -1,7 +1,4 @@
-From e4260ed5bd6cc8b8d14aa43f1e3eafbed3ab4623 Mon Sep 17 00:00:00 2001
-Message-Id: <e4260ed5bd6cc8b8d14aa43f1e3eafbed3ab4623.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 744f9bad419df334d64d7c71f758b67bfb6c05e1 Mon Sep 17 00:00:00 2001
 From: Alex Ng <alexng@messages.microsoft.com>
 Date: Sat, 28 Jan 2017 12:37:18 -0700
 Subject: Drivers: hv: Log the negotiated IC versions.

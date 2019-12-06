@@ -1,7 +1,4 @@
-From 23a7850fa5b5afdadeb20dd957149e129d17b370 Mon Sep 17 00:00:00 2001
-Message-Id: <23a7850fa5b5afdadeb20dd957149e129d17b370.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 789b03c71cb518bc59e763329a7e1117afac3628 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Mon, 27 Feb 2017 10:26:49 -0800
 Subject: netvsc: implement NAPI

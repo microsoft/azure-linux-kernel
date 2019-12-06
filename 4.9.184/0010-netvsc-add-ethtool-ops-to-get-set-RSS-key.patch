@@ -1,7 +1,4 @@
-From 7cd06c62b8c81aa163d3d655a78df8e4d1a6beec Mon Sep 17 00:00:00 2001
-Message-Id: <7cd06c62b8c81aa163d3d655a78df8e4d1a6beec.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 5edbea735d1bc2d7d126062a16d1e4891e36c3cb Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:02 -0800
 Subject: netvsc: add ethtool ops to get/set RSS key

@@ -1,7 +1,4 @@
-From d029abbd1c722d1c21feb2786d2e6c6b087f673f Mon Sep 17 00:00:00 2001
-Message-Id: <d029abbd1c722d1c21feb2786d2e6c6b087f673f.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From e7c3b04884b1e58c18dfd4e145f7c637390caab5 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Thu, 8 Jun 2017 16:21:22 -0700
 Subject: netvsc: pass net_device to netvsc_init_buf and netvsc_connect_vsp

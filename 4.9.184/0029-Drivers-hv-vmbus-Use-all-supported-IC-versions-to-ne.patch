@@ -1,7 +1,4 @@
-From ae5e2e2c7e09ab05295814d4f40fed44f40bf508 Mon Sep 17 00:00:00 2001
-Message-Id: <ae5e2e2c7e09ab05295814d4f40fed44f40bf508.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 267c85bb129e88bfb116b943700194a157e1ff85 Mon Sep 17 00:00:00 2001
 From: Alex Ng <alexng@messages.microsoft.com>
 Date: Sat, 28 Jan 2017 12:37:17 -0700
 Subject: Drivers: hv: vmbus: Use all supported IC versions to negotiate

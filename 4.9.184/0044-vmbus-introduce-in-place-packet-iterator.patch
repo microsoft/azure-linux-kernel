@@ -1,7 +1,4 @@
-From 95fee6dd77b982f51db5b18d875ffadc47b3d1e8 Mon Sep 17 00:00:00 2001
-Message-Id: <95fee6dd77b982f51db5b18d875ffadc47b3d1e8.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From 201920e19d9a60bd4ffec08622af16383297d3b4 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Mon, 27 Feb 2017 10:26:48 -0800
 Subject: vmbus: introduce in-place packet iterator
@@ -13,6 +10,8 @@ to use for other drivers and NAPI.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit f3dd3f4797652c311df9c074436d420f1ad3566e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
 ---
  drivers/hv/ring_buffer.c    | 112 +++++++++++++++++++++++++++++-------
  drivers/net/hyperv/netvsc.c |  30 +++++-----
@@ -20,7 +19,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  3 files changed, 137 insertions(+), 101 deletions(-)
 
 diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
-index f30bd41642be..bc1e1ef8687f 100644
+index cb6a835622a4..5b3ab53d8250 100644
 --- a/drivers/hv/ring_buffer.c
 +++ b/drivers/hv/ring_buffer.c
 @@ -32,25 +32,7 @@

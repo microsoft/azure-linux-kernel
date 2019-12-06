@@ -1,7 +1,4 @@
-From fb4fd60176ed3a17fa1eab12d264e996c69ee31d Mon Sep 17 00:00:00 2001
-Message-Id: <fb4fd60176ed3a17fa1eab12d264e996c69ee31d.1562718058.git.joseph.salisbury@microsoft.com>
-In-Reply-To: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
-References: <d13aa469bfa8c3c6cb0a912dc8e88e2656e876f2.1562718057.git.joseph.salisbury@microsoft.com>
+From b7044e6bf6bf11f64fc4bf7c54718795ad29d6ff Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 16 Aug 2017 08:56:26 -0700
 Subject: vmbus: remove unused vmbus_sendpacket_ctl
