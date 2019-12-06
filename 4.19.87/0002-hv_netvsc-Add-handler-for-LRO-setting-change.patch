@@ -1,0 +1,128 @@
+From f485c3c13194a5a09cf5653ea66dbbd36637b760 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 21 Sep 2018 18:20:36 +0000
+Subject: hv_netvsc: Add handler for LRO setting change
+Reply-To: joseph.salisbury@microsoft.com
+
+This patch adds the handler for LRO setting change, so that a user
+can use ethtool command to enable / disable LRO feature.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit d6792a5a07479d27147c01ff22041409d5e4ce4c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |  4 ++++
+ drivers/net/hyperv/netvsc_drv.c   | 30 ++++++++++++++++++++++++++++++
+ drivers/net/hyperv/rndis_filter.c | 11 ++++++++---
+ 3 files changed, 42 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index ecf8281e38d7..fb3d1903dd5e 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -187,6 +187,7 @@ struct rndis_device {
+ 
+ /* Interface */
+ struct rndis_message;
++struct ndis_offload_params;
+ struct netvsc_device;
+ struct netvsc_channel;
+ struct net_device_context;
+@@ -222,6 +223,9 @@ void rndis_filter_device_remove(struct hv_device *dev,
+ 				struct netvsc_device *nvdev);
+ int rndis_filter_set_rss_param(struct rndis_device *rdev,
+ 			       const u8 *key);
++int rndis_filter_set_offload_params(struct net_device *ndev,
++				    struct netvsc_device *nvdev,
++				    struct ndis_offload_params *req_offloads);
+ int rndis_filter_receive(struct net_device *ndev,
+ 			 struct netvsc_device *net_dev,
+ 			 struct netvsc_channel *nvchan,
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 3598ce3a5c2a..9aef11ff54cc 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1083,6 +1083,8 @@ static void netvsc_init_settings(struct net_device *dev)
+ 
+ 	ndc->speed = SPEED_UNKNOWN;
+ 	ndc->duplex = DUPLEX_FULL;
++
++	dev->features = NETIF_F_LRO;
+ }
+ 
+ static int netvsc_get_link_ksettings(struct net_device *dev,
+@@ -1815,6 +1817,33 @@ static int netvsc_set_ringparam(struct net_device *ndev,
+ 	return ret;
+ }
+ 
++static int netvsc_set_features(struct net_device *ndev,
++			       netdev_features_t features)
++{
++	netdev_features_t change = features ^ ndev->features;
++	struct net_device_context *ndevctx = netdev_priv(ndev);
++	struct netvsc_device *nvdev = rtnl_dereference(ndevctx->nvdev);
++	struct ndis_offload_params offloads;
++
++	if (!nvdev || nvdev->destroy)
++		return -ENODEV;
++
++	if (!(change & NETIF_F_LRO))
++		return 0;
++
++	memset(&offloads, 0, sizeof(struct ndis_offload_params));
++
++	if (features & NETIF_F_LRO) {
++		offloads.rsc_ip_v4 = NDIS_OFFLOAD_PARAMETERS_RSC_ENABLED;
++		offloads.rsc_ip_v6 = NDIS_OFFLOAD_PARAMETERS_RSC_ENABLED;
++	} else {
++		offloads.rsc_ip_v4 = NDIS_OFFLOAD_PARAMETERS_RSC_DISABLED;
++		offloads.rsc_ip_v6 = NDIS_OFFLOAD_PARAMETERS_RSC_DISABLED;
++	}
++
++	return rndis_filter_set_offload_params(ndev, nvdev, &offloads);
++}
++
+ static u32 netvsc_get_msglevel(struct net_device *ndev)
+ {
+ 	struct net_device_context *ndev_ctx = netdev_priv(ndev);
+@@ -1858,6 +1887,7 @@ static const struct net_device_ops device_ops = {
+ 	.ndo_start_xmit =		netvsc_start_xmit,
+ 	.ndo_change_rx_flags =		netvsc_change_rx_flags,
+ 	.ndo_set_rx_mode =		netvsc_set_rx_mode,
++	.ndo_set_features =		netvsc_set_features,
+ 	.ndo_change_mtu =		netvsc_change_mtu,
+ 	.ndo_validate_addr =		eth_validate_addr,
+ 	.ndo_set_mac_address =		netvsc_set_mac_addr,
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 4e01bbdc2808..db81378e6624 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -716,7 +716,7 @@ int rndis_filter_set_device_mac(struct netvsc_device *nvdev,
+ 	return ret;
+ }
+ 
+-static int
++int
+ rndis_filter_set_offload_params(struct net_device *ndev,
+ 				struct netvsc_device *nvdev,
+ 				struct ndis_offload_params *req_offloads)
+@@ -1264,8 +1264,13 @@ static int rndis_netdev_set_hwcaps(struct rndis_device *rndis_device,
+ 	if (hwcaps.rsc.ip4 && hwcaps.rsc.ip6) {
+ 		net->hw_features |= NETIF_F_LRO;
+ 
+-		offloads.rsc_ip_v4 = NDIS_OFFLOAD_PARAMETERS_RSC_ENABLED;
+-		offloads.rsc_ip_v6 = NDIS_OFFLOAD_PARAMETERS_RSC_ENABLED;
++		if (net->features & NETIF_F_LRO) {
++			offloads.rsc_ip_v4 = NDIS_OFFLOAD_PARAMETERS_RSC_ENABLED;
++			offloads.rsc_ip_v6 = NDIS_OFFLOAD_PARAMETERS_RSC_ENABLED;
++		} else {
++			offloads.rsc_ip_v4 = NDIS_OFFLOAD_PARAMETERS_RSC_DISABLED;
++			offloads.rsc_ip_v6 = NDIS_OFFLOAD_PARAMETERS_RSC_DISABLED;
++		}
+ 	}
+ 
+ 	/* In case some hw_features disappeared we need to remove them from
+-- 
+2.17.1
+
