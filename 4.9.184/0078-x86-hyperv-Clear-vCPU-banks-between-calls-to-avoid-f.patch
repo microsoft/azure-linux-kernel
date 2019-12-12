@@ -1,0 +1,108 @@
+From fb74d7e6416524ee029da9cf7c64463726bbf05b Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Fri, 6 Oct 2017 17:48:54 +0200
+Subject: x86/hyperv: Clear vCPU banks between calls to avoid flushing unneeded
+ vCPUs
+Reply-To: joseph.salisbury@microsoft.com
+
+hv_flush_pcpu_ex structures are not cleared between calls for performance
+reasons (they're variable size up to PAGE_SIZE each) but we must clear
+hv_vp_set.bank_contents part of it to avoid flushing unneeded vCPUs. The
+rest of the structure is formed correctly.
+
+To do the clearing in an efficient way stash the maximum possible vCPU
+number (this may differ from Linux CPU id).
+
+Reported-by: Jork Loeser <Jork.Loeser@microsoft.com>
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Cc: Dexuan Cui <decui@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: devel@linuxdriverproject.org
+Link: http://lkml.kernel.org/r/20171006154854.18092-1-vkuznets@redhat.com
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+(cherry picked from commit a3b7424392924e778b608e30ee321f7b10cc94b8)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c       |  5 +++++
+ arch/x86/hyperv/mmu.c           | 17 ++++++++++++-----
+ arch/x86/include/asm/mshyperv.h |  1 +
+ 3 files changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index 06d572385eae..dca9145eae68 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -109,6 +109,8 @@ EXPORT_SYMBOL_GPL(hyperv_cs);
+ u32 *hv_vp_index;
+ EXPORT_SYMBOL_GPL(hv_vp_index);
+ 
++u32 hv_max_vp_index;
++
+ static int hv_cpu_init(unsigned int cpu)
+ {
+ 	u64 msr_vp_index;
+@@ -117,6 +119,9 @@ static int hv_cpu_init(unsigned int cpu)
+ 
+ 	hv_vp_index[smp_processor_id()] = msr_vp_index;
+ 
++	if (msr_vp_index > hv_max_vp_index)
++		hv_max_vp_index = msr_vp_index;
++
+ 	return 0;
+ }
+ 
+diff --git a/arch/x86/hyperv/mmu.c b/arch/x86/hyperv/mmu.c
+index 39e7f6e50919..9502d04c0c95 100644
+--- a/arch/x86/hyperv/mmu.c
++++ b/arch/x86/hyperv/mmu.c
+@@ -76,6 +76,18 @@ static inline int cpumask_to_vp_set(struct hv_flush_pcpu_ex *flush,
+ {
+ 	int cpu, vcpu, vcpu_bank, vcpu_offset, nr_bank = 1;
+ 
++	/* valid_bank_mask can represent up to 64 banks */
++	if (hv_max_vp_index / 64 >= 64)
++		return 0;
++
++	/*
++	 * Clear all banks up to the maximum possible bank as hv_flush_pcpu_ex
++	 * structs are not cleared between calls, we risk flushing unneeded
++	 * vCPUs otherwise.
++	 */
++	for (vcpu_bank = 0; vcpu_bank <= hv_max_vp_index / 64; vcpu_bank++)
++		flush->hv_vp_set.bank_contents[vcpu_bank] = 0;
++
+ 	/*
+ 	 * Some banks may end up being empty but this is acceptable.
+ 	 */
+@@ -83,11 +95,6 @@ static inline int cpumask_to_vp_set(struct hv_flush_pcpu_ex *flush,
+ 		vcpu = hv_cpu_number_to_vp_number(cpu);
+ 		vcpu_bank = vcpu / 64;
+ 		vcpu_offset = vcpu % 64;
+-
+-		/* valid_bank_mask can represent up to 64 banks */
+-		if (vcpu_bank >= 64)
+-			return 0;
+-
+ 		__set_bit(vcpu_offset, (unsigned long *)
+ 			  &flush->hv_vp_set.bank_contents[vcpu_bank]);
+ 		if (vcpu_bank >= nr_bank)
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index 8b6247df9d7a..0a93758a2192 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -241,6 +241,7 @@ static inline u64 hv_do_rep_hypercall(u16 code, u16 rep_count, u16 varhead_size,
+  * to this information.
+  */
+ extern u32 *hv_vp_index;
++extern u32 hv_max_vp_index;
+ 
+ /**
+  * hv_cpu_number_to_vp_number() - Map CPU to VP.
+-- 
+2.17.1
+

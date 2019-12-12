@@ -1,0 +1,68 @@
+From 3c00f0dfc119b4eb720abdc916cda5c9129b30bc Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 11 Jun 2018 12:44:56 -0700
+Subject: hv_netvsc: move VF to same namespace as netvsc device
+Reply-To: joseph.salisbury@microsoft.com
+
+When VF is added, the paravirtual device is already present
+and may have been moved to another network namespace. For example,
+sometimes the management interface is put in another net namespace
+in some environments.
+
+The VF should get moved to where the netvsc device is when the
+VF is discovered. The user can move it later (if desired).
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit c0a41b887ce614279c51964509e8d715979ce1f2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 8e4a5b0651df..536c5471a113 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1851,6 +1851,7 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
+ 	struct net_device *ndev;
+ 	struct net_device_context *net_device_ctx;
+ 	struct netvsc_device *netvsc_dev;
++	int ret;
+ 
+ 	if (vf_netdev->addr_len != ETH_ALEN)
+ 		return NOTIFY_DONE;
+@@ -1869,11 +1870,29 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
+ 	if (!netvsc_dev || rtnl_dereference(net_device_ctx->vf_netdev))
+ 		return NOTIFY_DONE;
+ 
+-	if (netvsc_vf_join(vf_netdev, ndev) != 0)
++	/* if syntihetic interface is a different namespace,
++	 * then move the VF to that namespace; join will be
++	 * done again in that context.
++	 */
++	if (!net_eq(dev_net(ndev), dev_net(vf_netdev))) {
++		ret = dev_change_net_namespace(vf_netdev,
++					       dev_net(ndev), "eth%d");
++		if (ret)
++			netdev_err(vf_netdev,
++				   "could not move to same namespace as %s: %d\n",
++				   ndev->name, ret);
++		else
++			netdev_info(vf_netdev,
++				    "VF moved to namespace with: %s\n",
++				    ndev->name);
+ 		return NOTIFY_DONE;
++	}
+ 
+ 	netdev_info(ndev, "VF registering: %s\n", vf_netdev->name);
+ 
++	if (netvsc_vf_join(vf_netdev, ndev) != 0)
++		return NOTIFY_DONE;
++
+ 	dev_hold(vf_netdev);
+ 	rcu_assign_pointer(net_device_ctx->vf_netdev, vf_netdev);
+ 	return NOTIFY_OK;
+-- 
+2.17.1
+

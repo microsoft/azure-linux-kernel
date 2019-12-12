@@ -1,4 +1,4 @@
-From 9b02dc898c989ecfe26c3c4c71eb1e4b019d36da Mon Sep 17 00:00:00 2001
+From 74957787c9c83239119730b5584cd1a73364fd62 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Thu, 16 Mar 2017 16:12:37 -0700
 Subject: netvsc: avoid race with callback

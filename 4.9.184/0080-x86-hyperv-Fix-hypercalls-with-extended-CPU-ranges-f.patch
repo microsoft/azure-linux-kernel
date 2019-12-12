@@ -1,0 +1,70 @@
+From a116dc051e7651d94228bbca9c3dc8c2816c3aa1 Mon Sep 17 00:00:00 2001
+From: Marcelo Henrique Cerri <marcelo.cerri@canonical.com>
+Date: Thu, 5 Oct 2017 10:34:29 -0300
+Subject: x86/hyperv: Fix hypercalls with extended CPU ranges for TLB flushing
+Reply-To: joseph.salisbury@microsoft.com
+
+Do not consider the fixed size of hv_vp_set when passing the variable
+header size to hv_do_rep_hypercall().
+
+The Hyper-V hypervisor specification states that for a hypercall with a
+variable header only the size of the variable portion should be supplied
+via the input control.
+
+For HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE_EX/LIST_EX calls that means the
+fixed portion of hv_vp_set should not be considered.
+
+That fixes random failures of some applications that are unexpectedly
+killed with SIGBUS or SIGSEGV.
+
+Signed-off-by: Marcelo Henrique Cerri <marcelo.cerri@canonical.com>
+Cc: Dexuan Cui <decui@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Jork Loeser <Jork.Loeser@microsoft.com>
+Cc: Josh Poulson <jopoulso@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Simon Xiao <sixiao@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Vitaly Kuznetsov <vkuznets@redhat.com>
+Cc: devel@linuxdriverproject.org
+Fixes: 628f54cc6451 ("x86/hyper-v: Support extended CPU ranges for TLB flush hypercalls")
+Link: http://lkml.kernel.org/r/1507210469-29065-1-git-send-email-marcelo.cerri@canonical.com
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+(cherry picked from commit ab7ff471aa5db670197070760f022622793da7e5)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/mmu.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/x86/hyperv/mmu.c b/arch/x86/hyperv/mmu.c
+index f21cebbb5f6c..9cc9e1c1e2db 100644
+--- a/arch/x86/hyperv/mmu.c
++++ b/arch/x86/hyperv/mmu.c
+@@ -251,18 +251,18 @@ static void hyperv_flush_tlb_others_ex(const struct cpumask *cpus,
+ 		flush->flags |= HV_FLUSH_NON_GLOBAL_MAPPINGS_ONLY;
+ 		status = hv_do_rep_hypercall(
+ 			HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE_EX,
+-			0, nr_bank + 2, flush, NULL);
++			0, nr_bank, flush, NULL);
+ 	} else if (info->end &&
+ 		   ((info->end - info->start)/HV_TLB_FLUSH_UNIT) > max_gvas) {
+ 		status = hv_do_rep_hypercall(
+ 			HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE_EX,
+-			0, nr_bank + 2, flush, NULL);
++			0, nr_bank, flush, NULL);
+ 	} else {
+ 		gva_n = fill_gva_list(flush->gva_list, nr_bank,
+ 				      info->start, info->end);
+ 		status = hv_do_rep_hypercall(
+ 			HVCALL_FLUSH_VIRTUAL_ADDRESS_LIST_EX,
+-			gva_n, nr_bank + 2, flush, NULL);
++			gva_n, nr_bank, flush, NULL);
+ 	}
+ 
+ 	local_irq_restore(flags);
+-- 
+2.17.1
+

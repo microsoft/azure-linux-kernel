@@ -1,0 +1,39 @@
+From 29d4f49e5d7ae5e4a382027156b6e61ae266a2ca Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed, 9 May 2018 14:09:04 -0700
+Subject: hv_netvsc: set master device
+Reply-To: joseph.salisbury@microsoft.com
+
+The hyper-v transparent bonding should have used master_dev_link.
+The netvsc device should look like a master bond device not
+like the upper side of a tunnel.
+
+This makes the semantics the same so that userspace applications
+looking at network devices see the correct master relationshipship.
+
+Fixes: 0c195567a8f6 ("netvsc: transparent VF management")
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 97f3efb64323beb0690576e9d74e94998ad6e82a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 523235f4c8bb..cb7cc368bf71 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1783,7 +1783,8 @@ static int netvsc_vf_join(struct net_device *vf_netdev,
+ 		goto rx_handler_failed;
+ 	}
+ 
+-	ret = netdev_upper_dev_link(vf_netdev, ndev);
++	ret = netdev_master_upper_dev_link(vf_netdev, ndev,
++					   NULL, NULL);
+ 	if (ret != 0) {
+ 		netdev_err(vf_netdev,
+ 			   "can not set master device %s (err = %d)\n",
+-- 
+2.17.1
+

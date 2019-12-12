@@ -1,4 +1,4 @@
-From ebfcd58a0a5a85e2ba1bdd9eba49965eee0f9fcf Mon Sep 17 00:00:00 2001
+From 828d25b5385bf109d779998400bc62bcc243608e Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:46 -0700
 Subject: Drivers: hv: vmbus: Consolidate all Hyper-V specific clocksource code

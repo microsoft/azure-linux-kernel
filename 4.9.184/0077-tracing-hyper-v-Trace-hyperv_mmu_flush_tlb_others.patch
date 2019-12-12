@@ -1,0 +1,126 @@
+From 864daf13672fa54285b2a94c7ca424f7f86e25cf Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 2 Aug 2017 18:09:21 +0200
+Subject: tracing/hyper-v: Trace hyperv_mmu_flush_tlb_others()
+Reply-To: joseph.salisbury@microsoft.com
+
+Add Hyper-V tracing subsystem and trace hyperv_mmu_flush_tlb_others().
+Tracing is done the same way we do xen_mmu_flush_tlb_others().
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+Reviewed-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Jork Loeser <Jork.Loeser@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Simon Xiao <sixiao@microsoft.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: devel@linuxdriverproject.org
+Link: http://lkml.kernel.org/r/20170802160921.21791-10-vkuznets@redhat.com
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+(cherry picked from commit 773b79f7a7c7839fb9d09c0e206734173a8b0a6b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ MAINTAINERS                         |  1 +
+ arch/x86/hyperv/mmu.c               |  7 +++++
+ arch/x86/include/asm/trace/hyperv.h | 40 +++++++++++++++++++++++++++++
+ 3 files changed, 48 insertions(+)
+ create mode 100644 arch/x86/include/asm/trace/hyperv.h
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 46088cc10b1f..80496c8272d5 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5844,6 +5844,7 @@ M:	Haiyang Zhang <haiyangz@microsoft.com>
+ L:	devel@linuxdriverproject.org
+ S:	Maintained
+ F:	arch/x86/include/asm/mshyperv.h
++F:	arch/x86/include/asm/trace/hyperv.h
+ F:	arch/x86/include/uapi/asm/hyperv.h
+ F:	arch/x86/kernel/cpu/mshyperv.c
+ F:	arch/x86/hyperv
+diff --git a/arch/x86/hyperv/mmu.c b/arch/x86/hyperv/mmu.c
+index 51b44be03f50..39e7f6e50919 100644
+--- a/arch/x86/hyperv/mmu.c
++++ b/arch/x86/hyperv/mmu.c
+@@ -10,6 +10,9 @@
+ #include <asm/msr.h>
+ #include <asm/tlbflush.h>
+ 
++#define CREATE_TRACE_POINTS
++#include <asm/trace/hyperv.h>
++
+ /* HvFlushVirtualAddressSpace, HvFlushVirtualAddressList hypercalls */
+ struct hv_flush_pcpu {
+ 	u64 address_space;
+@@ -103,6 +106,8 @@ static void hyperv_flush_tlb_others(const struct cpumask *cpus,
+ 	u64 status = U64_MAX;
+ 	unsigned long flags;
+ 
++	trace_hyperv_mmu_flush_tlb_others(cpus, info);
++
+ 	if (!pcpu_flush || !hv_hypercall_pg)
+ 		goto do_native;
+ 
+@@ -172,6 +177,8 @@ static void hyperv_flush_tlb_others_ex(const struct cpumask *cpus,
+ 	u64 status = U64_MAX;
+ 	unsigned long flags;
+ 
++	trace_hyperv_mmu_flush_tlb_others(cpus, info);
++
+ 	if (!pcpu_flush_ex || !hv_hypercall_pg)
+ 		goto do_native;
+ 
+diff --git a/arch/x86/include/asm/trace/hyperv.h b/arch/x86/include/asm/trace/hyperv.h
+new file mode 100644
+index 000000000000..4253bca99989
+--- /dev/null
++++ b/arch/x86/include/asm/trace/hyperv.h
+@@ -0,0 +1,40 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM hyperv
++
++#if !defined(_TRACE_HYPERV_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HYPERV_H
++
++#include <linux/tracepoint.h>
++
++#if IS_ENABLED(CONFIG_HYPERV)
++
++TRACE_EVENT(hyperv_mmu_flush_tlb_others,
++	    TP_PROTO(const struct cpumask *cpus,
++		     const struct flush_tlb_info *info),
++	    TP_ARGS(cpus, info),
++	    TP_STRUCT__entry(
++		    __field(unsigned int, ncpus)
++		    __field(struct mm_struct *, mm)
++		    __field(unsigned long, addr)
++		    __field(unsigned long, end)
++		    ),
++	    TP_fast_assign(__entry->ncpus = cpumask_weight(cpus);
++			   __entry->mm = info->mm;
++			   __entry->addr = info->start;
++			   __entry->end = info->end;
++		    ),
++	    TP_printk("ncpus %d mm %p addr %lx, end %lx",
++		      __entry->ncpus, __entry->mm,
++		      __entry->addr, __entry->end)
++	);
++
++#endif /* CONFIG_HYPERV */
++
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH asm/trace/
++#undef TRACE_INCLUDE_FILE
++#define TRACE_INCLUDE_FILE hyperv
++#endif /* _TRACE_HYPERV_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+-- 
+2.17.1
+

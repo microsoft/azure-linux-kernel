@@ -1,4 +1,4 @@
-From b20012594045bf9b4c44dd8fdcea28d4ef07d8cd Mon Sep 17 00:00:00 2001
+From 5746e04d67e90f9cd7c20cf13a5f5e15d6f4267b Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Sat, 4 Mar 2017 18:13:58 -0700
 Subject: vmbus: remove hv_event_tasklet_disable/enable

@@ -1,0 +1,373 @@
+From f3d5d185716fa620068ee22944de4e8835d22750 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 2 Aug 2017 18:09:18 +0200
+Subject: hyper-v: Globalize vp_index
+Reply-To: joseph.salisbury@microsoft.com
+
+To support implementing remote TLB flushing on Hyper-V with a hypercall
+we need to make vp_index available outside of vmbus module. Rename and
+globalize.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Jork Loeser <Jork.Loeser@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Simon Xiao <sixiao@microsoft.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: devel@linuxdriverproject.org
+Link: http://lkml.kernel.org/r/20170802160921.21791-7-vkuznets@redhat.com
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+(backported from commit 7415aea6072bab15969b6c3c5b2a193d88095326)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c       | 35 ++++++++++++++++++++++-
+ arch/x86/include/asm/mshyperv.h | 24 ++++++++++++++++
+ drivers/hv/channel_mgmt.c       |  7 ++---
+ drivers/hv/connection.c         |  8 ++++--
+ drivers/hv/hv.c                 |  9 ------
+ drivers/hv/hyperv_vmbus.h       | 11 --------
+ drivers/hv/vmbus_drv.c          | 17 -----------
+ drivers/pci/host/pci-hyperv.c   | 50 ++-------------------------------
+ include/linux/hyperv.h          |  1 -
+ 9 files changed, 69 insertions(+), 93 deletions(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index e5570fae53ca..f18da9a7cd7a 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -25,6 +25,9 @@
+ #include <linux/vmalloc.h>
+ #include <linux/mm.h>
+ #include <linux/clockchips.h>
++#include <linux/hyperv.h>
++#include <linux/slab.h>
++#include <linux/cpuhotplug.h>
+ 
+ 
+ #ifdef CONFIG_X86_64
+@@ -103,6 +106,20 @@ EXPORT_SYMBOL_GPL(hv_hypercall_pg);
+ struct clocksource *hyperv_cs;
+ EXPORT_SYMBOL_GPL(hyperv_cs);
+ 
++u32 *hv_vp_index;
++EXPORT_SYMBOL_GPL(hv_vp_index);
++
++static int hv_cpu_init(unsigned int cpu)
++{
++	u64 msr_vp_index;
++
++	hv_get_vp_index(msr_vp_index);
++
++	hv_vp_index[smp_processor_id()] = msr_vp_index;
++
++	return 0;
++}
++
+ /*
+  * This function is to be invoked early in the boot sequence after the
+  * hypervisor has been detected.
+@@ -118,6 +135,16 @@ void hyperv_init(void)
+ 	if (x86_hyper != &x86_hyper_ms_hyperv)
+ 		return;
+ 
++	/* Allocate percpu VP index */
++	hv_vp_index = kmalloc_array(num_possible_cpus(), sizeof(*hv_vp_index),
++				    GFP_KERNEL);
++	if (!hv_vp_index)
++		return;
++
++	if (cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "x86/hyperv_init:online",
++			      hv_cpu_init, NULL) < 0)
++		goto free_vp_index;
++
+ 	/*
+ 	 * Setup the hypercall page and enable hypercalls.
+ 	 * 1. Register the guest ID
+@@ -129,7 +156,7 @@ void hyperv_init(void)
+ 	hv_hypercall_pg  = __vmalloc(PAGE_SIZE, GFP_KERNEL, PAGE_KERNEL_RX);
+ 	if (hv_hypercall_pg == NULL) {
+ 		wrmsrl(HV_X64_MSR_GUEST_OS_ID, 0);
+-		return;
++		goto free_vp_index;
+ 	}
+ 
+ 	rdmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+@@ -169,6 +196,12 @@ void hyperv_init(void)
+ 	hyperv_cs = &hyperv_cs_msr;
+ 	if (ms_hyperv.features & HV_X64_MSR_TIME_REF_COUNT_AVAILABLE)
+ 		clocksource_register_hz(&hyperv_cs_msr, NSEC_PER_SEC/100);
++
++	return;
++
++free_vp_index:
++	kfree(hv_vp_index);
++	hv_vp_index = NULL;
+ }
+ 
+ /*
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index 81026e72c917..81b778c87b45 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -234,6 +234,30 @@ static inline u64 hv_do_rep_hypercall(u16 code, u16 rep_count, u16 varhead_size,
+ 	return status;
+ }
+ 
++/*
++ * Hypervisor's notion of virtual processor ID is different from
++ * Linux' notion of CPU ID. This information can only be retrieved
++ * in the context of the calling CPU. Setup a map for easy access
++ * to this information.
++ */
++extern u32 *hv_vp_index;
++
++/**
++ * hv_cpu_number_to_vp_number() - Map CPU to VP.
++ * @cpu_number: CPU number in Linux terms
++ *
++ * This function returns the mapping between the Linux processor
++ * number and the hypervisor's virtual processor number, useful
++ * in making hypercalls and such that talk about specific
++ * processors.
++ *
++ * Return: Virtual processor number in Hyper-V terms
++ */
++static inline int hv_cpu_number_to_vp_number(int cpu_number)
++{
++	return hv_vp_index[cpu_number];
++}
++
+ void hyperv_init(void);
+ void hyperv_report_panic(struct pt_regs *regs);
+ bool hv_is_hypercall_page_setup(void);
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index 8150ec6b2b18..7fb903b7dbe1 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -597,7 +597,7 @@ static void init_vp_index(struct vmbus_channel *channel, u16 dev_type)
+ 		 */
+ 		channel->numa_node = 0;
+ 		channel->target_cpu = 0;
+-		channel->target_vp = hv_context.vp_index[0];
++		channel->target_vp = hv_cpu_number_to_vp_number(0);
+ 		return;
+ 	}
+ 
+@@ -681,7 +681,7 @@ static void init_vp_index(struct vmbus_channel *channel, u16 dev_type)
+ 	}
+ 
+ 	channel->target_cpu = cur_cpu;
+-	channel->target_vp = hv_context.vp_index[cur_cpu];
++	channel->target_vp = hv_cpu_number_to_vp_number(cur_cpu);
+ }
+ 
+ static void vmbus_wait_for_unload(void)
+@@ -1190,8 +1190,7 @@ struct vmbus_channel *vmbus_get_outgoing_channel(struct vmbus_channel *primary)
+ 		return outgoing_channel;
+ 	}
+ 
+-	cur_cpu = hv_context.vp_index[get_cpu()];
+-	put_cpu();
++	cur_cpu = hv_cpu_number_to_vp_number(smp_processor_id());
+ 	list_for_each_safe(cur, tmp, &primary->sc_list) {
+ 		cur_channel = list_entry(cur, struct vmbus_channel, sc_list);
+ 		if (cur_channel->state != CHANNEL_OPENED_STATE)
+diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
+index 077dc238d021..d7ec458700dc 100644
+--- a/drivers/hv/connection.c
++++ b/drivers/hv/connection.c
+@@ -94,9 +94,11 @@ static int vmbus_negotiate_version(struct vmbus_channel_msginfo *msginfo,
+ 	 * all the CPUs. This is needed for kexec to work correctly where
+ 	 * the CPU attempting to connect may not be CPU 0.
+ 	 */
+-	if (version >= VERSION_WIN8_1)
+-		msg->target_vcpu = hv_context.vp_index[smp_processor_id()];
+-	else
++	if (version >= VERSION_WIN8_1) {
++		msg->target_vcpu =
++			hv_cpu_number_to_vp_number(smp_processor_id());
++		vmbus_connection.connect_cpu = smp_processor_id();
++	} else {
+ 		msg->target_vcpu = 0;
+ 
+ 	/*
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index d9c54c29aa3a..4a94c6c0bae1 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -231,7 +231,6 @@ int hv_synic_init(unsigned int cpu)
+ 	union hv_synic_siefp siefp;
+ 	union hv_synic_sint shared_sint;
+ 	union hv_synic_scontrol sctrl;
+-	u64 vp_index;
+ 
+ 	/* Check the version */
+ 	rdmsrl(HV_X64_MSR_SVERSION, version);
+@@ -270,14 +269,6 @@ int hv_synic_init(unsigned int cpu)
+ 
+ 	hv_context.synic_initialized = true;
+ 
+-	/*
+-	 * Setup the mapping between Hyper-V's notion
+-	 * of cpuid and Linux' notion of cpuid.
+-	 * This array will be indexed using Linux cpuid.
+-	 */
+-	hv_get_vp_index(vp_index);
+-	hv_context.vp_index[cpu] = (u32)vp_index;
+-
+ 	/*
+ 	 * Register the per-cpu clockevent source.
+ 	 */
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index df52cbc78b45..6ccf09b87c00 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -326,17 +326,6 @@ struct hv_context {
+ 
+ 	struct hv_per_cpu_context __percpu *cpu_context;
+ 
+-	/*
+-	 * Hypervisor's notion of virtual processor ID is different from
+-	 * Linux' notion of CPU ID. This information can only be retrieved
+-	 * in the context of the calling CPU. Setup a map for easy access
+-	 * to this information:
+-	 *
+-	 * vp_index[a] is the Hyper-V's processor ID corresponding to
+-	 * Linux cpuid 'a'.
+-	 */
+-	u32 vp_index[NR_CPUS];
+-
+ 	/*
+ 	 * To manage allocations in a NUMA node.
+ 	 * Array indexed by numa node ID.
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index 41bf5471b368..624c0ffb9b6a 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -1318,23 +1318,6 @@ void vmbus_free_mmio(resource_size_t start, resource_size_t size)
+ }
+ EXPORT_SYMBOL_GPL(vmbus_free_mmio);
+ 
+-/**
+- * vmbus_cpu_number_to_vp_number() - Map CPU to VP.
+- * @cpu_number: CPU number in Linux terms
+- *
+- * This function returns the mapping between the Linux processor
+- * number and the hypervisor's virtual processor number, useful
+- * in making hypercalls and such that talk about specific
+- * processors.
+- *
+- * Return: Virtual processor number in Hyper-V terms
+- */
+-int vmbus_cpu_number_to_vp_number(int cpu_number)
+-{
+-	return hv_context.vp_index[cpu_number];
+-}
+-EXPORT_SYMBOL_GPL(vmbus_cpu_number_to_vp_number);
+-
+ static int vmbus_acpi_add(struct acpi_device *device)
+ {
+ 	acpi_status result;
+diff --git a/drivers/pci/host/pci-hyperv.c b/drivers/pci/host/pci-hyperv.c
+index 1fdae5833dd4..3ce3aa048fa8 100644
+--- a/drivers/pci/host/pci-hyperv.c
++++ b/drivers/pci/host/pci-hyperv.c
+@@ -560,50 +560,6 @@ static void put_pcichild(struct hv_pci_dev *hv_pcidev,
+ static void get_hvpcibus(struct hv_pcibus_device *hv_pcibus);
+ static void put_hvpcibus(struct hv_pcibus_device *hv_pcibus);
+ 
+-/*
+- * Temporary CPU to vCPU mapping to address transitioning
+- * vmbus_cpu_number_to_vp_number() being migrated to
+- * hv_cpu_number_to_vp_number() in a separate patch. Once that patch
+- * has been picked up in the main line, remove this code here and use
+- * the official code.
+- */
+-static struct hv_tmpcpumap
+-{
+-	bool initialized;
+-	u32 vp_index[NR_CPUS];
+-} hv_tmpcpumap;
+-
+-static void hv_tmpcpumap_init_cpu(void *_unused)
+-{
+-	int cpu = smp_processor_id();
+-	u64 vp_index;
+-
+-	hv_get_vp_index(vp_index);
+-
+-	hv_tmpcpumap.vp_index[cpu] = vp_index;
+-}
+-
+-static void hv_tmpcpumap_init(void)
+-{
+-	if (hv_tmpcpumap.initialized)
+-		return;
+-
+-	memset(hv_tmpcpumap.vp_index, -1, sizeof(hv_tmpcpumap.vp_index));
+-	on_each_cpu(hv_tmpcpumap_init_cpu, NULL, true);
+-	hv_tmpcpumap.initialized = true;
+-}
+-
+-/**
+- * hv_tmp_cpu_nr_to_vp_nr() - Convert Linux CPU nr to Hyper-V vCPU nr
+- *
+- * Remove once vmbus_cpu_number_to_vp_number() has been converted to
+- * hv_cpu_number_to_vp_number() and replace callers appropriately.
+- */
+-static u32 hv_tmp_cpu_nr_to_vp_nr(int cpu)
+-{
+-	return hv_tmpcpumap.vp_index[cpu];
+-}
+-
+ /**
+  * devfn_to_wslot() - Convert from Linux PCI slot to Windows
+  * @devfn:	The Linux representation of PCI slot
+@@ -967,7 +923,7 @@ void hv_irq_unmask(struct irq_data *data)
+ 		var_size = 1 + HV_VP_SET_BANK_COUNT_MAX;
+ 
+ 		for_each_cpu_and(cpu, dest, cpu_online_mask) {
+-			cpu_vmbus = hv_tmp_cpu_nr_to_vp_nr(cpu);
++			cpu_vmbus = hv_cpu_number_to_vp_number(cpu);
+ 
+ 			if (cpu_vmbus >= HV_VP_SET_BANK_COUNT_MAX * 64) {
+ 				dev_err(&hbus->hdev->device,
+@@ -982,7 +938,7 @@ void hv_irq_unmask(struct irq_data *data)
+ 	} else {
+ 		for_each_cpu_and(cpu, dest, cpu_online_mask) {
+ 			params->int_target.vp_mask |=
+-				(1ULL << hv_tmp_cpu_nr_to_vp_nr(cpu));
++				(1ULL << hv_cpu_number_to_vp_number(cpu));
+ 		}
+ 	}
+ 
+@@ -1059,7 +1015,7 @@ static u32 hv_compose_msi_req_v2(
+ 	 */
+ 	cpu = cpumask_first_and(affinity, cpu_online_mask);
+ 	int_pkt->int_desc.processor_array[0] =
+-		hv_tmp_cpu_nr_to_vp_nr(cpu);
++		hv_cpu_number_to_vp_number(cpu);
+ 	int_pkt->int_desc.processor_count = 1;
+ 
+ 	return sizeof(*int_pkt);
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 59cd43cd80f2..60bff5f0260e 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1170,7 +1170,6 @@ int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
+ 			resource_size_t size, resource_size_t align,
+ 			bool fb_overlap_ok);
+ void vmbus_free_mmio(resource_size_t start, resource_size_t size);
+-int vmbus_cpu_number_to_vp_number(int cpu_number);
+ 
+ /*
+  * GUID definitions of various offer types - services offered to the guest.
+-- 
+2.17.1
+

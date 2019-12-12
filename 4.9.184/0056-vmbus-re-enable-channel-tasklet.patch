@@ -1,4 +1,4 @@
-From 52ca6076ba0ce8b8eef539007965d0e208144222 Mon Sep 17 00:00:00 2001
+From af549cb4091dc88d9b303b1d7c7d5116648195b5 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sun, 25 Jun 2017 12:47:46 -0700
 Subject: vmbus: re-enable channel tasklet

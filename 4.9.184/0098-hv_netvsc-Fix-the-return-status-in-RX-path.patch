@@ -1,0 +1,86 @@
+From 33b117f17ddf4aeb6fc452c19306c0fe6782b58e Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Thu, 22 Mar 2018 12:01:13 -0700
+Subject: hv_netvsc: Fix the return status in RX path
+Reply-To: joseph.salisbury@microsoft.com
+
+As defined in hyperv_net.h, the NVSP_STAT_SUCCESS is one not zero.
+Some functions returns 0 when it actually means NVSP_STAT_SUCCESS.
+This patch fixes them.
+
+In netvsc_receive(), it puts the last RNDIS packet's receive status
+for all packets in a vmxferpage which may contain multiple RNDIS
+packets.
+This patch puts NVSP_STAT_FAIL in the receive completion if one of
+the packets in a vmxferpage fails.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 5c71dadbb45970a8f0544a27ae8f1cbd9750e516)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c       | 8 ++++++--
+ drivers/net/hyperv/netvsc_drv.c   | 6 ++----
+ drivers/net/hyperv/rndis_filter.c | 4 ++--
+ 3 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 08e8e2397df1..c88148df2140 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1096,12 +1096,16 @@ static int netvsc_receive(struct net_device *ndev,
+ 		void *data = recv_buf
+ 			+ vmxferpage_packet->ranges[i].byte_offset;
+ 		u32 buflen = vmxferpage_packet->ranges[i].byte_count;
++		int ret;
+ 
+ 		trace_rndis_recv(ndev, q_idx, data);
+ 
+ 		/* Pass it to the upper layer */
+-		status = rndis_filter_receive(ndev, net_device,
+-					      channel, data, buflen);
++		ret = rndis_filter_receive(ndev, net_device,
++					   channel, data, buflen);
++
++		if (unlikely(ret != NVSP_STAT_SUCCESS))
++			status = NVSP_STAT_FAIL;
+ 	}
+ 
+ 	enq_receive_complete(ndev, net_device, q_idx,
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index cf0b67ff795d..4574af0c914f 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -841,10 +841,8 @@ int netvsc_recv_callback(struct net_device *net,
+ 		++rx_stats->multicast;
+ 	u64_stats_update_end(&rx_stats->syncp);
+ 
+-	netif_receive_skb(skb);
+-	rcu_read_unlock();
+-
+-	return 0;
++	napi_gro_receive(&nvchan->napi, skb);
++	return NVSP_STAT_SUCCESS;
+ }
+ 
+ static void netvsc_get_drvinfo(struct net_device *net,
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index b361a1c11fce..c77a98150689 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -441,10 +441,10 @@ int rndis_filter_receive(struct net_device *ndev,
+ 			"unhandled rndis message (type %u len %u)\n",
+ 			   rndis_msg->ndis_msg_type,
+ 			   rndis_msg->msg_len);
+-		break;
++		return NVSP_STAT_FAIL;
+ 	}
+ 
+-	return 0;
++	return NVSP_STAT_SUCCESS;
+ }
+ 
+ static int rndis_filter_query_device(struct rndis_device *dev,
+-- 
+2.17.1
+

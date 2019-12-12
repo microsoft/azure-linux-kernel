@@ -1,0 +1,130 @@
+From c3552282a41271d1a92269e178ffd4dbbab8357b Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 12 Dec 2017 16:48:37 -0800
+Subject: hv_netvsc: simplify function args in receive status path
+Reply-To: joseph.salisbury@microsoft.com
+
+The caller (netvsc_receive) already has the net device pointer,
+and should just pass that to functions rather than the hyperv device.
+This eliminates several impossible error paths in the process.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 79cf1bae384cfc51b0b0773b3591794302af6ebd)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |  3 +--
+ drivers/net/hyperv/netvsc.c       |  2 +-
+ drivers/net/hyperv/netvsc_drv.c   | 12 ++----------
+ drivers/net/hyperv/rndis_filter.c |  9 +++------
+ 4 files changed, 7 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index a9e5315ce458..226b8eeace6b 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -198,7 +198,7 @@ int netvsc_send(struct net_device_context *ndc,
+ 		struct rndis_message *rndis_msg,
+ 		struct hv_page_buffer *page_buffer,
+ 		struct sk_buff *skb);
+-void netvsc_linkstatus_callback(struct hv_device *device_obj,
++void netvsc_linkstatus_callback(struct net_device *net,
+ 				struct rndis_message *resp);
+ int netvsc_recv_callback(struct net_device *net,
+ 			 struct vmbus_channel *channel,
+@@ -221,7 +221,6 @@ int rndis_filter_set_rss_param(struct rndis_device *rdev,
+ 			       const u8 *key);
+ int rndis_filter_receive(struct net_device *ndev,
+ 			 struct netvsc_device *net_dev,
+-			 struct hv_device *dev,
+ 			 struct vmbus_channel *channel,
+ 			 void *data, u32 buflen);
+ 
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 1dd1c1db43b6..3fd2a8018f31 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1080,7 +1080,7 @@ static int netvsc_receive(struct net_device *ndev,
+ 		u32 buflen = vmxferpage_packet->ranges[i].byte_count;
+ 
+ 		/* Pass it to the upper layer */
+-		status = rndis_filter_receive(ndev, net_device, device,
++		status = rndis_filter_receive(ndev, net_device,
+ 					      channel, data, buflen);
+ 	}
+ 
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index a7f9581e53fe..c26b43e42cb6 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -642,22 +642,14 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ /*
+  * netvsc_linkstatus_callback - Link up/down notification
+  */
+-void netvsc_linkstatus_callback(struct hv_device *device_obj,
++void netvsc_linkstatus_callback(struct net_device *net,
+ 				struct rndis_message *resp)
+ {
+ 	struct rndis_indicate_status *indicate = &resp->msg.indicate_status;
+-	struct net_device *net;
+-	struct net_device_context *ndev_ctx;
++	struct net_device_context *ndev_ctx = netdev_priv(net);
+ 	struct netvsc_reconfig *event;
+ 	unsigned long flags;
+ 
+-	net = hv_get_drvdata(device_obj);
+-
+-	if (!net)
+-		return;
+-
+-	ndev_ctx = netdev_priv(net);
+-
+ 	/* Update the physical link speed when changing to another vSwitch */
+ 	if (indicate->status == RNDIS_STATUS_LINK_SPEED_CHANGE) {
+ 		u32 speed;
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 15e3e16a6e8d..860273d90596 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -134,11 +134,9 @@ static void put_rndis_request(struct rndis_device *dev,
+ 	kfree(req);
+ }
+ 
+-static void dump_rndis_message(struct hv_device *hv_dev,
++static void dump_rndis_message(struct net_device *netdev,
+ 			       const struct rndis_message *rndis_msg)
+ {
+-	struct net_device *netdev = hv_get_drvdata(hv_dev);
+-
+ 	switch (rndis_msg->ndis_msg_type) {
+ 	case RNDIS_MSG_PACKET:
+ 		netdev_dbg(netdev, "RNDIS_MSG_PACKET (len %u, "
+@@ -397,7 +395,6 @@ static int rndis_filter_receive_data(struct net_device *ndev,
+ 
+ int rndis_filter_receive(struct net_device *ndev,
+ 			 struct netvsc_device *net_dev,
+-			 struct hv_device *dev,
+ 			 struct vmbus_channel *channel,
+ 			 void *data, u32 buflen)
+ {
+@@ -419,7 +416,7 @@ int rndis_filter_receive(struct net_device *ndev,
+ 	}
+ 
+ 	if (netif_msg_rx_status(net_device_ctx))
+-		dump_rndis_message(dev, rndis_msg);
++		dump_rndis_message(ndev, rndis_msg);
+ 
+ 	switch (rndis_msg->ndis_msg_type) {
+ 	case RNDIS_MSG_PACKET:
+@@ -434,7 +431,7 @@ int rndis_filter_receive(struct net_device *ndev,
+ 
+ 	case RNDIS_MSG_INDICATE:
+ 		/* notification msgs */
+-		netvsc_linkstatus_callback(dev, rndis_msg);
++		netvsc_linkstatus_callback(ndev, rndis_msg);
+ 		break;
+ 	default:
+ 		netdev_err(ndev,
+-- 
+2.17.1
+

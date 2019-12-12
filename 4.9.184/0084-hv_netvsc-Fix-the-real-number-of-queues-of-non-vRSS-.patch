@@ -1,0 +1,40 @@
+From 706667244693539e91abf65c844ba4a737847d19 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 22 Sep 2017 15:31:38 -0700
+Subject: hv_netvsc: Fix the real number of queues of non-vRSS cases
+Reply-To: joseph.salisbury@microsoft.com
+
+For older hosts without multi-channel (vRSS) support, and some error
+cases, we still need to set the real number of queues to one.
+This patch adds this missing setting.
+
+Fixes: 8195b1396ec8 ("hv_netvsc: fix deadlock on hotplug")
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 6450f8f269a9271985e4a8c13920b7e4cf21c0f3)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index df032d528c49..659b1ea1b9f8 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1911,6 +1911,12 @@ static int netvsc_probe(struct hv_device *dev,
+ 	/* We always need headroom for rndis header */
+ 	net->needed_headroom = RNDIS_AND_PPI_SIZE;
+ 
++	/* Initialize the number of queues to be 1, we may change it if more
++	 * channels are offered later.
++	 */
++	netif_set_real_num_tx_queues(net, 1);
++	netif_set_real_num_rx_queues(net, 1);
++
+ 	/* Notify the netvsc driver of the new device */
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+-- 
+2.17.1
+

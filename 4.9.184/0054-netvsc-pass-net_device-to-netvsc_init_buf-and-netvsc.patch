@@ -1,4 +1,4 @@
-From e7c3b04884b1e58c18dfd4e145f7c637390caab5 Mon Sep 17 00:00:00 2001
+From cd77e1972e3d31ee89b91dc5a168a590d065a7a2 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Thu, 8 Jun 2017 16:21:22 -0700
 Subject: netvsc: pass net_device to netvsc_init_buf and netvsc_connect_vsp

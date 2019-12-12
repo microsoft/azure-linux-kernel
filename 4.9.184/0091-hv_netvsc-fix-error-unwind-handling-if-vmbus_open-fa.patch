@@ -1,0 +1,39 @@
+From 343b8787ace49c9687b79f953593859452280ca4 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 2 Mar 2018 13:49:03 -0800
+Subject: hv_netvsc: fix error unwind handling if vmbus_open fails
+Reply-To: joseph.salisbury@microsoft.com
+
+Need to delete NAPI association if vmbus_open fails.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit fcfb4a00d1e514e8313277a01ef919de1113025b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 3fd2a8018f31..e9a32b29f040 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1286,7 +1286,6 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 			 net_device->chan_table);
+ 
+ 	if (ret != 0) {
+-		netif_napi_del(&net_device->chan_table[0].napi);
+ 		netdev_err(ndev, "unable to open channel: %d\n", ret);
+ 		goto cleanup;
+ 	}
+@@ -1319,6 +1318,7 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 	vmbus_close(device->channel);
+ 
+ cleanup:
++	netif_napi_del(&net_device->chan_table[0].napi);
+ 	free_netvsc_device(&net_device->rcu);
+ 
+ 	return ERR_PTR(ret);
+-- 
+2.17.1
+

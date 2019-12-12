@@ -1,4 +1,4 @@
-From 6a3d2449921aaee02dc7f9681e385da5538c94d7 Mon Sep 17 00:00:00 2001
+From 1e50a2ef9812596f3df5f4e6fc62f72b2058c4bf Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Fri, 6 Jan 2017 19:12:52 -0800
 Subject: net: make ndo_get_stats64 a void function

@@ -1,4 +1,4 @@
-From 744f9bad419df334d64d7c71f758b67bfb6c05e1 Mon Sep 17 00:00:00 2001
+From c44f7e98b9557663cbe4072769e8308a1ea5e6b1 Mon Sep 17 00:00:00 2001
 From: Alex Ng <alexng@messages.microsoft.com>
 Date: Sat, 28 Jan 2017 12:37:18 -0700
 Subject: Drivers: hv: Log the negotiated IC versions.

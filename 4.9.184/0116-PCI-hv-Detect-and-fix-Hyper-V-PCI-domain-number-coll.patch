@@ -1,0 +1,46 @@
+From 68bae5a679de5d176f479a90935624b7b3f2a109 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Thu, 15 Aug 2019 17:01:45 +0000
+Subject: PCI: hv: Detect and fix Hyper-V PCI domain number collision
+Reply-To: joseph.salisbury@microsoft.com
+
+Currently in Azure cloud, for passthrough devices, the host sets the
+device instance ID's bytes 8 - 15 to a value derived from the host HWID,
+which is the same on all devices in a VM. So, the device instance ID's
+bytes 8 and 9 provided by the host are no longer unique. This affects
+all Azure hosts since July 2018, and can cause device passthrough to VMs
+to fail because the bytes 8 and 9 are used as PCI domain number.
+Collision of domain numbers will cause the second device with the same
+domain number fail to load.
+
+In the cases of collision, we will detect and find another number that is
+not in use.
+
+Suggested-by: Michael Kelley <mikelley@microsoft.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>
+Acked-by: Sasha Levin <sashal@kernel.org>
+(backported from commit 87b20a08dcc265959f5c59f18603ea0487fe609b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/pci/host/pci-hyperv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/pci/host/pci-hyperv.c b/drivers/pci/host/pci-hyperv.c
+index 3ce3aa048fa8..ca7e64b44e7d 100644
+--- a/drivers/pci/host/pci-hyperv.c
++++ b/drivers/pci/host/pci-hyperv.c
+@@ -2437,8 +2437,8 @@ static int hv_pci_probe(struct hv_device *hdev,
+ 	 * between domains derived from these instance IDs in the same
+ 	 * VM.
+ 	 */
+-	hbus->sysdata.domain = hdev->dev_instance.b[9] |
+-			       hdev->dev_instance.b[8] << 8;
++	hbus->sysdata.domain = hdev->dev_instance.b[5] |
++			       hdev->dev_instance.b[4] << 8;
+ 
+ 	hbus->hdev = hdev;
+ 	atomic_inc(&hbus->remove_lock);
+-- 
+2.17.1
+

@@ -1,4 +1,4 @@
-From 21dd98c1c48fbac23e65ddce4c21009fd4adb6da Mon Sep 17 00:00:00 2001
+From fae587ee6346d57d881eec07e7cc649909f4c67b Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:52 -0700
 Subject: Drivers: hv: util: Use hv_get_current_tick() to get current tick

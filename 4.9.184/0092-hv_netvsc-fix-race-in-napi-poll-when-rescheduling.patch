@@ -1,0 +1,39 @@
+From cf492296b481f85e42bf1c0e51aec1be9ff2f69e Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 2 Mar 2018 13:49:05 -0800
+Subject: hv_netvsc: fix race in napi poll when rescheduling
+Reply-To: joseph.salisbury@microsoft.com
+
+There is a race between napi_reschedule and re-enabling interrupts
+which could lead to missed host interrrupts.  This occurs when
+interrupts are re-enabled (hv_end_read) and vmbus irq callback
+(netvsc_channel_cb) has already scheduled NAPI.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit d64e38ae690e3337db0d38d9b149a193a1646c4b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index e9a32b29f040..4bd560edfc6a 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1207,9 +1207,10 @@ int netvsc_poll(struct napi_struct *napi, int budget)
+ 	if (send_recv_completions(ndev, net_device, nvchan) == 0 &&
+ 	    work_done < budget &&
+ 	    napi_complete_done(napi, work_done) &&
+-	    hv_end_read(&channel->inbound)) {
++	    hv_end_read(&channel->inbound) &&
++	    napi_schedule_prep(napi)) {
+ 		hv_begin_read(&channel->inbound);
+-		napi_reschedule(napi);
++		__napi_schedule(napi);
+ 	}
+ 
+ 	/* Driver may overshoot since multiple packets per descriptor */
+-- 
+2.17.1
+

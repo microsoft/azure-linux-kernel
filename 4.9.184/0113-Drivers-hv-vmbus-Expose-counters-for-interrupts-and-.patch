@@ -1,0 +1,279 @@
+From b45353179fbac1bc48be61c6baf565805468ad2b Mon Sep 17 00:00:00 2001
+From: Kimberly Brown <kimbrownkd@gmail.com>
+Date: Mon, 4 Feb 2019 02:13:09 -0500
+Subject: Drivers: hv: vmbus: Expose counters for interrupts and full
+ conditions
+Reply-To: joseph.salisbury@microsoft.com
+
+Counter values for per-channel interrupts and ring buffer full
+conditions are useful for investigating performance.
+
+Expose counters in sysfs for 2 types of guest to host interrupts:
+1) Interrupts caused by the channel's outbound ring buffer transitioning
+from empty to not empty
+2) Interrupts caused by the channel's inbound ring buffer transitioning
+from full to not full while a packet is waiting for enough buffer space to
+become available
+
+Expose 2 counters in sysfs for the number of times that write operations
+encountered a full outbound ring buffer:
+1) The total number of write operations that encountered a full
+condition
+2) The number of write operations that were the first to encounter a
+full condition
+
+Increment the outbound full condition counters in the
+hv_ringbuffer_write() function because, for most drivers, a full
+outbound ring buffer is detected in that function. Also increment the
+outbound full condition counters in the set_channel_pending_send_size()
+function. In the hv_sock driver, a full outbound ring buffer is detected
+and set_channel_pending_send_size() is called before
+hv_ringbuffer_write() is called.
+
+I tested this patch by confirming that the sysfs files were created and
+observing the counter values. The values seemed to increase by a
+reasonable amount when the Hyper-v related drivers were in use.
+
+Signed-off-by: Kimberly Brown <kimbrownkd@gmail.com>
+Reviewed-by:  Michael Kelley <mikelley@microsoft.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(backported from commit 396ae57ef1ef978d1d21cdb7586ba184a3f22453)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ Documentation/ABI/stable/sysfs-bus-vmbus | 40 +++++++++++++++++
+ drivers/hv/ring_buffer.c                 | 16 +++++--
+ drivers/hv/vmbus_drv.c                   | 36 ++++++++++++++++
+ include/linux/hyperv.h                   | 55 ++++++++++++++++++++++++
+ 4 files changed, 144 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/ABI/stable/sysfs-bus-vmbus b/Documentation/ABI/stable/sysfs-bus-vmbus
+index 8863e9ddaf24..2c0f98c254f5 100644
+--- a/Documentation/ABI/stable/sysfs-bus-vmbus
++++ b/Documentation/ABI/stable/sysfs-bus-vmbus
+@@ -125,3 +125,43 @@ KernelVersion:	4.16
+ Contact:	Stephen Hemminger <sthemmin@microsoft.com>
+ Description:	Monitor bit associated with channel
+ Users:		Debugging tools and userspace drivers
++
++What:		/sys/bus/vmbus/devices/<UUID>/channels/<N>/ring
++Date:		January. 2018
++KernelVersion:	4.16
++Contact:	Stephen Hemminger <sthemmin@microsoft.com>
++Description:	Binary file created by uio_hv_generic for ring buffer
++Users:		Userspace drivers
++
++What:           /sys/bus/vmbus/devices/<UUID>/channels/<N>/intr_in_full
++Date:           February 2019
++KernelVersion:  5.0
++Contact:        Michael Kelley <mikelley@microsoft.com>
++Description:    Number of guest to host interrupts caused by the inbound ring
++		buffer transitioning from full to not full while a packet is
++		waiting for buffer space to become available
++Users:          Debugging tools
++
++What:           /sys/bus/vmbus/devices/<UUID>/channels/<N>/intr_out_empty
++Date:           February 2019
++KernelVersion:  5.0
++Contact:        Michael Kelley <mikelley@microsoft.com>
++Description:    Number of guest to host interrupts caused by the outbound ring
++		buffer transitioning from empty to not empty
++Users:          Debugging tools
++
++What:           /sys/bus/vmbus/devices/<UUID>/channels/<N>/out_full_first
++Date:           February 2019
++KernelVersion:  5.0
++Contact:        Michael Kelley <mikelley@microsoft.com>
++Description:    Number of write operations that were the first to encounter an
++		outbound ring buffer full condition
++Users:          Debugging tools
++
++What:           /sys/bus/vmbus/devices/<UUID>/channels/<N>/out_full_total
++Date:           February 2019
++KernelVersion:  5.0
++Contact:        Michael Kelley <mikelley@microsoft.com>
++Description:    Total number of write operations that encountered an outbound
++		ring buffer full condition
++Users:          Debugging tools
+diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
+index 32560b0baf6b..25a7df52cd1c 100644
+--- a/drivers/hv/ring_buffer.c
++++ b/drivers/hv/ring_buffer.c
+@@ -73,10 +73,10 @@ static void hv_signal_on_write(u32 old_write, struct vmbus_channel *channel)
+ 	 * This is the only case we need to signal when the
+ 	 * ring transitions from being empty to non-empty.
+ 	 */
+-	if (old_write == READ_ONCE(rbi->ring_buffer->read_index))
++	if (old_write == READ_ONCE(rbi->ring_buffer->read_index)) {
++		++channel->intr_out_empty;
+ 		vmbus_setevent(channel);
+-
+-	return;
++	}
+ }
+ 
+ /* Get the next write location for the specified ring buffer. */
+@@ -294,10 +294,19 @@ int hv_ringbuffer_write(struct vmbus_channel *channel,
+ 	 * is empty since the read index == write index.
+ 	 */
+ 	if (bytes_avail_towrite <= totalbytes_towrite) {
++		++channel->out_full_total;
++
++		if (!channel->out_full_flag) {
++			++channel->out_full_first;
++			channel->out_full_flag = true;
++		}
++
+ 		spin_unlock_irqrestore(&outring_info->ring_lock, flags);
+ 		return -EAGAIN;
+ 	}
+ 
++	channel->out_full_flag = false;
++
+ 	/* Write to the ring buffer */
+ 	next_write_location = hv_get_next_write_location(outring_info);
+ 
+@@ -593,6 +602,7 @@ void hv_pkt_iter_close(struct vmbus_channel *channel)
+ 	if (curr_write_sz <= pending_sz)
+ 		return;
+ 
++	++channel->intr_in_full;
+ 	vmbus_setevent(channel);
+ }
+ EXPORT_SYMBOL_GPL(hv_pkt_iter_close);
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index 3da8c72767b4..3bffb77b20b9 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -1122,6 +1122,38 @@ static ssize_t channel_events_show(const struct vmbus_channel *channel, char *bu
+ }
+ VMBUS_CHAN_ATTR(events, S_IRUGO, channel_events_show, NULL);
+ 
++static ssize_t channel_intr_in_full_show(const struct vmbus_channel *channel,
++					 char *buf)
++{
++	return sprintf(buf, "%llu\n",
++		       (unsigned long long)channel->intr_in_full);
++}
++static VMBUS_CHAN_ATTR(intr_in_full, 0444, channel_intr_in_full_show, NULL);
++
++static ssize_t channel_intr_out_empty_show(const struct vmbus_channel *channel,
++					   char *buf)
++{
++	return sprintf(buf, "%llu\n",
++		       (unsigned long long)channel->intr_out_empty);
++}
++static VMBUS_CHAN_ATTR(intr_out_empty, 0444, channel_intr_out_empty_show, NULL);
++
++static ssize_t channel_out_full_first_show(const struct vmbus_channel *channel,
++					   char *buf)
++{
++	return sprintf(buf, "%llu\n",
++		       (unsigned long long)channel->out_full_first);
++}
++static VMBUS_CHAN_ATTR(out_full_first, 0444, channel_out_full_first_show, NULL);
++
++static ssize_t channel_out_full_total_show(const struct vmbus_channel *channel,
++					   char *buf)
++{
++	return sprintf(buf, "%llu\n",
++		       (unsigned long long)channel->out_full_total);
++}
++static VMBUS_CHAN_ATTR(out_full_total, 0444, channel_out_full_total_show, NULL);
++
+ static ssize_t subchannel_monitor_id_show(const struct vmbus_channel *channel,
+ 					  char *buf)
+ {
+@@ -1147,6 +1179,10 @@ static struct attribute *vmbus_chan_attrs[] = {
+ 	&chan_attr_latency.attr,
+ 	&chan_attr_interrupts.attr,
+ 	&chan_attr_events.attr,
++	&chan_attr_intr_in_full.attr,
++	&chan_attr_intr_out_empty.attr,
++	&chan_attr_out_full_first.attr,
++	&chan_attr_out_full_total.attr,
+ 	&chan_attr_monitor_id.attr,
+ 	&chan_attr_subchannel_id.attr,
+ 	NULL
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index d17c73f25a4d..fd0fde0cd571 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -767,6 +767,19 @@ struct vmbus_channel {
+ 	u64	interrupts;	/* Host to Guest interrupts */
+ 	u64	sig_events;	/* Guest to Host events */
+ 
++	/*
++	 * Guest to host interrupts caused by the outbound ring buffer changing
++	 * from empty to not empty.
++	 */
++	u64 intr_out_empty;
++
++	/*
++	 * Indicates that a full outbound ring buffer was encountered. The flag
++	 * is set to true when a full outbound ring buffer is encountered and
++	 * set to false when a write to the outbound ring buffer is completed.
++	 */
++	bool out_full_flag;
++
+ 	/* Channel callback's invoked in softirq context */
+ 	struct tasklet_struct callback_event;
+ 	void (*onchannel_callback)(void *context);
+@@ -925,6 +938,33 @@ struct vmbus_channel {
+ 	 */
+ 	enum hv_numa_policy affinity_policy;
+ 
++	bool probe_done;
++
++	/*
++	 * We must offload the handling of the primary/sub channels
++	 * from the single-threaded vmbus_connection.work_queue to
++	 * two different workqueue, otherwise we can block
++	 * vmbus_connection.work_queue and hang: see vmbus_process_offer().
++	 */
++	struct work_struct add_channel_work;
++
++	/*
++	 * Guest to host interrupts caused by the inbound ring buffer changing
++	 * from full to not full while a packet is waiting.
++	 */
++	u64 intr_in_full;
++
++	/*
++	 * The total number of write operations that encountered a full
++	 * outbound ring buffer.
++	 */
++	u64 out_full_total;
++
++	/*
++	 * The number of write operations that were the first to encounter a
++	 * full outbound ring buffer.
++	 */
++	u64 out_full_first;
+ };
+ 
+ static inline bool is_hvsock_channel(const struct vmbus_channel *c)
+@@ -964,6 +1004,21 @@ static inline void *get_per_channel_state(struct vmbus_channel *c)
+ static inline void set_channel_pending_send_size(struct vmbus_channel *c,
+ 						 u32 size)
+ {
++	unsigned long flags;
++
++	if (size) {
++		spin_lock_irqsave(&c->outbound.ring_lock, flags);
++		++c->out_full_total;
++
++		if (!c->out_full_flag) {
++			++c->out_full_first;
++			c->out_full_flag = true;
++		}
++		spin_unlock_irqrestore(&c->outbound.ring_lock, flags);
++	} else {
++		c->out_full_flag = false;
++	}
++
+ 	c->outbound.ring_buffer->pending_send_sz = size;
+ }
+ 
+-- 
+2.17.1
+

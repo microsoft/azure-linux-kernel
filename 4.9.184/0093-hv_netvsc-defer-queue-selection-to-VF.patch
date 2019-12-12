@@ -1,0 +1,48 @@
+From bbac28da50937097e3eb5dd49201a08f8f2e1789 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 2 Mar 2018 13:49:07 -0800
+Subject: hv_netvsc: defer queue selection to VF
+Reply-To: joseph.salisbury@microsoft.com
+
+When VF is used for accelerated networking it will likely have
+more queues (and different policy) than the synthetic NIC.
+This patch defers the queue policy to the VF so that all the
+queues can be used. This impacts workloads like local generate UDP.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit b3bf5666a51068ad5ddd89a76ed877101ef3bc16)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index c26b43e42cb6..029e48b6f1e5 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -286,8 +286,19 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
+ 	rcu_read_lock();
+ 	vf_netdev = rcu_dereference(ndc->vf_netdev);
+ 	if (vf_netdev) {
+-		txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) : 0;
+-		qdisc_skb_cb(skb)->slave_dev_queue_mapping = skb->queue_mapping;
++		const struct net_device_ops *vf_ops = vf_netdev->netdev_ops;
++
++		if (vf_ops->ndo_select_queue)
++			txq = vf_ops->ndo_select_queue(vf_netdev, skb,
++						       accel_priv, fallback);
++		else
++			txq = fallback(vf_netdev, skb);
++
++		/* Record the queue selected by VF so that it can be
++		 * used for common case where VF has more queues than
++		 * the synthetic device.
++		 */
++		qdisc_skb_cb(skb)->slave_dev_queue_mapping = txq;
+ 	} else {
+ 		txq = netvsc_pick_tx(ndev, skb);
+ 	}
+-- 
+2.17.1
+

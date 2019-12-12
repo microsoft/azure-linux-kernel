@@ -1,4 +1,4 @@
-From 5edbea735d1bc2d7d126062a16d1e4891e36c3cb Mon Sep 17 00:00:00 2001
+From 8e89aa74efe2919996d38d37c7a9112ae591fe43 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:02 -0800
 Subject: netvsc: add ethtool ops to get/set RSS key

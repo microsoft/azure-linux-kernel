@@ -1,0 +1,38 @@
+From e419301bc033ca6959488c7df687cc946097e7fe Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed, 7 Mar 2018 13:49:12 -0800
+Subject: hv_netvsc: fix locking during VF setup
+Reply-To: joseph.salisbury@microsoft.com
+
+The dev_uc/mc_sync calls need to have the device address list
+locked. This was spotted by running with lockdep enabled.
+
+Fixes: bee9d41b37ea ("hv_netvsc: propagate rx filters to VF")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit b0dee7910317f41f398838992516af6a3b981d86)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 5f4c75447be7..8f19e1e70673 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1825,8 +1825,12 @@ static void __netvsc_vf_setup(struct net_device *ndev,
+ 
+ 	/* set multicast etc flags on VF */
+ 	dev_change_flags(vf_netdev, ndev->flags | IFF_SLAVE);
++
++	/* sync address list from ndev to VF */
++	netif_addr_lock_bh(ndev);
+ 	dev_uc_sync(vf_netdev, ndev);
+ 	dev_mc_sync(vf_netdev, ndev);
++	netif_addr_unlock_bh(ndev);
+ 
+ 	if (netif_running(ndev)) {
+ 		ret = dev_open(vf_netdev);
+-- 
+2.17.1
+

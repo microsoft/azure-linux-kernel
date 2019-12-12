@@ -1,4 +1,4 @@
-From b7044e6bf6bf11f64fc4bf7c54718795ad29d6ff Mon Sep 17 00:00:00 2001
+From f2111f0a1aabf801243b6403f247d055a69a0055 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 16 Aug 2017 08:56:26 -0700
 Subject: vmbus: remove unused vmbus_sendpacket_ctl

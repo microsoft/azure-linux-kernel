@@ -1,0 +1,142 @@
+From a10b3046779ecf2324f7d0b0d78459ff62afbe73 Mon Sep 17 00:00:00 2001
+From: Mohammed Gamal <mgamal@redhat.com>
+Date: Thu, 5 Apr 2018 21:09:21 +0200
+Subject: hv_netvsc: Pass net_device parameter to revoke and teardown functions
+Reply-To: joseph.salisbury@microsoft.com
+
+The callers to netvsc_revoke_*_buf() and netvsc_teardown_*_gpadl()
+already have their net_device instances. Pass them as a paramaeter to
+the function instead of obtaining them from netvsc_device struct
+everytime
+
+Signed-off-by: Mohammed Gamal <mgamal@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 3f076effb9adad6a16fafd3cfe33fe530c5d428d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 52 +++++++++++++++++++++----------------
+ 1 file changed, 29 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 12059dcd6c05..13d6fd690e95 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -105,9 +105,9 @@ static void free_netvsc_device_rcu(struct netvsc_device *nvdev)
+ }
+ 
+ static void netvsc_revoke_recv_buf(struct hv_device *device,
+-				   struct netvsc_device *net_device)
++				   struct netvsc_device *net_device,
++				   struct net_device *ndev)
+ {
+-	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct nvsp_message *revoke_packet;
+ 	int ret;
+ 
+@@ -155,9 +155,9 @@ static void netvsc_revoke_recv_buf(struct hv_device *device,
+ }
+ 
+ static void netvsc_revoke_send_buf(struct hv_device *device,
+-				   struct netvsc_device *net_device)
++				   struct netvsc_device *net_device,
++				   struct net_device *ndev)
+ {
+-	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct nvsp_message *revoke_packet;
+ 	int ret;
+ 
+@@ -228,9 +228,9 @@ static void netvsc_revoke_send_buf(struct hv_device *device,
+ }
+ 
+ static void netvsc_teardown_recv_gpadl(struct hv_device *device,
+-				       struct netvsc_device *net_device)
++				       struct netvsc_device *net_device,
++				       struct net_device *ndev)
+ {
+-	struct net_device *ndev = hv_get_drvdata(device);
+ 	int ret;
+ 
+ 	if (net_device->recv_buf_gpadl_handle) {
+@@ -250,9 +250,9 @@ static void netvsc_teardown_recv_gpadl(struct hv_device *device,
+ }
+ 
+ static void netvsc_teardown_send_gpadl(struct hv_device *device,
+-				       struct netvsc_device *net_device)
++				       struct netvsc_device *net_device,
++				       struct net_device *ndev)
+ {
+-	struct net_device *ndev = hv_get_drvdata(device);
+ 	int ret;
+ 
+ 	if (net_device->send_buf_gpadl_handle) {
+@@ -468,10 +468,10 @@ static int netvsc_init_buf(struct hv_device *device,
+ 	goto exit;
+ 
+ cleanup:
+-	netvsc_revoke_recv_buf(device, net_device);
+-	netvsc_revoke_send_buf(device, net_device);
+-	netvsc_teardown_recv_gpadl(device, net_device);
+-	netvsc_teardown_send_gpadl(device, net_device);
++	netvsc_revoke_recv_buf(device, net_device, ndev);
++	netvsc_revoke_send_buf(device, net_device, ndev);
++	netvsc_teardown_recv_gpadl(device, net_device, ndev);
++	netvsc_teardown_send_gpadl(device, net_device, ndev);
+ 
+ exit:
+ 	return ret;
+@@ -490,7 +490,6 @@ static int negotiate_nvsp_ver(struct hv_device *device,
+ 	init_packet->hdr.msg_type = NVSP_MSG_TYPE_INIT;
+ 	init_packet->msg.init_msg.init.min_protocol_ver = nvsp_ver;
+ 	init_packet->msg.init_msg.init.max_protocol_ver = nvsp_ver;
+-
+ 	trace_nvsp_send(ndev, init_packet);
+ 
+ 	/* Send the init request */
+@@ -607,8 +606,17 @@ void netvsc_device_remove(struct hv_device *device)
+ 	struct netvsc_device *net_device = net_device_ctx->nvdev;
+ 	int i;
+ 
+-	netvsc_revoke_recv_buf(device, net_device);
+-	netvsc_revoke_send_buf(device, net_device);
++	/*
++	 * Revoke receive buffer. If host is pre-Win2016 then tear down
++	 * receive buffer GPADL. Do the same for send buffer.
++	 */
++	netvsc_revoke_recv_buf(device, net_device, ndev);
++	if (vmbus_proto_version < VERSION_WIN10)
++		netvsc_teardown_recv_gpadl(device, net_device, ndev);
++
++	netvsc_revoke_send_buf(device, net_device, ndev);
++	if (vmbus_proto_version < VERSION_WIN10)
++		netvsc_teardown_send_gpadl(device, net_device, ndev);
+ 
+ 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
+ 
+@@ -618,18 +626,16 @@ void netvsc_device_remove(struct hv_device *device)
+ 	 */
+ 	netdev_dbg(ndev, "net device safe to remove\n");
+ 
+-	/* older versions require that buffer be revoked before close */
+-	if (vmbus_proto_version < VERSION_WIN10) {
+-		netvsc_teardown_recv_gpadl(device, net_device);
+-		netvsc_teardown_send_gpadl(device, net_device);
+-	}
+-
+ 	/* Now, we can close the channel safely */
+ 	vmbus_close(device->channel);
+ 
++	/*
++	 * If host is Win2016 or higher then we do the GPADL tear down
++	 * here after VMBus is closed.
++	 */
+ 	if (vmbus_proto_version >= VERSION_WIN10) {
+-		netvsc_teardown_recv_gpadl(device, net_device);
+-		netvsc_teardown_send_gpadl(device, net_device);
++		netvsc_teardown_recv_gpadl(device, net_device, ndev);
++		netvsc_teardown_send_gpadl(device, net_device, ndev);
+ 	}
+ 
+ 	/* Release all resources */
+-- 
+2.17.1
+

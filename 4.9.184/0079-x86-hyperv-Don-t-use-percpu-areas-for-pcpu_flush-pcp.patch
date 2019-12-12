@@ -1,0 +1,120 @@
+From bbe5b5cc59b4ead7ae7446fc5d85309625b4565d Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 5 Oct 2017 13:39:24 +0200
+Subject: x86/hyperv: Don't use percpu areas for pcpu_flush/pcpu_flush_ex
+ structures
+Reply-To: joseph.salisbury@microsoft.com
+
+hv_do_hypercall() does virt_to_phys() translation and with some configs
+(CONFIG_SLAB) this doesn't work for percpu areas, we pass wrong memory to
+hypervisor and get #GP. We could use working slow_virt_to_phys() instead
+but doing so kills the performance.
+
+Move pcpu_flush/pcpu_flush_ex structures out of percpu areas and
+allocate memory on first call. The additional level of indirection gives
+us a small performance penalty, in future we may consider introducing
+hypercall functions which avoid virt_to_phys() conversion and cache
+physical addresses of pcpu_flush/pcpu_flush_ex structures somewhere.
+
+Reported-by: Simon Xiao <sixiao@microsoft.com>
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Cc: Dexuan Cui <decui@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Jork Loeser <Jork.Loeser@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: devel@linuxdriverproject.org
+Link: http://lkml.kernel.org/r/20171005113924.28021-1-vkuznets@redhat.com
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+(cherry picked from commit 60d73a7c96601434dfdb56d5b9167ff3b850d8d7)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/mmu.c | 34 ++++++++++++++++++++++++++++------
+ 1 file changed, 28 insertions(+), 6 deletions(-)
+
+diff --git a/arch/x86/hyperv/mmu.c b/arch/x86/hyperv/mmu.c
+index 9502d04c0c95..f21cebbb5f6c 100644
+--- a/arch/x86/hyperv/mmu.c
++++ b/arch/x86/hyperv/mmu.c
+@@ -36,9 +36,9 @@ struct hv_flush_pcpu_ex {
+ /* Each gva in gva_list encodes up to 4096 pages to flush */
+ #define HV_TLB_FLUSH_UNIT (4096 * PAGE_SIZE)
+ 
+-static struct hv_flush_pcpu __percpu *pcpu_flush;
++static struct hv_flush_pcpu __percpu **pcpu_flush;
+ 
+-static struct hv_flush_pcpu_ex __percpu *pcpu_flush_ex;
++static struct hv_flush_pcpu_ex __percpu **pcpu_flush_ex;
+ 
+ /*
+  * Fills in gva_list starting from offset. Returns the number of items added.
+@@ -109,6 +109,7 @@ static void hyperv_flush_tlb_others(const struct cpumask *cpus,
+ 				    const struct flush_tlb_info *info)
+ {
+ 	int cpu, vcpu, gva_n, max_gvas;
++	struct hv_flush_pcpu **flush_pcpu;
+ 	struct hv_flush_pcpu *flush;
+ 	u64 status = U64_MAX;
+ 	unsigned long flags;
+@@ -123,7 +124,17 @@ static void hyperv_flush_tlb_others(const struct cpumask *cpus,
+ 
+ 	local_irq_save(flags);
+ 
+-	flush = this_cpu_ptr(pcpu_flush);
++	flush_pcpu = this_cpu_ptr(pcpu_flush);
++
++	if (unlikely(!*flush_pcpu))
++		*flush_pcpu = page_address(alloc_page(GFP_ATOMIC));
++
++	flush = *flush_pcpu;
++
++	if (unlikely(!flush)) {
++		local_irq_restore(flags);
++		goto do_native;
++	}
+ 
+ 	if (info->mm) {
+ 		flush->address_space = virt_to_phys(info->mm->pgd);
+@@ -180,6 +191,7 @@ static void hyperv_flush_tlb_others_ex(const struct cpumask *cpus,
+ 				       const struct flush_tlb_info *info)
+ {
+ 	int nr_bank = 0, max_gvas, gva_n;
++	struct hv_flush_pcpu_ex **flush_pcpu;
+ 	struct hv_flush_pcpu_ex *flush;
+ 	u64 status = U64_MAX;
+ 	unsigned long flags;
+@@ -194,7 +206,17 @@ static void hyperv_flush_tlb_others_ex(const struct cpumask *cpus,
+ 
+ 	local_irq_save(flags);
+ 
+-	flush = this_cpu_ptr(pcpu_flush_ex);
++	flush_pcpu = this_cpu_ptr(pcpu_flush_ex);
++
++	if (unlikely(!*flush_pcpu))
++		*flush_pcpu = page_address(alloc_page(GFP_ATOMIC));
++
++	flush = *flush_pcpu;
++
++	if (unlikely(!flush)) {
++		local_irq_restore(flags);
++		goto do_native;
++	}
+ 
+ 	if (info->mm) {
+ 		flush->address_space = virt_to_phys(info->mm->pgd);
+@@ -273,7 +295,7 @@ void hyper_alloc_mmu(void)
+ 		return;
+ 
+ 	if (!(ms_hyperv.hints & HV_X64_EX_PROCESSOR_MASKS_RECOMMENDED))
+-		pcpu_flush = __alloc_percpu(PAGE_SIZE, PAGE_SIZE);
++		pcpu_flush = alloc_percpu(struct hv_flush_pcpu *);
+ 	else
+-		pcpu_flush_ex = __alloc_percpu(PAGE_SIZE, PAGE_SIZE);
++		pcpu_flush_ex = alloc_percpu(struct hv_flush_pcpu_ex *);
+ }
+-- 
+2.17.1
+

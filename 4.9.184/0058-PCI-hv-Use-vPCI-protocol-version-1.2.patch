@@ -1,4 +1,4 @@
-From 6c69474eaa502ac1f18b4b5b915d8b29f1fcec01 Mon Sep 17 00:00:00 2001
+From be9bf544ca47913ecc9075c0049152f9c820ff54 Mon Sep 17 00:00:00 2001
 From: Jork Loeser <jloeser@microsoft.com>
 Date: Wed, 24 May 2017 13:41:28 -0700
 Subject: PCI: hv: Use vPCI protocol version 1.2

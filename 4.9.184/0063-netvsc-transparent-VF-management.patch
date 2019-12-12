@@ -1,4 +1,4 @@
-From 648ba1a2cf571847cd6522330986eceac1e731c4 Mon Sep 17 00:00:00 2001
+From b9f89b0761ae0c3e9b21fe2a95ec8ddf878a51c3 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 1 Aug 2017 19:58:53 -0700
 Subject: netvsc: transparent VF management

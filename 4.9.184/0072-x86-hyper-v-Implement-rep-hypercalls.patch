@@ -1,0 +1,103 @@
+From af187d865261bec98a5121b2c939c787ea360f30 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 2 Aug 2017 18:09:17 +0200
+Subject: x86/hyper-v: Implement rep hypercalls
+Reply-To: joseph.salisbury@microsoft.com
+
+Rep hypercalls are normal hypercalls which perform multiple actions at
+once. Hyper-V guarantees to return exectution to the caller in not more
+than 50us and the caller needs to use hypercall continuation. Touch NMI
+watchdog between hypercall invocations.
+
+This is going to be used for HvFlushVirtualAddressList hypercall for
+remote TLB flushing.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Jork Loeser <Jork.Loeser@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Simon Xiao <sixiao@microsoft.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: devel@linuxdriverproject.org
+Link: http://lkml.kernel.org/r/20170802160921.21791-6-vkuznets@redhat.com
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+(cherry picked from commit 806c89273bab0c8af0202a6fb6279f36042cb2e6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/include/asm/mshyperv.h | 39 +++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
+
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index 5bd4986c1108..81026e72c917 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -5,6 +5,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/clocksource.h>
+ #include <linux/atomic.h>
++#include <linux/nmi.h>
+ #include <asm/io.h>
+ #include <asm/hyperv.h>
+ 
+@@ -161,7 +162,13 @@ static inline u64 hv_do_hypercall(u64 control, void *input, void *output)
+ 	return hv_status;
+ }
+ 
++#define HV_HYPERCALL_RESULT_MASK	GENMASK_ULL(15, 0)
+ #define HV_HYPERCALL_FAST_BIT		BIT(16)
++#define HV_HYPERCALL_VARHEAD_OFFSET	17
++#define HV_HYPERCALL_REP_COMP_OFFSET	32
++#define HV_HYPERCALL_REP_COMP_MASK	GENMASK_ULL(43, 32)
++#define HV_HYPERCALL_REP_START_OFFSET	48
++#define HV_HYPERCALL_REP_START_MASK	GENMASK_ULL(59, 48)
+ 
+ /* Fast hypercall with 8 bytes of input and no output */
+ static inline u64 hv_do_fast_hypercall8(u16 code, u64 input1)
+@@ -195,6 +202,38 @@ static inline u64 hv_do_fast_hypercall8(u16 code, u64 input1)
+ 		return hv_status;
+ }
+ 
++/*
++ * Rep hypercalls. Callers of this functions are supposed to ensure that
++ * rep_count and varhead_size comply with Hyper-V hypercall definition.
++ */
++static inline u64 hv_do_rep_hypercall(u16 code, u16 rep_count, u16 varhead_size,
++				      void *input, void *output)
++{
++	u64 control = code;
++	u64 status;
++	u16 rep_comp;
++
++	control |= (u64)varhead_size << HV_HYPERCALL_VARHEAD_OFFSET;
++	control |= (u64)rep_count << HV_HYPERCALL_REP_COMP_OFFSET;
++
++	do {
++		status = hv_do_hypercall(control, input, output);
++		if ((status & HV_HYPERCALL_RESULT_MASK) != HV_STATUS_SUCCESS)
++			return status;
++
++		/* Bits 32-43 of status have 'Reps completed' data. */
++		rep_comp = (status & HV_HYPERCALL_REP_COMP_MASK) >>
++			HV_HYPERCALL_REP_COMP_OFFSET;
++
++		control &= ~HV_HYPERCALL_REP_START_MASK;
++		control |= (u64)rep_comp << HV_HYPERCALL_REP_START_OFFSET;
++
++		touch_nmi_watchdog();
++	} while (rep_comp < rep_count);
++
++	return status;
++}
++
+ void hyperv_init(void);
+ void hyperv_report_panic(struct pt_regs *regs);
+ bool hv_is_hypercall_page_setup(void);
+-- 
+2.17.1
+

@@ -1,0 +1,210 @@
+From 3a1d4293dcf22a836b722d879eeb9e7e7430f822 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 2 Aug 2017 18:09:14 +0200
+Subject: x86/hyper-v: Make hv_do_hypercall() inline
+Reply-To: joseph.salisbury@microsoft.com
+
+We have only three call sites for hv_do_hypercall() and we're going to
+change HVCALL_SIGNAL_EVENT to doing fast hypercall so we can inline this
+function for optimization.
+
+Hyper-V top level functional specification states that r9-r11 registers
+and flags may be clobbered by the hypervisor during hypercall and with
+inlining this is somewhat important, add the clobbers.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Jork Loeser <Jork.Loeser@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Simon Xiao <sixiao@microsoft.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: devel@linuxdriverproject.org
+Link: http://lkml.kernel.org/r/20170802160921.21791-3-vkuznets@redhat.com
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+(backported from commit fc53662f13b889a5a1c069e79ee1e3d4534df132)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c       | 54 +++------------------------------
+ arch/x86/include/asm/mshyperv.h | 41 +++++++++++++++++++++++++
+ drivers/hv/connection.c         |  2 ++
+ include/linux/hyperv.h          |  1 -
+ 4 files changed, 48 insertions(+), 50 deletions(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index 3430a1080115..e5570fae53ca 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -98,7 +98,8 @@ static struct clocksource hyperv_cs_msr = {
+ 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
+ };
+ 
+-static void *hypercall_pg;
++void *hv_hypercall_pg;
++EXPORT_SYMBOL_GPL(hv_hypercall_pg);
+ struct clocksource *hyperv_cs;
+ EXPORT_SYMBOL_GPL(hyperv_cs);
+ 
+@@ -125,15 +126,15 @@ void hyperv_init(void)
+ 	guest_id = generate_guest_id(0, LINUX_VERSION_CODE, 0);
+ 	wrmsrl(HV_X64_MSR_GUEST_OS_ID, guest_id);
+ 
+-	hypercall_pg  = __vmalloc(PAGE_SIZE, GFP_KERNEL, PAGE_KERNEL_EXEC);
+-	if (hypercall_pg == NULL) {
++	hv_hypercall_pg  = __vmalloc(PAGE_SIZE, GFP_KERNEL, PAGE_KERNEL_RX);
++	if (hv_hypercall_pg == NULL) {
+ 		wrmsrl(HV_X64_MSR_GUEST_OS_ID, 0);
+ 		return;
+ 	}
+ 
+ 	rdmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+ 	hypercall_msr.enable = 1;
+-	hypercall_msr.guest_physical_address = vmalloc_to_pfn(hypercall_pg);
++	hypercall_msr.guest_physical_address = vmalloc_to_pfn(hv_hypercall_pg);
+ 	wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+ 
+ 	/*
+@@ -190,51 +191,6 @@ void hyperv_cleanup(void)
+ }
+ EXPORT_SYMBOL_GPL(hyperv_cleanup);
+ 
+-/*
+- * hv_do_hypercall- Invoke the specified hypercall
+- */
+-u64 hv_do_hypercall(u64 control, void *input, void *output)
+-{
+-	u64 input_address = (input) ? virt_to_phys(input) : 0;
+-	u64 output_address = (output) ? virt_to_phys(output) : 0;
+-#ifdef CONFIG_X86_64
+-	u64 hv_status = 0;
+-
+-	if (!hypercall_pg)
+-		return (u64)ULLONG_MAX;
+-
+-	__asm__ __volatile__("mov %0, %%r8" : : "r" (output_address) : "r8");
+-	__asm__ __volatile__("call *%3" : "=a" (hv_status) :
+-			     "c" (control), "d" (input_address),
+-			     "m" (hypercall_pg));
+-
+-	return hv_status;
+-
+-#else
+-
+-	u32 control_hi = control >> 32;
+-	u32 control_lo = control & 0xFFFFFFFF;
+-	u32 hv_status_hi = 1;
+-	u32 hv_status_lo = 1;
+-	u32 input_address_hi = input_address >> 32;
+-	u32 input_address_lo = input_address & 0xFFFFFFFF;
+-	u32 output_address_hi = output_address >> 32;
+-	u32 output_address_lo = output_address & 0xFFFFFFFF;
+-
+-	if (!hypercall_pg)
+-		return (u64)ULLONG_MAX;
+-
+-	__asm__ __volatile__ ("call *%8" : "=d"(hv_status_hi),
+-			      "=a"(hv_status_lo) : "d" (control_hi),
+-			      "a" (control_lo), "b" (input_address_hi),
+-			      "c" (input_address_lo), "D"(output_address_hi),
+-			      "S"(output_address_lo), "m" (hypercall_pg));
+-
+-	return hv_status_lo | ((u64)hv_status_hi << 32);
+-#endif /* !x86_64 */
+-}
+-EXPORT_SYMBOL_GPL(hv_do_hypercall);
+-
+ void hyperv_report_panic(struct pt_regs *regs)
+ {
+ 	static bool panic_reported;
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index dbad5971ad96..e83eb043a995 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -4,6 +4,8 @@
+ #include <linux/types.h>
+ #include <linux/interrupt.h>
+ #include <linux/clocksource.h>
++#include <linux/atomic.h>
++#include <asm/io.h>
+ #include <asm/hyperv.h>
+ 
+ /*
+@@ -119,6 +121,45 @@ void hv_remove_crash_handler(void);
+ 
+ #if IS_ENABLED(CONFIG_HYPERV)
+ extern struct clocksource *hyperv_cs;
++extern void *hv_hypercall_pg;
++
++static inline u64 hv_do_hypercall(u64 control, void *input, void *output)
++{
++	u64 input_address = input ? virt_to_phys(input) : 0;
++	u64 output_address = output ? virt_to_phys(output) : 0;
++	u64 hv_status;
++	register void *__sp asm(_ASM_SP);
++
++#ifdef CONFIG_X86_64
++	if (!hv_hypercall_pg)
++		return U64_MAX;
++
++	__asm__ __volatile__("mov %4, %%r8\n"
++			     "call *%5"
++			     : "=a" (hv_status), "+r" (__sp),
++			       "+c" (control), "+d" (input_address)
++			     :  "r" (output_address), "m" (hv_hypercall_pg)
++			     : "cc", "memory", "r8", "r9", "r10", "r11");
++#else
++	u32 input_address_hi = upper_32_bits(input_address);
++	u32 input_address_lo = lower_32_bits(input_address);
++	u32 output_address_hi = upper_32_bits(output_address);
++	u32 output_address_lo = lower_32_bits(output_address);
++
++	if (!hv_hypercall_pg)
++		return U64_MAX;
++
++	__asm__ __volatile__("call *%7"
++			     : "=A" (hv_status),
++			       "+c" (input_address_lo), "+r" (__sp)
++			     : "A" (control),
++			       "b" (input_address_hi),
++			       "D"(output_address_hi), "S"(output_address_lo),
++			       "m" (hv_hypercall_pg)
++			     : "cc", "memory");
++#endif /* !x86_64 */
++	return hv_status;
++}
+ 
+ void hyperv_init(void);
+ void hyperv_report_panic(struct pt_regs *regs);
+diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
+index 11b268cce320..077dc238d021 100644
+--- a/drivers/hv/connection.c
++++ b/drivers/hv/connection.c
+@@ -32,6 +32,8 @@
+ #include <linux/hyperv.h>
+ #include <linux/export.h>
+ #include <asm/hyperv.h>
++#include <asm/mshyperv.h>
++
+ #include "hyperv_vmbus.h"
+ 
+ 
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index e0cd6bd748ee..59cd43cd80f2 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1171,7 +1171,6 @@ int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
+ 			bool fb_overlap_ok);
+ void vmbus_free_mmio(resource_size_t start, resource_size_t size);
+ int vmbus_cpu_number_to_vp_number(int cpu_number);
+-u64 hv_do_hypercall(u64 control, void *input, void *output);
+ 
+ /*
+  * GUID definitions of various offer types - services offered to the guest.
+-- 
+2.17.1
+

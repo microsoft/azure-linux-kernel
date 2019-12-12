@@ -1,4 +1,4 @@
-From 2b77d342d9e05d054231ebb602357a9f2c6c6d5f Mon Sep 17 00:00:00 2001
+From 3c426e731471bd859dd8ef4c6495fbfd6eec3341 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:05:59 -0800
 Subject: netvsc: negotiate checksum and segmentation parameters

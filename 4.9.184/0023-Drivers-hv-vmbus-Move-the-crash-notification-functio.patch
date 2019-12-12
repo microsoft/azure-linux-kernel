@@ -1,4 +1,4 @@
-From 513cf29b0134be6febe08230714c5c9db4bfd575 Mon Sep 17 00:00:00 2001
+From 1f370afa4baf3472ba37f2c2995d9f5a28d8a662 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:48 -0700
 Subject: Drivers: hv: vmbus: Move the crash notification function

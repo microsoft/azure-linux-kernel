@@ -1,0 +1,85 @@
+From 68290349a60a1d46d12b0a184da43cfae1e94e28 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Mon, 24 Jul 2017 10:57:28 -0700
+Subject: netvsc: fix netvsc_set_channels
+Reply-To: joseph.salisbury@microsoft.com
+
+The number of channels returned by rndis_filter_device_add maybe
+less than the number requested. Therefore set correct real
+number of queues.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 7ca4593338e19595cad48fa8dcd1da28c81352d6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 43 +++++++++------------------------
+ 1 file changed, 11 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index ffecb3ad1bfd..5ef6b808d147 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -827,30 +827,6 @@ static void netvsc_get_channels(struct net_device *net,
+ 	}
+ }
+ 
+-static int netvsc_set_queues(struct net_device *net, struct hv_device *dev,
+-			     u32 num_chn)
+-{
+-	struct netvsc_device_info device_info;
+-	int ret;
+-
+-	memset(&device_info, 0, sizeof(device_info));
+-	device_info.num_chn = num_chn;
+-	device_info.ring_size = ring_size;
+-	device_info.max_num_vrss_chns = num_chn;
+-
+-	ret = rndis_filter_device_add(dev, &device_info);
+-	if (ret)
+-		return ret;
+-
+-	ret = netif_set_real_num_tx_queues(net, num_chn);
+-	if (ret)
+-		return ret;
+-
+-	ret = netif_set_real_num_rx_queues(net, num_chn);
+-
+-	return ret;
+-}
+-
+ static int netvsc_set_channels(struct net_device *net,
+ 			       struct ethtool_channels *channels)
+ {
+@@ -889,17 +865,20 @@ static int netvsc_set_channels(struct net_device *net,
+ 
+ 	rndis_filter_device_remove(dev, nvdev);
+ 
++	memset(&device_info, 0, sizeof(device_info));
++	device_info.num_chn = count;
++	device_info.ring_size = ring_size;
++	device_info.max_num_vrss_chns = count;
++
+ 	nvdev = rndis_filter_device_add(dev, &device_info);
+-	if (IS_ERR(nvdev)) {
++	if (!IS_ERR(nvdev)) {
++		netif_set_real_num_tx_queues(net, nvdev->num_chn);
++		netif_set_real_num_rx_queues(net, nvdev->num_chn);
+ 		ret = PTR_ERR(nvdev);
++	} else {
+ 		device_info.num_chn = orig;
+-		nvdev = rndis_filter_device_add(dev, &device_info);
+-
+-		if (IS_ERR(nvdev)) {
+-			netdev_err(net, "restoring channel setting failed: %ld\n",
+-				   PTR_ERR(nvdev));
+-			return ret;
+-		}
++		device_info.max_num_vrss_chns = count;
++		rndis_filter_device_add(dev, &device_info);
+ 	}
+ 
+ 	if (was_opened)
+-- 
+2.17.1
+

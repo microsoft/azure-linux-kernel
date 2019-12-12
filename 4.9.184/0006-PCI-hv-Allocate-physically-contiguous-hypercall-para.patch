@@ -1,4 +1,4 @@
-From fdb8f93d00e76757d8242bf36ebcc6a3436c05cc Mon Sep 17 00:00:00 2001
+From 5582c93a160579b83900efb47e0295d4c4bffa38 Mon Sep 17 00:00:00 2001
 From: Long Li <longli@microsoft.com>
 Date: Tue, 8 Nov 2016 14:04:38 -0800
 Subject: PCI: hv: Allocate physically contiguous hypercall params buffer

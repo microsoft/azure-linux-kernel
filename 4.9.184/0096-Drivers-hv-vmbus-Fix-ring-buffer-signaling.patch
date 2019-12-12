@@ -1,0 +1,113 @@
+From 7282052e09ea237bda3ade2be971dfabb4482990 Mon Sep 17 00:00:00 2001
+From: Michael Kelley <mhkelley@outlook.com>
+Date: Sun, 4 Mar 2018 22:24:08 -0700
+Subject: Drivers: hv: vmbus: Fix ring buffer signaling
+Reply-To: joseph.salisbury@microsoft.com
+
+Fix bugs in signaling the Hyper-V host when freeing space in the
+host->guest ring buffer:
+
+1. The interrupt_mask must not be used to determine whether to signal
+   on the host->guest ring buffer
+2. The ring buffer write_index must be read (via hv_get_bytes_to_write)
+   *after* pending_send_sz is read in order to avoid a race condition
+3. Comparisons with pending_send_sz must treat the "equals" case as
+   not-enough-space
+4. Don't signal if the pending_send_sz feature is not present. Older
+   versions of Hyper-V that don't implement this feature will poll.
+
+Fixes: 03bad714a161 ("vmbus: more host signalling avoidance")
+
+Cc: Stable <stable@vger.kernel.org> # 4.14 and above
+Signed-off-by: Michael Kelley <mhkelley@outlook.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 655296c8bbeffcf020558c4455305d597a73bde1)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/ring_buffer.c | 55 +++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 54 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
+index deb08ef4bf54..ea0227ad7ac2 100644
+--- a/drivers/hv/ring_buffer.c
++++ b/drivers/hv/ring_buffer.c
+@@ -482,12 +482,24 @@ __hv_pkt_iter_next(struct vmbus_channel *channel,
+ }
+ EXPORT_SYMBOL_GPL(__hv_pkt_iter_next);
+ 
++/* How many bytes were read in this iterator cycle */
++static u32 hv_pkt_iter_bytes_read(const struct hv_ring_buffer_info *rbi,
++					u32 start_read_index)
++{
++	if (rbi->priv_read_index >= start_read_index)
++		return rbi->priv_read_index - start_read_index;
++	else
++		return rbi->ring_datasize - start_read_index +
++			rbi->priv_read_index;
++}
++
+ /*
+  * Update host ring buffer after iterating over packets.
+  */
+ void hv_pkt_iter_close(struct vmbus_channel *channel)
+ {
+ 	struct hv_ring_buffer_info *rbi = &channel->inbound;
++	u32 curr_write_sz, pending_sz, bytes_read, start_read_index;
+ 
+ 	/*
+ 	 * Make sure all reads are done before we update the read index since
+@@ -495,8 +507,49 @@ void hv_pkt_iter_close(struct vmbus_channel *channel)
+ 	 * is updated.
+ 	 */
+ 	virt_rmb();
++	start_read_index = rbi->ring_buffer->read_index;
+ 	rbi->ring_buffer->read_index = rbi->priv_read_index;
+ 
+-	hv_signal_on_read(channel);
++	if (!rbi->ring_buffer->feature_bits.feat_pending_send_sz)
++		return;
++
++	/*
++	 * Issue a full memory barrier before making the signaling decision.
++	 * Here is the reason for having this barrier:
++	 * If the reading of the pend_sz (in this function)
++	 * were to be reordered and read before we commit the new read
++	 * index (in the calling function)  we could
++	 * have a problem. If the host were to set the pending_sz after we
++	 * have sampled pending_sz and go to sleep before we commit the
++	 * read index, we could miss sending the interrupt. Issue a full
++	 * memory barrier to address this.
++	 */
++	virt_mb();
++
++	pending_sz = READ_ONCE(rbi->ring_buffer->pending_send_sz);
++	if (!pending_sz)
++		return;
++
++	/*
++	 * Ensure the read of write_index in hv_get_bytes_to_write()
++	 * happens after the read of pending_send_sz.
++	 */
++	virt_rmb();
++	curr_write_sz = hv_get_bytes_to_write(rbi);
++	bytes_read = hv_pkt_iter_bytes_read(rbi, start_read_index);
++
++	/*
++	 * If there was space before we began iteration,
++	 * then host was not blocked.
++	 */
++
++	if (curr_write_sz - bytes_read > pending_sz)
++		return;
++
++	/* If pending write will not fit, don't give false hope. */
++	if (curr_write_sz <= pending_sz)
++		return;
++
++	vmbus_setevent(channel);
+ }
+ EXPORT_SYMBOL_GPL(hv_pkt_iter_close);
+-- 
+2.17.1
+

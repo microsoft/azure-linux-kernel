@@ -1,0 +1,37 @@
+From 80bf6a013f50de66f2a8caaca0f33fd379459d37 Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Tue, 14 Nov 2017 06:53:32 -0700
+Subject: vmbus: unregister device_obj->channels_kset
+Reply-To: joseph.salisbury@microsoft.com
+
+Without the patch, a device can't be thoroughly destroyed, because
+vmbus_device_register() -> kset_create_and_add() still holds a reference
+to the hv_device's device.kobj.
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Fixes: c2e5df616e1a ("vmbus: add per-channel sysfs info")
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 869b5567e12f63ea7407f81728ca87f8c0abbfdb)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/vmbus_drv.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index 38d9c47b3f15..cdb1cc38c042 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -1242,6 +1242,8 @@ void vmbus_device_unregister(struct hv_device *device_obj)
+ 	pr_debug("child device %s unregistered\n",
+ 		dev_name(&device_obj->device));
+ 
++	kset_unregister(device_obj->channels_kset);
++
+ 	/*
+ 	 * Kick off the process of unregistering the device.
+ 	 * This will call vmbus_remove() and eventually vmbus_device_release()
+-- 
+2.17.1
+

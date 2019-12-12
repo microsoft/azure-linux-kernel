@@ -1,4 +1,4 @@
-From a99751cdb86f8d6d479a8be2332675fdfebf658e Mon Sep 17 00:00:00 2001
+From 5fa41903523bfe79037081efade54a0a6b26d222 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Mon, 7 Aug 2017 11:30:00 -0700
 Subject: netvsc: make sure and unregister datapath

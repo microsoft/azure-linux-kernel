@@ -1,0 +1,161 @@
+From 7d3a348944206787ab8341df5f72d044f0a19cae Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sun, 29 Oct 2017 11:33:40 -0700
+Subject: Drivers: hv: vmbus: Expose per-channel interrupts and events counters
+Reply-To: joseph.salisbury@microsoft.com
+
+When investigating performance, it is useful to be able to look at
+the number of host and guest events per-channel. This is equivalent
+to per-device interrupt statistics.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 6981fbf3780366093858c5d2dcdaadcd1fbb04be)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ Documentation/ABI/stable/sysfs-bus-vmbus | 26 ++++++++++++++++++------
+ drivers/hv/connection.c                  |  2 ++
+ drivers/hv/vmbus_drv.c                   | 19 +++++++++++++++++
+ include/linux/hyperv.h                   |  4 ++++
+ 4 files changed, 45 insertions(+), 6 deletions(-)
+
+diff --git a/Documentation/ABI/stable/sysfs-bus-vmbus b/Documentation/ABI/stable/sysfs-bus-vmbus
+index 0ebd8a1537a0..d4077cc60d55 100644
+--- a/Documentation/ABI/stable/sysfs-bus-vmbus
++++ b/Documentation/ABI/stable/sysfs-bus-vmbus
+@@ -61,39 +61,53 @@ Date:		September. 2017
+ KernelVersion:	4.14
+ Contact:	Stephen Hemminger <sthemmin@microsoft.com>
+ Description:	Inbound channel signaling state
+-Users:		Debuggig tools
++Users:		Debugging tools
+ 
+ What:		/sys/bus/vmbus/devices/vmbus_*/channels/relid/latency
+ Date:		September. 2017
+ KernelVersion:	4.14
+ Contact:	Stephen Hemminger <sthemmin@microsoft.com>
+ Description:	Channel signaling latency
+-Users:		Debuggig tools
++Users:		Debugging tools
+ 
+ What:		/sys/bus/vmbus/devices/vmbus_*/channels/relid/out_mask
+ Date:		September. 2017
+ KernelVersion:	4.14
+ Contact:	Stephen Hemminger <sthemmin@microsoft.com>
+ Description:	Outbound channel signaling state
+-Users:		Debuggig tools
++Users:		Debugging tools
+ 
+ What:		/sys/bus/vmbus/devices/vmbus_*/channels/relid/pending
+ Date:		September. 2017
+ KernelVersion:	4.14
+ Contact:	Stephen Hemminger <sthemmin@microsoft.com>
+ Description:	Channel interrupt pending state
+-Users:		Debuggig tools
++Users:		Debugging tools
+ 
+ What:		/sys/bus/vmbus/devices/vmbus_*/channels/relid/read_avail
+ Date:		September. 2017
+ KernelVersion:	4.14
+ Contact:	Stephen Hemminger <sthemmin@microsoft.com>
+ Description:	Bytes availabble to read
+-Users:		Debuggig tools
++Users:		Debugging tools
+ 
+ What:		/sys/bus/vmbus/devices/vmbus_*/channels/relid/write_avail
+ Date:		September. 2017
+ KernelVersion:	4.14
+ Contact:	Stephen Hemminger <sthemmin@microsoft.com>
+ Description:	Bytes availabble to write
+-Users:		Debuggig tools
++Users:		Debugging tools
++
++What:		/sys/bus/vmbus/devices/vmbus_*/channels/relid/events
++Date:		September. 2017
++KernelVersion:	4.14
++Contact:	Stephen Hemminger <sthemmin@microsoft.com>
++Description:	Number of times we have signaled the host
++Users:		Debugging tools
++
++What:		/sys/bus/vmbus/devices/vmbus_*/channels/relid/interrupts
++Date:		September. 2017
++KernelVersion:	4.14
++Contact:	Stephen Hemminger <sthemmin@microsoft.com>
++Description:	Number of times we have taken an interrupt (incoming)
++Users:		Debugging tools
+diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
+index 5b03d7871c65..91f596e92e5a 100644
+--- a/drivers/hv/connection.c
++++ b/drivers/hv/connection.c
+@@ -413,6 +413,8 @@ void vmbus_set_event(struct vmbus_channel *channel)
+ 			(child_relid >> 5));
+ 	}
+ 
++	++channel->sig_events;
++
+ 	hv_do_fast_hypercall8(HVCALL_SIGNAL_EVENT, channel->sig_event);
+ }
+ EXPORT_SYMBOL_GPL(vmbus_set_event);
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index e9c857560b92..38d9c47b3f15 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -811,6 +811,11 @@ static void vmbus_chan_sched(struct hv_per_cpu_context *hv_cpu)
+ 			if (channel->offermsg.child_relid != relid)
+ 				continue;
+ 
++			if (channel->rescind)
++				continue;
++
++			++channel->interrupts;
++
+ 			switch (channel->callback_mode) {
+ 			case HV_CALL_ISR:
+ 				vmbus_channel_isr(channel);
+@@ -1102,6 +1107,18 @@ static ssize_t channel_latency_show(const struct vmbus_channel *channel,
+ }
+ VMBUS_CHAN_ATTR(latency, S_IRUGO, channel_latency_show, NULL);
+ 
++static ssize_t channel_interrupts_show(const struct vmbus_channel *channel, char *buf)
++{
++	return sprintf(buf, "%llu\n", channel->interrupts);
++}
++VMBUS_CHAN_ATTR(interrupts, S_IRUGO, channel_interrupts_show, NULL);
++
++static ssize_t channel_events_show(const struct vmbus_channel *channel, char *buf)
++{
++	return sprintf(buf, "%llu\n", channel->sig_events);
++}
++VMBUS_CHAN_ATTR(events, S_IRUGO, channel_events_show, NULL);
++
+ static struct attribute *vmbus_chan_attrs[] = {
+ 	&chan_attr_out_mask.attr,
+ 	&chan_attr_in_mask.attr,
+@@ -1110,6 +1127,8 @@ static struct attribute *vmbus_chan_attrs[] = {
+ 	&chan_attr_cpu.attr,
+ 	&chan_attr_pending.attr,
+ 	&chan_attr_latency.attr,
++	&chan_attr_interrupts.attr,
++	&chan_attr_events.attr,
+ 	NULL
+ };
+ 
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index f5de7067c34e..a67ddba5c073 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -748,6 +748,10 @@ struct vmbus_channel {
+ 
+ 	struct vmbus_close_msg close_msg;
+ 
++	/* Statistics */
++	u64	interrupts;	/* Host to Guest interrupts */
++	u64	sig_events;	/* Guest to Host events */
++
+ 	/* Channel callback's invoked in softirq context */
+ 	struct tasklet_struct callback_event;
+ 	void (*onchannel_callback)(void *context);
+-- 
+2.17.1
+

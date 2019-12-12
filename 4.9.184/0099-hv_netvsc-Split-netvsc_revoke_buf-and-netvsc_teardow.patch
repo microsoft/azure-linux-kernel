@@ -1,0 +1,172 @@
+From 27ee6de31661d73a6b044e683d4f150175177a3d Mon Sep 17 00:00:00 2001
+From: Mohammed Gamal <mgamal@redhat.com>
+Date: Thu, 5 Apr 2018 21:09:19 +0200
+Subject: hv_netvsc: Split netvsc_revoke_buf() and netvsc_teardown_gpadl()
+Reply-To: joseph.salisbury@microsoft.com
+
+Split each of the functions into two for each of send/recv buffers.
+This will be needed in order to implement a fine-grained messaging
+sequence to the host so that we accommodate the requirements of
+different Windows versions
+
+Fixes: 0ef58b0a05c12 ("hv_netvsc: change GPAD teardown order on older versions")
+Signed-off-by: Mohammed Gamal <mgamal@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 7992894c305eaf504d005529637ff8283d0a849d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  2 +-
+ drivers/net/hyperv/netvsc.c     | 67 ++++++++++++++++++++++++++++-----
+ drivers/net/hyperv/netvsc_drv.c |  4 +-
+ 3 files changed, 61 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index be457b956d8a..a5706341b44d 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -724,7 +724,7 @@ struct net_device_context {
+ 
+ 	u32 tx_checksum_mask;
+ 
+-	u32 tx_send_table[VRSS_SEND_TAB_SIZE];
++	u32 tx_table[VRSS_SEND_TAB_SIZE];
+ 
+ 	/* Ethtool settings */
+ 	bool udp4_l4_hash;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index c88148df2140..12059dcd6c05 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -104,11 +104,11 @@ static void free_netvsc_device_rcu(struct netvsc_device *nvdev)
+ 	call_rcu(&nvdev->rcu, free_netvsc_device);
+ }
+ 
+-static void netvsc_destroy_buf(struct hv_device *device)
++static void netvsc_revoke_recv_buf(struct hv_device *device,
++				   struct netvsc_device *net_device)
+ {
+-	struct nvsp_message *revoke_packet;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+-	struct netvsc_device *net_device = net_device_to_netvsc_device(ndev);
++	struct nvsp_message *revoke_packet;
+ 	int ret;
+ 
+ 	/*
+@@ -152,6 +152,14 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 		}
+ 		net_device->recv_section_cnt = 0;
+ 	}
++}
++
++static void netvsc_revoke_send_buf(struct hv_device *device,
++				   struct netvsc_device *net_device)
++{
++	struct net_device *ndev = hv_get_drvdata(device);
++	struct nvsp_message *revoke_packet;
++	int ret;
+ 
+ 	/* Teardown the gpadl on the vsp end */
+ 	if (net_device->recv_buf_gpadl_handle) {
+@@ -217,7 +225,36 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 		}
+ 		net_device->send_section_cnt = 0;
+ 	}
+-	/* Teardown the gpadl on the vsp end */
++}
++
++static void netvsc_teardown_recv_gpadl(struct hv_device *device,
++				       struct netvsc_device *net_device)
++{
++	struct net_device *ndev = hv_get_drvdata(device);
++	int ret;
++
++	if (net_device->recv_buf_gpadl_handle) {
++		ret = vmbus_teardown_gpadl(device->channel,
++					   net_device->recv_buf_gpadl_handle);
++
++		/* If we failed here, we might as well return and have a leak
++		 * rather than continue and a bugchk
++		 */
++		if (ret != 0) {
++			netdev_err(ndev,
++				   "unable to teardown receive buffer's gpadl\n");
++			return;
++		}
++		net_device->recv_buf_gpadl_handle = 0;
++	}
++}
++
++static void netvsc_teardown_send_gpadl(struct hv_device *device,
++				       struct netvsc_device *net_device)
++{
++	struct net_device *ndev = hv_get_drvdata(device);
++	int ret;
++
+ 	if (net_device->send_buf_gpadl_handle) {
+ 		ret = vmbus_teardown_gpadl(device->channel,
+ 					   net_device->send_buf_gpadl_handle);
+@@ -431,7 +468,10 @@ static int netvsc_init_buf(struct hv_device *device,
+ 	goto exit;
+ 
+ cleanup:
+-	netvsc_destroy_buf(device);
++	netvsc_revoke_recv_buf(device, net_device);
++	netvsc_revoke_send_buf(device, net_device);
++	netvsc_teardown_recv_gpadl(device, net_device);
++	netvsc_teardown_send_gpadl(device, net_device);
+ 
+ exit:
+ 	return ret;
+@@ -567,7 +607,8 @@ void netvsc_device_remove(struct hv_device *device)
+ 	struct netvsc_device *net_device = net_device_ctx->nvdev;
+ 	int i;
+ 
+-	netvsc_revoke_buf(device, net_device);
++	netvsc_revoke_recv_buf(device, net_device);
++	netvsc_revoke_send_buf(device, net_device);
+ 
+ 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
+ 
+@@ -575,13 +616,21 @@ void netvsc_device_remove(struct hv_device *device)
+ 	 * At this point, no one should be accessing net_device
+ 	 * except in here
+ 	 */
+-	dev_notice(&device->device, "net device safe to remove\n");
++	netdev_dbg(ndev, "net device safe to remove\n");
++
++	/* older versions require that buffer be revoked before close */
++	if (vmbus_proto_version < VERSION_WIN10) {
++		netvsc_teardown_recv_gpadl(device, net_device);
++		netvsc_teardown_send_gpadl(device, net_device);
++	}
+ 
+ 	/* Now, we can close the channel safely */
+ 	vmbus_close(device->channel);
+ 
+-	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
+-		napi_disable(&net_device->chan_table[0].napi);
++	if (vmbus_proto_version >= VERSION_WIN10) {
++		netvsc_teardown_recv_gpadl(device, net_device);
++		netvsc_teardown_send_gpadl(device, net_device);
++	}
+ 
+ 	/* Release all resources */
+ 	free_netvsc_device_rcu(net_device);
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 4574af0c914f..523235f4c8bb 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -272,8 +272,8 @@ static inline int netvsc_get_tx_queue(struct net_device *ndev,
+ 	struct sock *sk = skb->sk;
+ 	int q_idx;
+ 
+-	q_idx = ndc->tx_send_table[netvsc_get_hash(skb, ndc) &
+-				   (VRSS_SEND_TAB_SIZE - 1)];
++	q_idx = ndc->tx_table[netvsc_get_hash(skb, ndc) &
++				(VRSS_SEND_TAB_SIZE - 1)];
+ 
+ 	/* If queue index changed record the new value */
+ 	if (q_idx != old_idx &&
+-- 
+2.17.1
+

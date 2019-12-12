@@ -1,4 +1,4 @@
-From a5870d319efe00a741e619eb7170b2ec70bd0917 Mon Sep 17 00:00:00 2001
+From 992ab73459a662f809ca641e1329eb7f120ddc0d Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:47 -0700
 Subject: Drivers: hv: vmbus: Move the extracting of Hypervisor version

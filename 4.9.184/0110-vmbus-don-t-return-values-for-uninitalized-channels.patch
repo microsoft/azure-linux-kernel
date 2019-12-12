@@ -1,0 +1,39 @@
+From d7fb7c80fa56af8e0410ee8ed6a4987a03fc9ac3 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 20 Aug 2018 21:16:40 +0000
+Subject: vmbus: don't return values for uninitalized channels
+Reply-To: joseph.salisbury@microsoft.com
+
+For unsupported device types, the vmbus channel ringbuffer is never
+initialized, and therefore reading the sysfs files will return garbage
+or cause a kernel OOPS.
+
+Fixes: c2e5df616e1a ("vmbus: add per-channel sysfs info")
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Cc: <stable@vger.kernel.org> # 4.15
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 6712cc9c22117a8af9f3df272b4a44fd2e4201cd)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/vmbus_drv.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index b899f6b17e7c..3da8c72767b4 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -1044,6 +1044,9 @@ static ssize_t vmbus_chan_attr_show(struct kobject *kobj,
+ 	if (!attribute->show)
+ 		return -EIO;
+ 
++	if (chan->state != CHANNEL_OPENED_STATE)
++		return -EINVAL;
++
+ 	return attribute->show(chan, buf);
+ }
+ 
+-- 
+2.17.1
+

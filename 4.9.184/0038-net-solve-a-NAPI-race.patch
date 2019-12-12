@@ -1,4 +1,4 @@
-From 3b845251a636266a133687efd6e2c07d68e27b8f Mon Sep 17 00:00:00 2001
+From eff91ccb379dc3289c91182e1dce700a0b7b1e3d Mon Sep 17 00:00:00 2001
 From: Eric Dumazet <edumazet@google.com>
 Date: Tue, 28 Feb 2017 10:34:50 -0800
 Subject: net: solve a NAPI race
