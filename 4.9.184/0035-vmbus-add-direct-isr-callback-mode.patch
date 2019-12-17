@@ -1,4 +1,4 @@
-From c94f9c997cc46ec9f58c62067763d7029fdb166d Mon Sep 17 00:00:00 2001
+From 165e0a137a2311a255f8a79c23f820512e854565 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 11 Feb 2017 23:02:21 -0700
 Subject: vmbus: add direct isr callback mode

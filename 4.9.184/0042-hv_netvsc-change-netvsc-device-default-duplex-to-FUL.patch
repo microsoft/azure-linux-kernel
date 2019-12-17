@@ -1,4 +1,4 @@
-From e6c1d8d24109bace968903cf91763a022310d3e9 Mon Sep 17 00:00:00 2001
+From fb90cad282fb96d71d198265dfeae33cd7e8b4e6 Mon Sep 17 00:00:00 2001
 From: Simon Xiao <sixiao@microsoft.com>
 Date: Fri, 14 Apr 2017 14:42:58 -0700
 Subject: hv_netvsc: change netvsc device default duplex to FULL

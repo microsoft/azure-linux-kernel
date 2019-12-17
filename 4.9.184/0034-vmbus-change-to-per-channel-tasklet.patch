@@ -1,4 +1,4 @@
-From 969172d8e580ef09502247746465271230587a77 Mon Sep 17 00:00:00 2001
+From 6f7ead2ab7768e9514207512f9e5849687d637e0 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 11 Feb 2017 23:02:20 -0700
 Subject: vmbus: change to per channel tasklet
