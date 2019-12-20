@@ -1,4 +1,4 @@
-From a7547bd0f70d85dd62116e49a0954e67a618a133 Mon Sep 17 00:00:00 2001
+From 7bb20120d81f02ca612ac1a0a9c50c036c88da45 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 5 Sep 2019 23:23:07 +0000
 Subject: hv_netvsc: Allow scatter-gather feature to be tunable
@@ -33,10 +33,10 @@ index fb3d1903dd5e..6236536f0794 100644
  #define VRSS_SEND_TAB_SIZE 16  /* must be power of 2 */
  #define VRSS_CHANNEL_MAX 64
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index f66e55067a1d..44800ebcf69b 100644
+index 98d745c38634..169be56ca532 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -2354,8 +2354,8 @@ static int netvsc_probe(struct hv_device *dev,
+@@ -2355,8 +2355,8 @@ static int netvsc_probe(struct hv_device *dev,
  
  	/* hw_features computed in rndis_netdev_set_hwcaps() */
  	net->features = net->hw_features |

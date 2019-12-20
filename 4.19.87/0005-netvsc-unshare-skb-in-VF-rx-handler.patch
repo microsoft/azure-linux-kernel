@@ -1,4 +1,4 @@
-From adfb78a522efaed5bb054fb71efd6bd21aabc386 Mon Sep 17 00:00:00 2001
+From 48524dc1c3e7d92679edb74965bf23e7d3cffb81 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 28 May 2019 11:47:30 -0700
 Subject: netvsc: unshare skb in VF rx handler
@@ -22,10 +22,10 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 9aef11ff54cc..f66e55067a1d 100644
+index d4de9e8d0de1..98d745c38634 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -2034,6 +2034,12 @@ static rx_handler_result_t netvsc_vf_handle_frame(struct sk_buff **pskb)
+@@ -2035,6 +2035,12 @@ static rx_handler_result_t netvsc_vf_handle_frame(struct sk_buff **pskb)
  	struct netvsc_vf_pcpu_stats *pcpu_stats
  		 = this_cpu_ptr(ndev_ctx->vf_stats);
  

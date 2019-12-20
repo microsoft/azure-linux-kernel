@@ -1,4 +1,4 @@
-From 60d94d3cdfb565f85ee0e60a14a807fcffb5846c Mon Sep 17 00:00:00 2001
+From 42a50e0eb9a3dfea186d277b0517d7e2430eb594 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 21 Nov 2019 13:33:41 -0800
 Subject: hv_netvsc: Fix send_table offset in case of a host bug

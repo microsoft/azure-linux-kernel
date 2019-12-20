@@ -1,4 +1,4 @@
-From b921c1963595f95daf044d645d7f8b70afc4beb4 Mon Sep 17 00:00:00 2001
+From a9cf89ad07585ca906905d825a0d4b571f3d8f23 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 15 Aug 2019 17:01:45 +0000
 Subject: PCI: hv: Use bytes 4 and 5 from instance ID as the PCI domain numbers
