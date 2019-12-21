@@ -1,4 +1,4 @@
-From 2aa34c3530d8133dbddfe19e7325566358dd3bfd Mon Sep 17 00:00:00 2001
+From 7cfe00893f3fe52e08033bccd0f24596f134c21a Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sat, 28 Jan 2017 12:37:15 -0700
 Subject: Drivers: hv: restore TSC page cleanup before kexec

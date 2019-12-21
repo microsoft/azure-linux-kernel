@@ -1,4 +1,4 @@
-From e10c6edef17171c798868627d4c444143bea7435 Mon Sep 17 00:00:00 2001
+From 79bcb42d0c56c17a29dab14676f36d1fc9f6a015 Mon Sep 17 00:00:00 2001
 From: Alex Ng <alexng@messages.microsoft.com>
 Date: Sat, 28 Jan 2017 12:37:17 -0700
 Subject: Drivers: hv: vmbus: Use all supported IC versions to negotiate

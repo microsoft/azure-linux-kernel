@@ -1,4 +1,4 @@
-From 16e93229d679042c4ee67f0291886767a3987d68 Mon Sep 17 00:00:00 2001
+From 3c22800537be2a2891b812a54dcf04bcb70b493d Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 11 Feb 2017 23:02:22 -0700
 Subject: vmbus: remove conditional locking of vmbus_write

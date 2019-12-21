@@ -1,4 +1,4 @@
-From 5e5d209b08c39149d800da60cc2ccc953aafa3c3 Mon Sep 17 00:00:00 2001
+From 534df55fc145e87487e2ec1542da823c9b1cecd3 Mon Sep 17 00:00:00 2001
 From: Arnd Bergmann <arnd@arndb.de>
 Date: Tue, 14 Feb 2017 22:17:17 +0100
 Subject: x86/hyperv: Hide unused label
