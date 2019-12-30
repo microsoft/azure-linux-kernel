@@ -1,4 +1,4 @@
-From 84d918b0b47231abaf1788ed7d54c15e6ca244dd Mon Sep 17 00:00:00 2001
+From 746b4e5239af42a875931c2b927fd1d406f409fe Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 22 Mar 2018 12:01:13 -0700
 Subject: hv_netvsc: Fix the return status in RX path
@@ -48,10 +48,10 @@ index e9fd525016b2..693219174595 100644
  
  	enq_receive_complete(ndev, net_device, q_idx,
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index d2391be64f22..8dd5d28224a3 100644
+index a0f4bd9fbf0e..fbfe792f95fb 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -868,9 +868,7 @@ int netvsc_recv_callback(struct net_device *net,
+@@ -882,9 +882,7 @@ int netvsc_recv_callback(struct net_device *net,
  	u64_stats_update_end(&rx_stats->syncp);
  
  	napi_gro_receive(&nvchan->napi, skb);

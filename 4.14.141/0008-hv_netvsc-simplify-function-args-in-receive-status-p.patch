@@ -1,4 +1,4 @@
-From cb94f90418ef040fad9aa6b95cf8a55e409bfce4 Mon Sep 17 00:00:00 2001
+From ba7ce8c42011c0ecccc8c8e8b901a379d917f101 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 12 Dec 2017 16:48:37 -0800
 Subject: hv_netvsc: simplify function args in receive status path
@@ -20,7 +20,7 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  4 files changed, 7 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 7f0272216436..64553b53a525 100644
+index 44ba11eebe66..7afa73ea7326 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
 @@ -197,7 +197,7 @@ int netvsc_send(struct net_device *net,
@@ -54,10 +54,10 @@ index 26f90b9c5cc5..c5b409e21e27 100644
  	}
  
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index ca57e0c3bcd8..d2391be64f22 100644
+index 7c19eb4f76ae..a0f4bd9fbf0e 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -714,22 +714,14 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+@@ -728,22 +728,14 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
  /*
   * netvsc_linkstatus_callback - Link up/down notification
   */

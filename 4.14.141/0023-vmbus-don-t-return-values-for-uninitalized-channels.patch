@@ -1,4 +1,4 @@
-From cc583b1262b0c8173ca654d3447e91502d46bf93 Mon Sep 17 00:00:00 2001
+From ab4122a785e29d0824480f4eaf9505941c84997d Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Mon, 20 Aug 2018 21:16:40 +0000
 Subject: vmbus: don't return values for uninitalized channels

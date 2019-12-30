@@ -1,4 +1,4 @@
-From 03c802c2fa22d2ff9cd67d3e2952e2892a7991bc Mon Sep 17 00:00:00 2001
+From b1e385c66672cd8ffa7ecc51d1680611edfdf90a Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Tue, 30 Apr 2019 19:29:07 +0000
 Subject: hv_netvsc: fix race that may miss tx queue wakeup
