@@ -1,4 +1,4 @@
-From f1bf11e6791f4e92f1ea76c51ba2aa5076921ea5 Mon Sep 17 00:00:00 2001
+From 5ef71ea3d65f6b67bdf4f8f22d22bbd6697c057e Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 20 Mar 2018 15:03:05 -0700
 Subject: hv_netvsc: common detach logic
@@ -41,7 +41,7 @@ index 8b8f2ca9c22d..f08bc8f17bb4 100644
  int rndis_filter_close(struct netvsc_device *nvdev);
  struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 4bd560edfc6a..edf986654fd9 100644
+index 8c3410a923b7..3af214826960 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
 @@ -29,6 +29,7 @@
@@ -75,7 +75,7 @@ index 4bd560edfc6a..edf986654fd9 100644
  
  	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
  
-@@ -640,14 +634,18 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+@@ -644,14 +638,18 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
  	queue_sends =
  		atomic_dec_return(&net_device->chan_table[q_idx].queue_sends);
  

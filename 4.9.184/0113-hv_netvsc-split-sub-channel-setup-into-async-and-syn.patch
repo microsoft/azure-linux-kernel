@@ -1,4 +1,4 @@
-From f701f36e6371749fc4d200c7b08272b7c178a6f5 Mon Sep 17 00:00:00 2001
+From 39500ceb79b7861113aa850ea5616534e9dff5a0 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Fri, 29 Jun 2018 14:07:16 -0700
 Subject: hv_netvsc: split sub-channel setup into async and sync
@@ -40,7 +40,7 @@ index 81aeff74ba85..0cf2cc299029 100644
  int rndis_filter_close(struct netvsc_device *nvdev);
  struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 3b820c5f9150..31a3a06aa72a 100644
+index 28ae76902385..344ca6a339fe 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
 @@ -63,6 +63,41 @@ void netvsc_switch_datapath(struct net_device *ndev, bool vf)

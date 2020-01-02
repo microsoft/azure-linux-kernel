@@ -1,4 +1,4 @@
-From d7c83d8dd96cdbd33bbaa665be0b12ee230b698b Mon Sep 17 00:00:00 2001
+From 09d196a195a4ea81ef7feb255e26402bda9d6d4c Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 22 Mar 2018 12:01:13 -0700
 Subject: hv_netvsc: Fix the return status in RX path
@@ -25,10 +25,10 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  3 files changed, 10 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 08e8e2397df1..c88148df2140 100644
+index bb0d3153f514..cfbb81c5c321 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -1096,12 +1096,16 @@ static int netvsc_receive(struct net_device *ndev,
+@@ -1100,12 +1100,16 @@ static int netvsc_receive(struct net_device *ndev,
  		void *data = recv_buf
  			+ vmxferpage_packet->ranges[i].byte_offset;
  		u32 buflen = vmxferpage_packet->ranges[i].byte_count;

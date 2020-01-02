@@ -1,4 +1,4 @@
-From 95cef72e1da0ac55d15d42e70e6643743e6bfce9 Mon Sep 17 00:00:00 2001
+From 1b56b712c1c4c0374ea6506fcc6f2067ff692853 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Mon, 29 Jul 2019 08:55:46 -0700
 Subject: hv_netvsc: Sync offloading features to VF NIC when VF re-added

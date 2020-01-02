@@ -1,4 +1,4 @@
-From e42da2233f181a2bed2b07187a5bd21dc9e255ca Mon Sep 17 00:00:00 2001
+From 59eef19b8d5edb4c3ca1d17c260cce4480020518 Mon Sep 17 00:00:00 2001
 From: Edward Cree <ecree@solarflare.com>
 Date: Thu, 8 Mar 2018 15:45:03 +0000
 Subject: net: ethtool: extend RXNFC API to support RSS spreading of filter

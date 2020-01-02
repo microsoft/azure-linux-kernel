@@ -1,4 +1,4 @@
-From d7884f2ff40a51733ba9c477cd460dfe8e503d92 Mon Sep 17 00:00:00 2001
+From ade14790376983c3aee5356594698b000b1b5693 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Wed, 7 Mar 2018 13:49:12 -0800
 Subject: hv_netvsc: fix locking during VF setup

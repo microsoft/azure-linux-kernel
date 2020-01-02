@@ -1,4 +1,4 @@
-From 3346fe854bdd82188ddd656008b72a1ed9149f09 Mon Sep 17 00:00:00 2001
+From 3a31826025e2bf9d3422e8e8610746e1a592a81f Mon Sep 17 00:00:00 2001
 From: Mohammed Gamal <mgamal@redhat.com>
 Date: Thu, 5 Apr 2018 21:09:21 +0200
 Subject: hv_netvsc: Pass net_device parameter to revoke and teardown functions
@@ -18,7 +18,7 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  1 file changed, 29 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 12059dcd6c05..13d6fd690e95 100644
+index ba7a8f7fdf9b..6f71f8410cb4 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
 @@ -105,9 +105,9 @@ static void free_netvsc_device_rcu(struct netvsc_device *nvdev)
@@ -112,7 +112,7 @@ index 12059dcd6c05..13d6fd690e95 100644
  
  	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
  
-@@ -618,18 +626,16 @@ void netvsc_device_remove(struct hv_device *device)
+@@ -622,18 +630,16 @@ void netvsc_device_remove(struct hv_device *device)
  	 */
  	netdev_dbg(ndev, "net device safe to remove\n");
  

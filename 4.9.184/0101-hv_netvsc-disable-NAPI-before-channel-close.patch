@@ -1,0 +1,36 @@
+From fe9c2581c027565e9aecab3e8e50e7c63b0a02d1 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 20 Mar 2018 15:03:02 -0700
+Subject: hv_netvsc: disable NAPI before channel close
+Reply-To: joseph.salisbury@microsoft.com
+
+This makes sure that no CPU is still process packets when
+the channel is closed.
+
+Fixes: 76bb5db5c749 ("netvsc: fix use after free on module removal")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 8348e0460ab1473f06c8b824699dd2eed3c1979d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 4bd560edfc6a..8c3410a923b7 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -559,6 +559,10 @@ void netvsc_device_remove(struct hv_device *device)
+ 
+ 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
+ 
++	/* And disassociate NAPI context from device */
++	for (i = 0; i < net_device->num_chn; i++)
++		netif_napi_del(&net_device->chan_table[i].napi);
++
+ 	/*
+ 	 * At this point, no one should be accessing net_device
+ 	 * except in here
+-- 
+2.17.1
+

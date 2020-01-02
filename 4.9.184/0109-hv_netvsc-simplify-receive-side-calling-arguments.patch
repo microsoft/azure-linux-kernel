@@ -1,4 +1,4 @@
-From 00a75fb8882a0f4d9ccfd3f8574fa891e444e132 Mon Sep 17 00:00:00 2001
+From 8571386c41f839d8b9a119feed9fc1831de082c3 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Thu, 26 Apr 2018 14:34:25 -0700
 Subject: hv_netvsc: simplify receive side calling arguments
@@ -21,10 +21,10 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  1 file changed, 28 insertions(+), 38 deletions(-)
 
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 13d6fd690e95..3b820c5f9150 100644
+index 6f71f8410cb4..28ae76902385 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -665,17 +665,14 @@ static inline void netvsc_free_send_slot(struct netvsc_device *net_device,
+@@ -669,17 +669,14 @@ static inline void netvsc_free_send_slot(struct netvsc_device *net_device,
  	sync_change_bit(index, net_device->send_section_map);
  }
  
@@ -45,7 +45,7 @@ index 13d6fd690e95..3b820c5f9150 100644
  	u16 q_idx = 0;
  	int queue_sends;
  
-@@ -689,7 +686,6 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+@@ -693,7 +690,6 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
  		if (send_index != NETVSC_INVALID_INDEX)
  			netvsc_free_send_slot(net_device, send_index);
  		q_idx = packet->q_idx;
@@ -53,7 +53,7 @@ index 13d6fd690e95..3b820c5f9150 100644
  
  		tx_stats = &net_device->chan_table[q_idx].tx_stats;
  
-@@ -701,9 +697,6 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+@@ -705,9 +701,6 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
  		dev_consume_skb_any(skb);
  	}
  
@@ -63,7 +63,7 @@ index 13d6fd690e95..3b820c5f9150 100644
  	queue_sends =
  		atomic_dec_return(&net_device->chan_table[q_idx].queue_sends);
  
-@@ -722,14 +715,13 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+@@ -726,14 +719,13 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
  	}
  }
  
@@ -81,7 +81,7 @@ index 13d6fd690e95..3b820c5f9150 100644
  
  	switch (nvsp_packet->hdr.msg_type) {
  	case NVSP_MSG_TYPE_INIT_COMPLETE:
-@@ -743,8 +735,8 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+@@ -747,8 +739,8 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
  		break;
  
  	case NVSP_MSG1_TYPE_SEND_RNDIS_PKT_COMPLETE:
@@ -92,7 +92,7 @@ index 13d6fd690e95..3b820c5f9150 100644
  		break;
  
  	default:
-@@ -1114,12 +1106,11 @@ static void enq_receive_complete(struct net_device *ndev,
+@@ -1118,12 +1110,11 @@ static void enq_receive_complete(struct net_device *ndev,
  
  static int netvsc_receive(struct net_device *ndev,
  			  struct netvsc_device *net_device,
@@ -107,7 +107,7 @@ index 13d6fd690e95..3b820c5f9150 100644
  	const struct vmtransfer_page_packet_header *vmxferpage_packet
  		= container_of(desc, const struct vmtransfer_page_packet_header, d);
  	u16 q_idx = channel->offermsg.offer.sub_channel_index;
-@@ -1169,13 +1160,12 @@ static int netvsc_receive(struct net_device *ndev,
+@@ -1173,13 +1164,12 @@ static int netvsc_receive(struct net_device *ndev,
  	return count;
  }
  
@@ -125,7 +125,7 @@ index 13d6fd690e95..3b820c5f9150 100644
  
  	count = nvmsg->msg.v5_msg.send_table.count;
  	if (count != VRSS_SEND_TAB_SIZE) {
-@@ -1187,27 +1177,28 @@ static void netvsc_send_table(struct hv_device *hdev,
+@@ -1191,27 +1181,28 @@ static void netvsc_send_table(struct hv_device *hdev,
  		      nvmsg->msg.v5_msg.send_table.offset);
  
  	for (i = 0; i < count; i++)
@@ -162,7 +162,7 @@ index 13d6fd690e95..3b820c5f9150 100644
  		break;
  	}
  }
-@@ -1219,24 +1210,23 @@ static int netvsc_process_raw_pkt(struct hv_device *device,
+@@ -1223,24 +1214,23 @@ static int netvsc_process_raw_pkt(struct hv_device *device,
  				  const struct vmpacket_descriptor *desc,
  				  int budget)
  {
