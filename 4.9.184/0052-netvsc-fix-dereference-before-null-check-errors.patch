@@ -1,0 +1,88 @@
+From 66bc7b9de5b4472db1bbf339b6120f9ed256fe78 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Sat, 25 Mar 2017 14:26:39 +0000
+Subject: netvsc: fix dereference before null check errors
+Reply-To: joseph.salisbury@microsoft.com
+
+ndev is being checked to see if it is a null pointer however before
+the null check ndev is being dereferenced; hence there is a potential
+null pointer dereference bug that needs fixing. Fix this by only
+dereferencing ndev after the null check.
+
+Detected by CoverityScan, CID#1420760, CID#140761 ("Dereference
+before null check")
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit eb996edb03a665d038de7bc318182412e44c52f9)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 30 ++++++++++++++++++++++++++----
+ 1 file changed, 26 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 0676f7fe2357..0815484ca82f 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1105,7 +1105,8 @@ static int netvsc_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
+ {
+ 	struct net_device_context *ndc = netdev_priv(dev);
+ 	struct netvsc_device *ndev = rcu_dereference(ndc->nvdev);
+-	struct rndis_device *rndis_dev = ndev->extension;
++	struct rndis_device *rndis_dev;
++	int i;
+ 
+ 	if (!ndev)
+ 		return -ENODEV;
+@@ -1113,6 +1114,12 @@ static int netvsc_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
+ 	if (hfunc)
+ 		*hfunc = ETH_RSS_HASH_TOP;	/* Toeplitz */
+ 
++	rndis_dev = ndev->extension;
++	if (indir) {
++		for (i = 0; i < ITAB_NUM; i++)
++			indir[i] = rndis_dev->ind_table[i];
++	}
++
+ 	if (key)
+ 		memcpy(key, rndis_dev->rss_key, NETVSC_HASH_KEYLEN);
+ 
+@@ -1124,7 +1131,8 @@ static int netvsc_set_rxfh(struct net_device *dev, const u32 *indir,
+ {
+ 	struct net_device_context *ndc = netdev_priv(dev);
+ 	struct netvsc_device *ndev = rtnl_dereference(ndc->nvdev);
+-	struct rndis_device *rndis_dev = ndev->extension;
++	struct rndis_device *rndis_dev;
++	int i;
+ 
+ 	if (!ndev)
+ 		return -ENODEV;
+@@ -1132,8 +1140,22 @@ static int netvsc_set_rxfh(struct net_device *dev, const u32 *indir,
+ 	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP)
+ 		return -EOPNOTSUPP;
+ 
+-	if (!key || memcmp(key, rndis_dev->rss_key, NETVSC_HASH_KEYLEN) == 0)
+-		return 0; /* no change */
++	rndis_dev = ndev->extension;
++	if (indir) {
++		for (i = 0; i < ITAB_NUM; i++)
++			if (indir[i] >= dev->num_rx_queues)
++				return -EINVAL;
++
++		for (i = 0; i < ITAB_NUM; i++)
++			rndis_dev->ind_table[i] = indir[i];
++	}
++
++	if (!key) {
++		if (!indir)
++			return 0;
++
++		key = rndis_dev->rss_key;
++	}
+ 
+ 	return rndis_filter_set_rss_param(rndis_dev, key, ndev->num_chn);
+ }
+-- 
+2.17.1
+

@@ -1,0 +1,62 @@
+From 10a3645e5095f86f66bb5fea64fe8a39ec0876b9 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Fri, 29 Jun 2018 14:07:16 -0700
+Subject: hv_netvsc: split sub-channel setup into async and sync
+Reply-To: joseph.salisbury@microsoft.com
+
+When doing device hotplug the sub channel must be async to avoid
+deadlock issues because device is discovered in softirq context.
+
+When doing changes to MTU and number of channels, the setup
+must be synchronous to avoid races such as when MTU and device
+settings are done in a single ip command.
+
+Reported-by: Thomas Walker <Thomas.Walker@twosigma.com>
+Fixes: 8195b1396ec8 ("hv_netvsc: fix deadlock on hotplug")
+Fixes: 732e49850c5e ("netvsc: fix race on sub channel creation")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 3ffe64f1a641b80a82d9ef4efa7a05ce69049871)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c   | 10 ----------
+ drivers/net/hyperv/rndis_filter.c |  1 -
+ 2 files changed, 11 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 73ae1f8394a3..b8d1cd2c2d52 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -2138,16 +2138,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 
+ 	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
+ 
+-	/* We must get rtnl lock before scheduling nvdev->subchan_work,
+-	 * otherwise netvsc_subchan_work() can get rtnl lock first and wait
+-	 * all subchannels to show up, but that may not happen because
+-	 * netvsc_probe() can't get rtnl lock and as a result vmbus_onoffer()
+-	 * -> ... -> device_add() -> ... -> __device_attach() can't get
+-	 * the device lock, so all the subchannels can't be processed --
+-	 * finally netvsc_subchan_work() hangs for ever.
+-	 */
+-	rtnl_lock();
+-
+ 	if (nvdev->num_chn > 1)
+ 		schedule_work(&nvdev->subchan_work);
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 5ac153aa45b0..ad3e9ee3524c 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1314,7 +1314,6 @@ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
+ 	/* setting up multiple channels failed */
+ 	net_device->max_chn = 1;
+ 	net_device->num_chn = 1;
+-	return net_device;
+ 
+ err_dev_remv:
+ 	rndis_filter_device_remove(dev, net_device);
+-- 
+2.17.1
+

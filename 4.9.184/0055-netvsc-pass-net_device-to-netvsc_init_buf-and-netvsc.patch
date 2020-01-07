@@ -1,0 +1,106 @@
+From 2dc66e81c969298ce21a574f51458625459a5c5f Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Thu, 8 Jun 2017 16:21:22 -0700
+Subject: netvsc: pass net_device to netvsc_init_buf and netvsc_connect_vsp
+Reply-To: joseph.salisbury@microsoft.com
+
+Don't need to find netvsc_device structure, caller already had it.
+Also rearrange declarations.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 9579083732ce44313545d02de4b2ca168d0a9526)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 31 +++++++++++--------------------
+ 1 file changed, 11 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 70327797e3b4..71bc213eaff6 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -259,18 +259,15 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 	kfree(net_device->send_section_map);
+ }
+ 
+-static int netvsc_init_buf(struct hv_device *device)
++static int netvsc_init_buf(struct hv_device *device,
++			   struct netvsc_device *net_device)
+ {
+ 	int ret = 0;
+-	struct netvsc_device *net_device;
+ 	struct nvsp_message *init_packet;
+ 	struct net_device *ndev;
+ 	size_t map_words;
+ 	int node;
+ 
+-	net_device = get_outbound_net_device(device);
+-	if (!net_device)
+-		return -ENODEV;
+ 	ndev = hv_get_drvdata(device);
+ 
+ 	node = cpu_to_node(device->channel->target_cpu);
+@@ -301,9 +298,7 @@ static int netvsc_init_buf(struct hv_device *device)
+ 
+ 	/* Notify the NetVsp of the gpadl handle */
+ 	init_packet = &net_device->channel_init_pkt;
+-
+ 	memset(init_packet, 0, sizeof(struct nvsp_message));
+-
+ 	init_packet->hdr.msg_type = NVSP_MSG1_TYPE_SEND_RECV_BUF;
+ 	init_packet->msg.v1_msg.send_recv_buf.
+ 		gpadl_handle = net_device->recv_buf_gpadl_handle;
+@@ -502,20 +497,15 @@ static int negotiate_nvsp_ver(struct hv_device *device,
+ 	return ret;
+ }
+ 
+-static int netvsc_connect_vsp(struct hv_device *device)
++static int netvsc_connect_vsp(struct hv_device *device,
++			      struct netvsc_device *net_device)
+ {
+-	int ret;
+-	struct netvsc_device *net_device;
+-	struct nvsp_message *init_packet;
+-	int ndis_version;
+ 	const u32 ver_list[] = {
+ 		NVSP_PROTOCOL_VERSION_1, NVSP_PROTOCOL_VERSION_2,
+-		NVSP_PROTOCOL_VERSION_4, NVSP_PROTOCOL_VERSION_5 };
+-	int i;
+-
+-	net_device = get_outbound_net_device(device);
+-	if (!net_device)
+-		return -ENODEV;
++		NVSP_PROTOCOL_VERSION_4, NVSP_PROTOCOL_VERSION_5
++	};
++	struct nvsp_message *init_packet;
++	int ndis_version, i, ret;
+ 
+ 	init_packet = &net_device->channel_init_pkt;
+ 
+@@ -565,7 +555,7 @@ static int netvsc_connect_vsp(struct hv_device *device)
+ 		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE;
+ 	net_device->send_buf_size = NETVSC_SEND_BUFFER_SIZE;
+ 
+-	ret = netvsc_init_buf(device);
++	ret = netvsc_init_buf(device, net_device);
+ 
+ cleanup:
+ 	return ret;
+@@ -1374,7 +1364,7 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	rcu_assign_pointer(net_device_ctx->nvdev, net_device);
+ 
+ 	/* Connect with the NetVsp */
+-	ret = netvsc_connect_vsp(device);
++	ret = netvsc_connect_vsp(device, net_device);
+ 	if (ret != 0) {
+ 		netdev_err(ndev,
+ 			"unable to connect to NetVSP - %d\n", ret);
+@@ -1393,4 +1383,5 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	free_netvsc_device(&net_device->rcu);
+ 
+ 	return ret;
++
+ }
+-- 
+2.17.1
+

@@ -1,0 +1,45 @@
+From 0f4052a60d6fc4d2da48afbb6a875c76d8c793ab Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 28 Sep 2018 14:41:23 +0000
+Subject: hv_netvsc: Fix rndis_per_packet_info internal field initialization
+Reply-To: joseph.salisbury@microsoft.com
+
+The RSC feature -- a bit field "internal" was added here with total
+size unchanged:
+struct rndis_per_packet_info {
+	u32 size;
+	u32 type:31;
+	u32 internal:1;
+	u32 ppi_offset;
+};
+
+On TX path, we put rndis msg into skb head room, which is not zeroed
+before passing to us. We do not use the "internal" field in TX path,
+but it may impact older hosts which use the entire 32 bits as "type".
+
+To fix the bug, this patch sets the field "internal" to zero.
+
+Fixes: c8e4eff4675f ("hv_netvsc: Add support for LRO/RSC in the vSwitch")
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit e3a9667a5bf7e520a1fa24eadccc6010c135ec53)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 9aef11ff54cc..d4de9e8d0de1 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -246,6 +246,7 @@ static inline void *init_ppi_data(struct rndis_message *msg,
+ 
+ 	ppi->size = ppi_size;
+ 	ppi->type = pkt_type;
++	ppi->internal = 0;
+ 	ppi->ppi_offset = sizeof(struct rndis_per_packet_info);
+ 
+ 	rndis_pkt->per_pkt_info_len += ppi_size;
+-- 
+2.17.1
+
