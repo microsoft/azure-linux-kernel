@@ -1,4 +1,4 @@
-From 746b4e5239af42a875931c2b927fd1d406f409fe Mon Sep 17 00:00:00 2001
+From f844b7b4d2cf5e81fccce01d299b9b653905443b Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 22 Mar 2018 12:01:13 -0700
 Subject: hv_netvsc: Fix the return status in RX path
@@ -18,11 +18,13 @@ Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 (backported from commit 5c71dadbb45970a8f0544a27ae8f1cbd9750e516)
 Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+[ipylypiv@silver-peak.com: restored the original rcu_read_unlock()]
+Signed-off-by: Igor Pylypiv <ipylypiv@silver-peak.com>
 ---
  drivers/net/hyperv/netvsc.c       | 8 ++++++--
- drivers/net/hyperv/netvsc_drv.c   | 4 +---
+ drivers/net/hyperv/netvsc_drv.c   | 2 +-
  drivers/net/hyperv/rndis_filter.c | 4 ++--
- 3 files changed, 9 insertions(+), 7 deletions(-)
+ 3 files changed, 9 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
 index e9fd525016b2..693219174595 100644
@@ -48,15 +50,13 @@ index e9fd525016b2..693219174595 100644
  
  	enq_receive_complete(ndev, net_device, q_idx,
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index a0f4bd9fbf0e..fbfe792f95fb 100644
+index a0f4bd9fbf0e..fffc45318b70 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -882,9 +882,7 @@ int netvsc_recv_callback(struct net_device *net,
- 	u64_stats_update_end(&rx_stats->syncp);
- 
+@@ -884,7 +884,7 @@ int netvsc_recv_callback(struct net_device *net,
  	napi_gro_receive(&nvchan->napi, skb);
--	rcu_read_unlock();
--
+ 	rcu_read_unlock();
+ 
 -	return 0;
 +	return NVSP_STAT_SUCCESS;
  }
