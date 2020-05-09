@@ -1,0 +1,80 @@
+From 3266447bbc87da3b3e0e71622bdc37e0eb7f0e6d Mon Sep 17 00:00:00 2001
+From: Ira Weiny <ira.weiny@intel.com>
+Date: Wed, 15 Jun 2016 02:22:01 -0400
+Subject: IB/mlx5: Support device FW version string
+Reply-To: joseph.salisbury@microsoft.com
+
+And remove sysfs entry in favor of the common code.
+
+Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
+Signed-off-by: Ira Weiny <ira.weiny@intel.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit c73428230d98d1352bcc69cd8306c292a85e1e42)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/main.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index 57bb495de5ef..592c2b9c0b57 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -1896,15 +1896,6 @@ static ssize_t show_hca(struct device *device, struct device_attribute *attr,
+ 	return sprintf(buf, "MT%d\n", dev->mdev->pdev->device);
+ }
+ 
+-static ssize_t show_fw_ver(struct device *device, struct device_attribute *attr,
+-			   char *buf)
+-{
+-	struct mlx5_ib_dev *dev =
+-		container_of(device, struct mlx5_ib_dev, ib_dev.dev);
+-	return sprintf(buf, "%d.%d.%d\n", fw_rev_maj(dev->mdev),
+-		       fw_rev_min(dev->mdev), fw_rev_sub(dev->mdev));
+-}
+-
+ static ssize_t show_rev(struct device *device, struct device_attribute *attr,
+ 			char *buf)
+ {
+@@ -1923,7 +1914,6 @@ static ssize_t show_board(struct device *device, struct device_attribute *attr,
+ }
+ 
+ static DEVICE_ATTR(hw_rev,   S_IRUGO, show_rev,    NULL);
+-static DEVICE_ATTR(fw_ver,   S_IRUGO, show_fw_ver, NULL);
+ static DEVICE_ATTR(hca_type, S_IRUGO, show_hca,    NULL);
+ static DEVICE_ATTR(board_id, S_IRUGO, show_board,  NULL);
+ static DEVICE_ATTR(fw_pages, S_IRUGO, show_fw_pages, NULL);
+@@ -1931,7 +1921,6 @@ static DEVICE_ATTR(reg_pages, S_IRUGO, show_reg_pages, NULL);
+ 
+ static struct device_attribute *mlx5_class_attributes[] = {
+ 	&dev_attr_hw_rev,
+-	&dev_attr_fw_ver,
+ 	&dev_attr_hca_type,
+ 	&dev_attr_board_id,
+ 	&dev_attr_fw_pages,
+@@ -2435,6 +2424,15 @@ static int mlx5_port_immutable(struct ib_device *ibdev, u8 port_num,
+ 	return 0;
+ }
+ 
++static void get_dev_fw_str(struct ib_device *ibdev, char *str,
++			   size_t str_len)
++{
++	struct mlx5_ib_dev *dev =
++		container_of(ibdev, struct mlx5_ib_dev, ib_dev);
++	snprintf(str, str_len, "%d.%d.%04d", fw_rev_maj(dev->mdev),
++		       fw_rev_min(dev->mdev), fw_rev_sub(dev->mdev));
++}
++
+ static int mlx5_enable_roce(struct mlx5_ib_dev *dev)
+ {
+ 	int err;
+@@ -2691,6 +2689,7 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
+ 	dev->ib_dev.map_mr_sg		= mlx5_ib_map_mr_sg;
+ 	dev->ib_dev.check_mr_status	= mlx5_ib_check_mr_status;
+ 	dev->ib_dev.get_port_immutable  = mlx5_port_immutable;
++	dev->ib_dev.get_dev_fw_str      = get_dev_fw_str;
+ 	if (mlx5_core_is_pf(mdev)) {
+ 		dev->ib_dev.get_vf_config	= mlx5_ib_get_vf_config;
+ 		dev->ib_dev.set_vf_link_state	= mlx5_ib_set_vf_link_state;
+-- 
+2.17.1
+

@@ -1,0 +1,93 @@
+From 992c45adc626ee2cc7bdbbd9659750cbedb5208e Mon Sep 17 00:00:00 2001
+From: Moni Shoua <monis@mellanox.com>
+Date: Sun, 6 Dec 2015 18:07:39 +0200
+Subject: net/mlx4_core: Use both physical ports to dispatch link state events
+ to VF
+Reply-To: joseph.salisbury@microsoft.com
+
+Under HA mode, the link down event should be sent to VFs only if both
+ports are down.
+
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 8d80d04a521d4acf949a449403040c38ec648f57)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/eq.c | 24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+index 7417605c3cf6..52ac4455acd9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+@@ -151,6 +151,17 @@ void mlx4_gen_slave_eqe(struct work_struct *work)
+ 	      eqe = next_slave_event_eqe(slave_eq)) {
+ 		slave = eqe->slave_id;
+ 
++		if (eqe->type == MLX4_EVENT_TYPE_PORT_CHANGE &&
++		    eqe->subtype == MLX4_PORT_CHANGE_SUBTYPE_DOWN &&
++		    mlx4_is_bonded(dev)) {
++			struct mlx4_port_cap port_cap;
++
++			if (!mlx4_QUERY_PORT(dev, 1, &port_cap) && port_cap.link_state)
++				goto consume;
++
++			if (!mlx4_QUERY_PORT(dev, 2, &port_cap) && port_cap.link_state)
++				goto consume;
++		}
+ 		/* All active slaves need to receive the event */
+ 		if (slave == ALL_SLAVES) {
+ 			for (i = 0; i <= dev->persist->num_vfs; i++) {
+@@ -174,6 +185,7 @@ void mlx4_gen_slave_eqe(struct work_struct *work)
+ 				mlx4_warn(dev, "Failed to generate event for slave %d\n",
+ 					  slave);
+ 		}
++consume:
+ 		++slave_eq->cons;
+ 	}
+ }
+@@ -600,7 +612,9 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 					break;
+ 				for (i = 0; i < dev->persist->num_vfs + 1;
+ 				     i++) {
+-					if (!test_bit(i, slaves_port.slaves))
++					int reported_port = mlx4_is_bonded(dev) ? 1 : mlx4_phys_to_slave_port(dev, i, port);
++
++					if (!test_bit(i, slaves_port.slaves) && !mlx4_is_bonded(dev))
+ 						continue;
+ 					if (dev->caps.port_type[port] == MLX4_PORT_TYPE_ETH) {
+ 						if (i == mlx4_master_func_num(dev))
+@@ -612,7 +626,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 							eqe->event.port_change.port =
+ 								cpu_to_be32(
+ 								(be32_to_cpu(eqe->event.port_change.port) & 0xFFFFFFF)
+-								| (mlx4_phys_to_slave_port(dev, i, port) << 28));
++								| (reported_port << 28));
+ 							mlx4_slave_event(dev, i, eqe);
+ 						}
+ 					} else {  /* IB port */
+@@ -642,7 +656,9 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 					for (i = 0;
+ 					     i < dev->persist->num_vfs + 1;
+ 					     i++) {
+-						if (!test_bit(i, slaves_port.slaves))
++						int reported_port = mlx4_is_bonded(dev) ? 1 : mlx4_phys_to_slave_port(dev, i, port);
++
++						if (!test_bit(i, slaves_port.slaves) && !mlx4_is_bonded(dev))
+ 							continue;
+ 						if (i == mlx4_master_func_num(dev))
+ 							continue;
+@@ -651,7 +667,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 							eqe->event.port_change.port =
+ 								cpu_to_be32(
+ 								(be32_to_cpu(eqe->event.port_change.port) & 0xFFFFFFF)
+-								| (mlx4_phys_to_slave_port(dev, i, port) << 28));
++								| (reported_port << 28));
+ 							mlx4_slave_event(dev, i, eqe);
+ 						}
+ 					}
+-- 
+2.17.1
+

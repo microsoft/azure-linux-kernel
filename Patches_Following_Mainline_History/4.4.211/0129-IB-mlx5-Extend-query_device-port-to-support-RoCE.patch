@@ -1,0 +1,154 @@
+From 75d3a8223584cc65f12a6062292e676a9431555e Mon Sep 17 00:00:00 2001
+From: Achiad Shochat <achiad@mellanox.com>
+Date: Wed, 23 Dec 2015 18:47:21 +0200
+Subject: IB/mlx5: Extend query_device/port to support RoCE
+Reply-To: joseph.salisbury@microsoft.com
+
+Using the vport access functions to retrieve the Ethernet
+specific information and return this information in
+ib_query_device and ib_query_port.
+
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit 3f89a643eb29543af0838d37604bbc29a4e1eb60)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/main.c | 74 ++++++++++++++++++++++++++++---
+ include/linux/mlx5/driver.h       |  7 ---
+ 2 files changed, 68 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index 1037b78e9372..6d30a63ecb77 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -120,6 +120,50 @@ static struct net_device *mlx5_ib_get_netdev(struct ib_device *device,
+ 	return ndev;
+ }
+ 
++static int mlx5_query_port_roce(struct ib_device *device, u8 port_num,
++				struct ib_port_attr *props)
++{
++	struct mlx5_ib_dev *dev = to_mdev(device);
++	struct net_device *ndev;
++	enum ib_mtu ndev_ib_mtu;
++
++	memset(props, 0, sizeof(*props));
++
++	props->port_cap_flags  |= IB_PORT_CM_SUP;
++	props->port_cap_flags  |= IB_PORT_IP_BASED_GIDS;
++
++	props->gid_tbl_len      = MLX5_CAP_ROCE(dev->mdev,
++						roce_address_table_size);
++	props->max_mtu          = IB_MTU_4096;
++	props->max_msg_sz       = 1 << MLX5_CAP_GEN(dev->mdev, log_max_msg);
++	props->pkey_tbl_len     = 1;
++	props->state            = IB_PORT_DOWN;
++	props->phys_state       = 3;
++
++	mlx5_query_nic_vport_qkey_viol_cntr(dev->mdev,
++					    (u16 *)&props->qkey_viol_cntr);
++
++	ndev = mlx5_ib_get_netdev(device, port_num);
++	if (!ndev)
++		return 0;
++
++	if (netif_running(ndev) && netif_carrier_ok(ndev)) {
++		props->state      = IB_PORT_ACTIVE;
++		props->phys_state = 5;
++	}
++
++	ndev_ib_mtu = iboe_get_mtu(ndev->mtu);
++
++	dev_put(ndev);
++
++	props->active_mtu	= min(props->max_mtu, ndev_ib_mtu);
++
++	props->active_width	= IB_WIDTH_4X;  /* TODO */
++	props->active_speed	= IB_SPEED_QDR; /* TODO */
++
++	return 0;
++}
++
+ static int mlx5_use_mad_ifc(struct mlx5_ib_dev *dev)
+ {
+ 	return !dev->mdev->issi;
+@@ -158,13 +202,21 @@ static int mlx5_query_system_image_guid(struct ib_device *ibdev,
+ 
+ 	case MLX5_VPORT_ACCESS_METHOD_HCA:
+ 		err = mlx5_query_hca_vport_system_image_guid(mdev, &tmp);
+-		if (!err)
+-			*sys_image_guid = cpu_to_be64(tmp);
+-		return err;
++		break;
++
++	case MLX5_VPORT_ACCESS_METHOD_NIC:
++		err = mlx5_query_nic_vport_system_image_guid(mdev, &tmp);
++		break;
+ 
+ 	default:
+ 		return -EINVAL;
+ 	}
++
++	if (!err)
++		*sys_image_guid = cpu_to_be64(tmp);
++
++	return err;
++
+ }
+ 
+ static int mlx5_query_max_pkeys(struct ib_device *ibdev,
+@@ -218,13 +270,20 @@ static int mlx5_query_node_guid(struct mlx5_ib_dev *dev,
+ 
+ 	case MLX5_VPORT_ACCESS_METHOD_HCA:
+ 		err = mlx5_query_hca_vport_node_guid(dev->mdev, &tmp);
+-		if (!err)
+-			*node_guid = cpu_to_be64(tmp);
+-		return err;
++		break;
++
++	case MLX5_VPORT_ACCESS_METHOD_NIC:
++		err = mlx5_query_nic_vport_node_guid(dev->mdev, &tmp);
++		break;
+ 
+ 	default:
+ 		return -EINVAL;
+ 	}
++
++	if (!err)
++		*node_guid = cpu_to_be64(tmp);
++
++	return err;
+ }
+ 
+ struct mlx5_reg_node_desc {
+@@ -522,6 +581,9 @@ int mlx5_ib_query_port(struct ib_device *ibdev, u8 port,
+ 	case MLX5_VPORT_ACCESS_METHOD_HCA:
+ 		return mlx5_query_hca_port(ibdev, port, props);
+ 
++	case MLX5_VPORT_ACCESS_METHOD_NIC:
++		return mlx5_query_port_roce(ibdev, port, props);
++
+ 	default:
+ 		return -EINVAL;
+ 	}
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index f49b3922ea7b..4bc8dbd3cf57 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -651,13 +651,6 @@ extern struct workqueue_struct *mlx5_core_wq;
+ 	.struct_offset_bytes = offsetof(struct ib_unpacked_ ## header, field),      \
+ 	.struct_size_bytes   = sizeof((struct ib_unpacked_ ## header *)0)->field
+ 
+-struct ib_field {
+-	size_t struct_offset_bytes;
+-	size_t struct_size_bytes;
+-	int    offset_bits;
+-	int    size_bits;
+-};
+-
+ static inline struct mlx5_core_dev *pci2mlx5_core_dev(struct pci_dev *pdev)
+ {
+ 	return pci_get_drvdata(pdev);
+-- 
+2.17.1
+

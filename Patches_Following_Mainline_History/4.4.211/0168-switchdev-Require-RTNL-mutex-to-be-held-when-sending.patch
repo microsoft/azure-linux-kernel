@@ -1,0 +1,100 @@
+From 67fa742fc5bcbec61f179b38a4013ceff1461c77 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Wed, 27 Jan 2016 15:16:43 +0100
+Subject: switchdev: Require RTNL mutex to be held when sending FDB
+ notifications
+Reply-To: joseph.salisbury@microsoft.com
+
+When switchdev drivers process FDB notifications from the underlying
+device they resolve the netdev to which the entry points to and notify
+the bridge using the switchdev notifier.
+
+However, since the RTNL mutex is not held there is nothing preventing
+the netdev from disappearing in the middle, which will cause
+br_switchdev_event() to dereference a non-existing netdev.
+
+Make switchdev drivers hold the lock at the beginning of the
+notification processing session and release it once it ends, after
+notifying the bridge.
+
+Also, remove switchdev_mutex and fdb_lock, as they are no longer needed
+when RTNL mutex is held.
+
+Fixes: 03bf0c281234 ("switchdev: introduce switchdev notifier")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 4f2c6ae5c64c353fb1b0425e4747e5603feadba1)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h           | 7 ++-----
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 7 ++-----
+ 2 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 3cd927f1de71..2425bc4c4e6e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -122,11 +122,8 @@ struct mlxsw_sp {
+ #define MLXSW_SP_MAX_AGEING_TIME 1000000
+ #define MLXSW_SP_DEFAULT_AGEING_TIME 300
+ 	u32 ageing_time;
+-	struct mutex fdb_lock;	/* Make sure FDB sessions are atomic. */
+-	struct {
+-		struct net_device *dev;
+-		unsigned int ref_count;
+-	} master_bridge;
++	struct mlxsw_sp_upper master_bridge;
++	struct mlxsw_sp_upper lags[MLXSW_SP_LAG_MAX];
+ };
+ 
+ static inline struct mlxsw_sp_upper *
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index eb7f253f7074..87d68c10424f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1074,7 +1074,6 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	if (!sfd_pl)
+ 		return -ENOMEM;
+ 
+-	mutex_lock(&mlxsw_sp_port->mlxsw_sp->fdb_lock);
+ 	if (mlxsw_sp_port_is_vport(mlxsw_sp_port)) {
+ 		u16 tmp;
+ 
+@@ -1148,7 +1147,6 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	} while (num_rec == MLXSW_REG_SFD_REC_MAX_COUNT);
+ 
+ out:
+-	mutex_unlock(&mlxsw_sp_port->mlxsw_sp->fdb_lock);
+ 	kfree(sfd_pl);
+ 	return stored_err ? stored_err : err;
+ }
+@@ -1399,7 +1397,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
+ 
+ 	mlxsw_sp = container_of(work, struct mlxsw_sp, fdb_notify.dw.work);
+ 
+-	mutex_lock(&mlxsw_sp->fdb_lock);
++	rtnl_lock();
+ 	do {
+ 		mlxsw_reg_sfn_pack(sfn_pl);
+ 		err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(sfn), sfn_pl);
+@@ -1412,7 +1410,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
+ 			mlxsw_sp_fdb_notify_rec_process(mlxsw_sp, sfn_pl, i);
+ 
+ 	} while (num_rec);
+-	mutex_unlock(&mlxsw_sp->fdb_lock);
++	rtnl_unlock();
+ 
+ 	kfree(sfn_pl);
+ 	mlxsw_sp_fdb_notify_work_schedule(mlxsw_sp);
+@@ -1427,7 +1425,6 @@ static int mlxsw_sp_fdb_init(struct mlxsw_sp *mlxsw_sp)
+ 		dev_err(mlxsw_sp->bus_info->dev, "Failed to set default ageing time\n");
+ 		return err;
+ 	}
+-	mutex_init(&mlxsw_sp->fdb_lock);
+ 	INIT_DELAYED_WORK(&mlxsw_sp->fdb_notify.dw, mlxsw_sp_fdb_notify_work);
+ 	mlxsw_sp->fdb_notify.interval = MLXSW_SP_DEFAULT_LEARNING_INTERVAL;
+ 	mlxsw_sp_fdb_notify_work_schedule(mlxsw_sp);
+-- 
+2.17.1
+

@@ -1,0 +1,615 @@
+From 0dcae886890d4db444a25da5dcc574bdea5128ed Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 9 Jun 2016 12:44:03 +0200
+Subject: netvsc: get rid of completion timeouts
+Reply-To: joseph.salisbury@microsoft.com
+
+I'm hitting 5 second timeout in rndis_filter_set_rss_param() while setting
+RSS parameters for the device. When this happens we end up returning
+-ETIMEDOUT from the function and rndis_filter_device_add() falls back to
+setting
+
+        net_device->max_chn = 1;
+        net_device->num_chn = 1;
+        net_device->num_sc_offered = 0;
+
+but after a moment the rndis request succeeds and subchannels start to
+appear. netvsc_sc_open() does unconditional nvscdev->num_sc_offered-- and
+it becomes U32_MAX-1. Consequent rndis_filter_device_remove() will hang
+while waiting for all U32_MAX-1 subchannels to appear and this is not
+going to happen.
+
+The immediate issue could be solved by adding num_sc_offered > 0 check to
+netvsc_sc_open() but we're getting out of sync with the host and it's not
+easy to adjust things later, e.g. in this particular case we'll be creating
+queues without a user request for it and races are expected. Same applies
+to other parts of the driver which have the same completion timeout.
+
+Following the trend in drivers/hv/* code I suggest we remove all these
+timeouts completely. As a guest we can always trust the host we're running
+on and if the host screws things up there is no easy way to recover anyway.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 5362855aba7159aab8f7c6573eb675d9da317914)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c          |  14 +-
+ drivers/net/hyperv/rndis_filter.c    | 119 ++++--------
+ scripts/ubuntu-retpoline-extract-one | 270 +++++++++++++++++++++++++++
+ 3 files changed, 305 insertions(+), 98 deletions(-)
+ create mode 100755 scripts/ubuntu-retpoline-extract-one
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index e3fbc9cc4a1c..abe6e372ebd1 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -244,7 +244,6 @@ static int netvsc_destroy_buf(struct hv_device *device)
+ static int netvsc_init_buf(struct hv_device *device)
+ {
+ 	int ret = 0;
+-	unsigned long t;
+ 	struct netvsc_device *net_device;
+ 	struct nvsp_message *init_packet;
+ 	struct net_device *ndev;
+@@ -305,9 +304,7 @@ static int netvsc_init_buf(struct hv_device *device)
+ 		goto cleanup;
+ 	}
+ 
+-	t = wait_for_completion_timeout(&net_device->channel_init_wait, 5*HZ);
+-	BUG_ON(t == 0);
+-
++	wait_for_completion(&net_device->channel_init_wait);
+ 
+ 	/* Check the response */
+ 	if (init_packet->msg.v1_msg.
+@@ -390,8 +387,7 @@ static int netvsc_init_buf(struct hv_device *device)
+ 		goto cleanup;
+ 	}
+ 
+-	t = wait_for_completion_timeout(&net_device->channel_init_wait, 5*HZ);
+-	BUG_ON(t == 0);
++	wait_for_completion(&net_device->channel_init_wait);
+ 
+ 	/* Check the response */
+ 	if (init_packet->msg.v1_msg.
+@@ -445,7 +441,6 @@ static int negotiate_nvsp_ver(struct hv_device *device,
+ {
+ 	struct net_device *ndev = hv_get_drvdata(device);
+ 	int ret;
+-	unsigned long t;
+ 
+ 	memset(init_packet, 0, sizeof(struct nvsp_message));
+ 	init_packet->hdr.msg_type = NVSP_MSG_TYPE_INIT;
+@@ -462,10 +457,7 @@ static int negotiate_nvsp_ver(struct hv_device *device,
+ 	if (ret != 0)
+ 		return ret;
+ 
+-	t = wait_for_completion_timeout(&net_device->channel_init_wait, 5*HZ);
+-
+-	if (t == 0)
+-		return -ETIMEDOUT;
++	wait_for_completion(&net_device->channel_init_wait);
+ 
+ 	if (init_packet->msg.init_msg.init_complete.status !=
+ 	    NVSP_STAT_SUCCESS)
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 13a202b8154e..0cf9625834ab 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -469,7 +469,6 @@ static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
+ 	struct rndis_query_request *query;
+ 	struct rndis_query_complete *query_complete;
+ 	int ret = 0;
+-	unsigned long t;
+ 
+ 	if (!result)
+ 		return -EINVAL;
+@@ -506,11 +505,7 @@ static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
+ 	if (ret != 0)
+ 		goto cleanup;
+ 
+-	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
+-	if (t == 0) {
+-		ret = -ETIMEDOUT;
+-		goto cleanup;
+-	}
++	wait_for_completion(&request->wait_event);
+ 
+ 	/* Copy the response back */
+ 	query_complete = &request->response_msg.msg.query_complete;
+@@ -560,7 +555,6 @@ int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac)
+ 	u32 extlen = sizeof(struct rndis_config_parameter_info) +
+ 		2*NWADR_STRLEN + 4*ETH_ALEN;
+ 	int ret;
+-	unsigned long t;
+ 
+ 	request = get_rndis_request(rdev, RNDIS_MSG_SET,
+ 		RNDIS_MESSAGE_SIZE(struct rndis_set_request) + extlen);
+@@ -601,21 +595,13 @@ int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac)
+ 	if (ret != 0)
+ 		goto cleanup;
+ 
+-	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
+-	if (t == 0) {
+-		netdev_err(ndev, "timeout before we got a set response...\n");
+-		/*
+-		 * can't put_rndis_request, since we may still receive a
+-		 * send-completion.
+-		 */
+-		return -EBUSY;
+-	} else {
+-		set_complete = &request->response_msg.msg.set_complete;
+-		if (set_complete->status != RNDIS_STATUS_SUCCESS) {
+-			netdev_err(ndev, "Fail to set MAC on host side:0x%x\n",
+-				   set_complete->status);
+-			ret = -EINVAL;
+-		}
++	wait_for_completion(&request->wait_event);
++
++	set_complete = &request->response_msg.msg.set_complete;
++	if (set_complete->status != RNDIS_STATUS_SUCCESS) {
++		netdev_err(ndev, "Fail to set MAC on host side:0x%x\n",
++			   set_complete->status);
++		ret = -EINVAL;
+ 	}
+ 
+ cleanup:
+@@ -636,7 +622,6 @@ rndis_filter_set_offload_params(struct hv_device *hdev,
+ 	struct rndis_set_complete *set_complete;
+ 	u32 extlen = sizeof(struct ndis_offload_params);
+ 	int ret;
+-	unsigned long t;
+ 	u32 vsp_version = nvdev->nvsp_version;
+ 
+ 	if (vsp_version <= NVSP_PROTOCOL_VERSION_4) {
+@@ -670,20 +655,12 @@ rndis_filter_set_offload_params(struct hv_device *hdev,
+ 	if (ret != 0)
+ 		goto cleanup;
+ 
+-	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
+-	if (t == 0) {
+-		netdev_err(ndev, "timeout before we got aOFFLOAD set response...\n");
+-		/* can't put_rndis_request, since we may still receive a
+-		 * send-completion.
+-		 */
+-		return -EBUSY;
+-	} else {
+-		set_complete = &request->response_msg.msg.set_complete;
+-		if (set_complete->status != RNDIS_STATUS_SUCCESS) {
+-			netdev_err(ndev, "Fail to set offload on host side:0x%x\n",
+-				   set_complete->status);
+-			ret = -EINVAL;
+-		}
++	wait_for_completion(&request->wait_event);
++	set_complete = &request->response_msg.msg.set_complete;
++	if (set_complete->status != RNDIS_STATUS_SUCCESS) {
++		netdev_err(ndev, "Fail to set offload on host side:0x%x\n",
++			   set_complete->status);
++		ret = -EINVAL;
+ 	}
+ 
+ cleanup:
+@@ -711,7 +688,6 @@ static int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
+ 	u32 *itab;
+ 	u8 *keyp;
+ 	int i, ret;
+-	unsigned long t;
+ 
+ 	request = get_rndis_request(
+ 			rdev, RNDIS_MSG_SET,
+@@ -754,20 +730,12 @@ static int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
+ 	if (ret != 0)
+ 		goto cleanup;
+ 
+-	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
+-	if (t == 0) {
+-		netdev_err(ndev, "timeout before we got a set response...\n");
+-		/* can't put_rndis_request, since we may still receive a
+-		 * send-completion.
+-		 */
+-		return -ETIMEDOUT;
+-	} else {
+-		set_complete = &request->response_msg.msg.set_complete;
+-		if (set_complete->status != RNDIS_STATUS_SUCCESS) {
+-			netdev_err(ndev, "Fail to set RSS parameters:0x%x\n",
+-				   set_complete->status);
+-			ret = -EINVAL;
+-		}
++	wait_for_completion(&request->wait_event);
++	set_complete = &request->response_msg.msg.set_complete;
++	if (set_complete->status != RNDIS_STATUS_SUCCESS) {
++		netdev_err(ndev, "Fail to set RSS parameters:0x%x\n",
++			   set_complete->status);
++		ret = -EINVAL;
+ 	}
+ 
+ cleanup:
+@@ -796,8 +764,6 @@ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter)
+ 	struct rndis_set_complete *set_complete;
+ 	u32 status;
+ 	int ret;
+-	unsigned long t;
+-	struct net_device *ndev = dev->ndev;
+ 
+ 	request = get_rndis_request(dev, RNDIS_MSG_SET,
+ 			RNDIS_MESSAGE_SIZE(struct rndis_set_request) +
+@@ -820,26 +786,14 @@ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter)
+ 	if (ret != 0)
+ 		goto cleanup;
+ 
+-	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
++	wait_for_completion(&request->wait_event);
+ 
+-	if (t == 0) {
+-		netdev_err(ndev,
+-			"timeout before we got a set response...\n");
+-		ret = -ETIMEDOUT;
+-		/*
+-		 * We can't deallocate the request since we may still receive a
+-		 * send completion for it.
+-		 */
+-		goto exit;
+-	} else {
+-		set_complete = &request->response_msg.msg.set_complete;
+-		status = set_complete->status;
+-	}
++	set_complete = &request->response_msg.msg.set_complete;
++	status = set_complete->status;
+ 
+ cleanup:
+ 	if (request)
+ 		put_rndis_request(dev, request);
+-exit:
+ 	return ret;
+ }
+ 
+@@ -851,7 +805,6 @@ static int rndis_filter_init_device(struct rndis_device *dev)
+ 	struct rndis_initialize_complete *init_complete;
+ 	u32 status;
+ 	int ret;
+-	unsigned long t;
+ 	struct netvsc_device *nvdev = net_device_to_netvsc_device(dev->ndev);
+ 
+ 	request = get_rndis_request(dev, RNDIS_MSG_INIT,
+@@ -875,12 +828,7 @@ static int rndis_filter_init_device(struct rndis_device *dev)
+ 		goto cleanup;
+ 	}
+ 
+-	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
+-
+-	if (t == 0) {
+-		ret = -ETIMEDOUT;
+-		goto cleanup;
+-	}
++	wait_for_completion(&request->wait_event);
+ 
+ 	init_complete = &request->response_msg.msg.init_complete;
+ 	status = init_complete->status;
+@@ -1013,7 +961,6 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	struct netvsc_device_info *device_info = additional_info;
+ 	struct ndis_offload_params offloads;
+ 	struct nvsp_message *init_packet;
+-	unsigned long t;
+ 	struct ndis_recv_scale_cap rsscap;
+ 	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);
+ 	u32 mtu, size;
+@@ -1156,11 +1103,8 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 			       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
+ 	if (ret)
+ 		goto out;
+-	t = wait_for_completion_timeout(&net_device->channel_init_wait, 5*HZ);
+-	if (t == 0) {
+-		ret = -ETIMEDOUT;
+-		goto out;
+-	}
++	wait_for_completion(&net_device->channel_init_wait);
++
+ 	if (init_packet->msg.v5_msg.subchn_comp.status !=
+ 	    NVSP_STAT_SUCCESS) {
+ 		ret = -ENODEV;
+@@ -1179,11 +1123,6 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	net_device->num_sc_offered -= sc_delta;
+ 	spin_unlock_irqrestore(&net_device->sc_lock, flags);
+ 
+-	while (net_device->num_sc_offered != 0) {
+-		t = wait_for_completion_timeout(&net_device->channel_init_wait, 10*HZ);
+-		if (t == 0)
+-			WARN(1, "Netvsc: Waiting for sub-channel processing");
+-	}
+ out:
+ 	if (ret) {
+ 		net_device->max_chn = 1;
+@@ -1202,6 +1141,12 @@ void rndis_filter_device_remove(struct hv_device *dev)
+ 	struct netvsc_device *net_dev = hv_device_to_netvsc_device(dev);
+ 	struct rndis_device *rndis_dev = net_dev->extension;
+ 
++	/* If not all subchannel offers are complete, wait for them until
++	 * completion to avoid race.
++	 */
++	if (net_dev->num_sc_offered > 0)
++		wait_for_completion(&net_dev->channel_init_wait);
++
+ 	/* Halt and release the rndis device */
+ 	rndis_filter_halt_device(rndis_dev);
+ 
+diff --git a/scripts/ubuntu-retpoline-extract-one b/scripts/ubuntu-retpoline-extract-one
+new file mode 100755
+index 000000000000..b203bfbf8df5
+--- /dev/null
++++ b/scripts/ubuntu-retpoline-extract-one
+@@ -0,0 +1,270 @@
++#!/bin/bash
++
++exec </dev/null
++
++object="$1"
++src="$2"
++bit16="$3"
++
++SECTION=".discard.retpoline_safe"
++
++# Form an associative lookup for the symbol numbers in the ELF symbol table.
++# Uses 8 character 0 expanded hexadecimal key for ease of consumption.
++__symbolmap_init()
++{
++	readelf -W --syms "$1" |
++		awk '($4 == "SECTION" && $1 ~ /^[0-9]*:/) { printf("%08x %08x\n", int($1), int($7)); }' | \
++	while read symbol_num section_num
++	do
++		echo "symbolmap_$symbol_num='$section_num'"
++	done
++}
++symbolmap_init()
++{
++	eval $(__symbolmap_init "$1")
++}
++symbolmap()
++{
++	eval RET="\$symbolmap_$1"
++	if [ "$RET" = '' ]; then
++		echo "symbolmap: $1: invalid section" 1>&2
++		exit 1
++	fi
++}
++
++# Form an associative lookup for the section numbers in the ELF symbol table.
++# Uses 8 character 0 expanded hexadecimal key for ease of consumption.
++__sectionmap_init()
++{
++	readelf -W --headers "$1" | \
++		awk '
++						{ sub("\\[", ""); sub("\\]", ""); }
++                        ($1 ~ /^[0-9][0-9]*/)   { printf("%08x %s %s %s\n", int($1), $2, $3, $4); }
++		' | \
++	{
++		while read section_num section_name section_type section_vma
++		do
++			echo "sectionmap_$section_num='$section_name'"
++			echo "sectionvma_$section_num='$section_vma'"
++			case "$section_type" in
++			REL|RELA) section_relocation="$section_type" ;;
++			esac
++		done
++		echo "section_relocation='$section_relocation'"
++	}
++}
++sectionmap_init()
++{
++	eval $(__sectionmap_init "$1")
++}
++sectionmap()
++{
++	eval RET="\$sectionmap_$1"
++	if [ "$RET" = '' ]; then
++		echo "sectionmap: $1: invalid section" 1>&2
++		exit 1
++	fi
++}
++sectionvma()
++{
++	eval RET="\$sectionvma_$1"
++	if [ "$RET" = '' ]; then
++		echo "sectionvma: $1: invalid section" 1>&2
++		exit 1
++	fi
++}
++
++# Read and parse the hex-dump output.
++hex="[0-9a-f]"
++hex_8="$hex$hex$hex$hex$hex$hex$hex$hex"
++hexspc="[0-9a-f ]"
++hexspc_8="$hexspc$hexspc$hexspc$hexspc$hexspc$hexspc$hexspc$hexspc"
++
++raw32()
++{
++	readelf --hex-dump "$2" "$1" 2>/dev/null |
++	sed \
++		-e '/^Hex/d' -e '/^$/d' -e '/^ *NOTE/d' \
++		-e 's/  *[^ ][^ ]*  *\('"$hex_8"'\) \('"$hexspc_8"'\) \('"$hexspc_8"'\) \('"$hexspc_8"'\) .*/\1 \2 \3 \4 /' \
++		-e 's/\('"$hex$hex"'\)\('"$hex$hex"'\)\('"$hex$hex"'\)\('"$hex$hex"'\) /\4\3\2\1 /g' \
++		-e 's/ $//g' -e 's/ /\n/g'
++}
++#-e 's/\([^ ][^ ][^ ][^ ][^ ][^ ][^ ][^ ]\) \([^ ][^ ][^ ][^ ][^ ][^ ][^ ][^ ]\) /\2\1 /g' \
++
++rela()
++{
++	#file="$(basename "$1")"
++	file="$1"
++
++	# Read relocation information for a 64bit binary.  Each relocation entry
++	# is 3 long longs so we collect 6 quads here.  Note that the dump is in
++	# listed in increasing byte order not withstanding the quad split.
++	#
++	# The record says to take the value of <symbol> add <symbol offset> and
++	# shove that into <write offset> in the segment of the <symbol>.
++	#
++	# Format:
++	#  <write offset>	64 bits
++	#  <symbol number>	32 bits
++	#  <relocation type>	32 bits
++	#  <symbol offset>	64 bits
++	raw32 "$1" ".rela$SECTION" | \
++	{
++		a1=''; a2=''; a3=''; a4=''; a5=''
++		while read a6
++		do
++			[ "$a1" = '' ] && { a1="$a6"; continue; }
++			[ "$a2" = '' ] && { a2="$a6"; continue; }
++			[ "$a3" = '' ] && { a3="$a6"; continue; }
++			[ "$a4" = '' ] && { a4="$a6"; continue; }
++			[ "$a5" = '' ] && { a5="$a6"; continue; }
++
++			#echo ">$a1< >$a2< >$a3< >$a4< >$a5< >$a6<" 1>&2
++			#echo "type<$a3> symbol<$a4> offset<$a2$a1> addr<$a6a5>" 1>&2
++
++			symbolmap "$a4"; section_num="$RET"
++			#echo "section_num<$section_num>" 1>&2
++
++			sectionmap "$section_num"; section="$RET"
++			sectionvma "$section_num"; vma="$RET"
++			#echo "section<$section> vma<$vma>" 1>&2
++
++			# Adjust the segment addressing by the segment offset.
++			printf -v addr "%u" "0x$a6$a5"
++			printf -v vma "%u" "0x$vma"
++			let offset="$addr + $vma"
++			printf -v offset "%x" "$offset"
++
++			echo "$file-$section-$offset"
++
++			a1=''; a2=''; a3=''; a4=''; a5=''
++		done
++	} | sed -e 's/-00*\([0-9a-f]\)/-\1/'
++}
++
++# Form an associative lookup for the raw contents for an ELF section.
++# Uses 8 character 0 expanded hexadecimal key for ease of consumption.
++contentmap_init()
++{
++	raw32 "$1" "$2" >"$tmp"
++	let offset=0
++	while read value
++	do
++		printf -v offset_hex "%08x" $offset
++		eval contentmap_$offset_hex=\'$value\'
++
++		let offset="$offset + 4"
++	done <"$tmp"
++	rm -f "$tmp"
++}
++contentmap()
++{
++	eval RET="\$contentmap_$1"
++	if [ "$RET" = '' ]; then
++		echo "contentmap: $1: invalid offset" 1>&2
++		exit 1
++	fi
++}
++
++rel()
++{
++	# Load up the current contents of the $SECTION segment
++	# as the offsets (see below) are recorded there and we will need
++	# those to calculate the actuall address.
++	contentmap_init "$1" "$SECTION"
++
++	#file="$(basename "$1")"
++	file="$1"
++
++	# Read relocation information for a 32bit binary.  Each relocation entry
++	# is 3 longs so we collect 3 quads here.  Note that the dump is in
++	# listed in increasing byte order not withstanding the quad split.
++	#
++	# The record says to take the value of <symbol> and add that to the
++	# existing contents of <write offset> in the segment of the <symbol>.
++	#
++	# Format:
++	#  <write offset>	32 bits
++	#  <symbol number>	24 bits
++	#  <relocation type>	 8 bits
++	raw32 "$1" ".rel$SECTION" | \
++	{
++		a1=''
++		while read a2
++		do
++			[ "$a1" = '' ] && { a1="$a2"; continue; }
++
++			#echo ">$a1< >$a2<"
++			contentmap "$a1"; offset="$RET"
++			symbolmap "00${a2%??}"; section_num="$RET"
++
++			sectionmap "$section_num"; section="$RET"
++			sectionvma "$section_num"; vma="$RET"
++			#echo ">$a1< >$a2< >$offset< >$section<"
++
++			echo "$file-$section-$offset"
++
++			a1=''
++		done
++	} | sed -e 's/-00*\([0-9a-f]\)/-\1/'
++}
++
++tmp=$(mktemp --tmpdir "retpoline-extract-XXXXXX")
++
++disassemble()
++{
++	local object="$1"
++	local src="$2"
++	local options="$3"
++	local selector="$4"
++
++	objdump $options --disassemble --no-show-raw-insn "$object" | \
++	awk -F' ' '
++		BEGIN				{ file="'"$object"'"; src="'"$src"'"; }
++		/Disassembly of section/        { segment=$4; sub(":", "", segment); }
++		/^[0-9a-f][0-9a-f]* <.*>:/      { tag=$0; sub(".*<", "", tag); sub(">.*", "", tag); }
++		$0 ~ /(call|jmp)q?  *\*0x[0-9a-f]*\(%rip\)/ {
++			next
++		}
++		$0 ~ /(call|jmp)q?  *\*.*%/ {
++			sub(":", "", $1);
++			if ('"$selector"') {
++				offset=$1
++				$1=tag
++				print(file "-" segment "-" offset " " src " " segment " " $0);
++			}
++		}
++	'
++}
++
++# Accumulate potentially vunerable indirect call/jmp sequences.  We do this
++# by examining the raw disassembly for affected forms, recording the location
++# of each.
++case "$bit16" in
++'')	disassemble "$object" "$src" '' 'segment != ".init.text"' ;;
++*)	disassemble "$object" "$src" '--disassembler-options=i8086' 'segment != ".init.text" && segment != ".text32" && segment != ".text64"'
++	disassemble "$object" "$src" '--disassembler-options=i386' 'segment == ".text32"'
++	disassemble "$object" "$src" '--disassembler-options=x86-64' 'segment == ".text64"'
++	;;
++esac | sort -k 1b,1 >"$object.ur-detected"
++[ ! -s "$object.ur-detected" ] && rm -f "$object.ur-detected"
++
++# Load up the symbol table and section mappings.
++symbolmap_init "$object"
++sectionmap_init "$object"
++
++# Accumulate annotated safe indirect call/jmp sequences.  We do this by examining
++# the $SECTION sections (and their associated relocation information),
++# each entry represents the address of an instruction which has been marked
++# as ok.
++case "$section_relocation" in
++REL)	rel "$object" ;;
++RELA)	rela "$object" ;;
++esac | sort -k 1b,1 >"$object.ur-safe"
++[ ! -s "$object.ur-safe" ] && rm -f "$object.ur-safe"
++
++# We will perform the below join on the summarised and sorted fragments
++# formed above.  This is performed in retpoline-check.
++#join -v 1 -j 1 "$tmp.extracted" "$tmp.safe" | sed -s 's/[^ ]*  *//'
++
++rm -f "$tmp"
+-- 
+2.17.1
+

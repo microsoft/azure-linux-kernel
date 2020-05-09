@@ -1,0 +1,33 @@
+From cdf48401806db1ad7b2aea539b85d7efb2582e96 Mon Sep 17 00:00:00 2001
+From: Artemy Kovalyov <artemyko@mellanox.com>
+Date: Sun, 3 Jul 2016 14:57:33 +0300
+Subject: net/mlx5: Update struct mlx5_ifc_xrqc_bits
+Reply-To: joseph.salisbury@microsoft.com
+
+Update struct mlx5_ifc_xrqc_bits according to last specification
+
+Signed-off-by: Artemy Kovalyov <artemyko@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+(cherry picked from commit 2e353b3468ecb1d12a44aaf35888f7de47d5c047)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 038dd2b6e7af..3aaeddfb5455 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -2828,7 +2828,7 @@ struct mlx5_ifc_xrqc_bits {
+ 
+ 	struct mlx5_ifc_tag_matching_topology_context_bits tag_matching_topology_context;
+ 
+-	u8         reserved_at_180[0x180];
++	u8         reserved_at_180[0x200];
+ 
+ 	struct mlx5_ifc_wq_bits wq;
+ };
+-- 
+2.17.1
+

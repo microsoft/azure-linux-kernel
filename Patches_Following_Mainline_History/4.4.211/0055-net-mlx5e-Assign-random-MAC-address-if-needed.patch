@@ -1,0 +1,54 @@
+From 4a83b0f6ee218394c0cc7cb4e0f29dceab3787d1 Mon Sep 17 00:00:00 2001
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Thu, 10 Dec 2015 17:12:38 +0200
+Subject: net/mlx5e: Assign random MAC address if needed
+Reply-To: joseph.salisbury@microsoft.com
+
+Under SRIOV there might be a case where VFs are loaded
+without pre-assigned MAC address. In this case, the VF
+will randomize its own MAC.  This will address the case
+of administrator not assigning MAC to the VF through
+the PF OS APIs and keep udev happy.
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 108805fc196e001053e9e7c76f259977804dc0d6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c   | 5 +++++
+ drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h | 3 +++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 6b3fe01fc473..bc078ec3c9d6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2122,6 +2122,11 @@ static void mlx5e_set_netdev_dev_addr(struct net_device *netdev)
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 
+ 	mlx5_query_nic_vport_mac_address(priv->mdev, 0, netdev->dev_addr);
++	if (is_zero_ether_addr(netdev->dev_addr) &&
++	    !MLX5_CAP_GEN(priv->mdev, vport_group_manager)) {
++		eth_hw_addr_random(netdev);
++		mlx5_core_info(priv->mdev, "Assigned random MAC address %pM\n", netdev->dev_addr);
++	}
+ }
+ 
+ static void mlx5e_build_netdev(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index bee7da822dfe..ea6a137fd76c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -65,6 +65,9 @@ do {									\
+ 		(__dev)->priv.name, __func__, __LINE__, current->pid,	\
+ 		##__VA_ARGS__)
+ 
++#define mlx5_core_info(__dev, format, ...)				\
++	dev_info(&(__dev)->pdev->dev, format, ##__VA_ARGS__)
++
+ enum {
+ 	MLX5_CMD_DATA, /* print command payload only */
+ 	MLX5_CMD_TIME, /* print command execution time */
+-- 
+2.17.1
+

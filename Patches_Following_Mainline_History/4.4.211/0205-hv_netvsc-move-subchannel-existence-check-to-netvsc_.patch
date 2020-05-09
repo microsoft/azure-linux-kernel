@@ -1,0 +1,82 @@
+From 633c97a8db6b28a4c5ed5810ed43653d37e7e9f9 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Tue, 1 Dec 2015 16:43:11 -0800
+Subject: hv_netvsc: move subchannel existence check to netvsc_select_queue()
+Reply-To: joseph.salisbury@microsoft.com
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 8b9fbe1ac390689f01153d6af8485caec5423ccc)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h | 15 ---------------
+ drivers/net/hyperv/netvsc.c     |  5 ++---
+ drivers/net/hyperv/netvsc_drv.c |  3 +++
+ 3 files changed, 5 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 979964d513dc..c4bfada6b6f9 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -1275,19 +1275,4 @@ struct rndis_message {
+ #define TRANSPORT_INFO_IPV6_TCP ((INFO_IPV6 << 16) | INFO_TCP)
+ #define TRANSPORT_INFO_IPV6_UDP ((INFO_IPV6 << 16) | INFO_UDP)
+ 
+-static inline struct vmbus_channel *get_channel(struct hv_netvsc_packet *packet,
+-					struct netvsc_device *net_device)
+-
+-{
+-	struct vmbus_channel *out_channel;
+-
+-	out_channel = net_device->chn_table[packet->q_idx];
+-	if (!out_channel) {
+-		out_channel = net_device->dev->channel;
+-		packet->q_idx = 0;
+-	}
+-	return out_channel;
+-}
+-
+-
+ #endif /* _HYPERV_NET_H */
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 2de9e7fb4f68..e4e514311b89 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -750,8 +750,8 @@ static inline int netvsc_send_pkt(
+ 	struct netvsc_device *net_device)
+ {
+ 	struct nvsp_message nvmsg;
+-	struct vmbus_channel *out_channel = get_channel(packet, net_device);
+ 	u16 q_idx = packet->q_idx;
++	struct vmbus_channel *out_channel = net_device->chn_table[q_idx];
+ 	struct net_device *ndev = net_device->ndev;
+ 	u64 req_id;
+ 	int ret;
+@@ -860,8 +860,7 @@ int netvsc_send(struct hv_device *device,
+ 	if (!net_device)
+ 		return -ENODEV;
+ 
+-	out_channel = get_channel(packet, net_device);
+-	q_idx = packet->q_idx;
++	out_channel = net_device->chn_table[q_idx];
+ 
+ 	packet->send_buf_index = NETVSC_INVALID_INDEX;
+ 	packet->cp_partial = false;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 3d6579c0012c..035720cb08d7 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -214,6 +214,9 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
+ 	q_idx = nvsc_dev->send_table[hash % VRSS_SEND_TAB_SIZE] %
+ 		ndev->real_num_tx_queues;
+ 
++	if (!nvsc_dev->chn_table[q_idx])
++		q_idx = 0;
++
+ 	return q_idx;
+ }
+ 
+-- 
+2.17.1
+

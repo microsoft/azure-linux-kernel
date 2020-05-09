@@ -1,0 +1,46 @@
+From 6dca6aa261586442f7a0142a6677bd0c4c5a0c6c Mon Sep 17 00:00:00 2001
+From: Matan Barak <matanb@mellanox.com>
+Date: Thu, 14 Apr 2016 16:52:10 +0300
+Subject: IB/mlx5: Allow mapping the free running counter on PROT_EXEC
+Reply-To: joseph.salisbury@microsoft.com
+
+The current mlx5 code disallows mapping the free running counter of
+mlx5 based hardwares when PROT_EXEC is set.
+Although this behaviour is correct, Linux does add an implicit VM_EXEC
+to the vm_flags if the READ_IMPLIES_EXEC bit is set in the process
+personality. This happens for example if the process stack is
+executable.
+
+This causes libmlx5 to output a warning and prevents the user from
+reading the free running clock.
+Executing the init segment of the hardware isn't a security risk
+(at least no more than executing a process own stack), so we just
+prevent writes to there.
+
+Fixes: d69e3bcf7976 ('IB/mlx5: Mmap the HCA's core clock register to
+		      user-space')
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Reviewed-by: Haggai Eran <haggaie@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 6cbac1e4cd0e0110b4be38c201fc055249dfd365)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index f88950fc4949..f665da27c9f6 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -1067,7 +1067,7 @@ static int mlx5_ib_mmap(struct ib_ucontext *ibcontext, struct vm_area_struct *vm
+ 		if (vma->vm_end - vma->vm_start != PAGE_SIZE)
+ 			return -EINVAL;
+ 
+-		if (vma->vm_flags & (VM_WRITE | VM_EXEC))
++		if (vma->vm_flags & VM_WRITE)
+ 			return -EPERM;
+ 
+ 		/* Don't expose to user-space information it shouldn't have */
+-- 
+2.17.1
+

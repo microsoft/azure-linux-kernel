@@ -1,0 +1,135 @@
+From 1346cd260788d4e099e7d41c6d87556cdfe5e83d Mon Sep 17 00:00:00 2001
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 23 Dec 2015 19:12:54 +0100
+Subject: IB: remove the write-only usecnt field from struct ib_mr
+Reply-To: joseph.salisbury@microsoft.com
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Bart Van Assche <bvanassche@sandisk.com>
+Reviewed-by: Sagi Grimberg <sagig@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit ab67ed8de0250e9ad7956ff4d98c3c98858b6c3c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/core/uverbs_cmd.c        | 6 ------
+ drivers/infiniband/core/verbs.c             | 8 +-------
+ drivers/infiniband/hw/cxgb3/iwch_provider.c | 3 ---
+ drivers/infiniband/hw/cxgb4/mem.c           | 3 ---
+ drivers/staging/rdma/ehca/ehca_mrmw.c       | 1 -
+ include/rdma/ib_verbs.h                     | 1 -
+ 6 files changed, 1 insertion(+), 21 deletions(-)
+
+diff --git a/drivers/infiniband/core/uverbs_cmd.c b/drivers/infiniband/core/uverbs_cmd.c
+index 054ec0aa2f14..2e27219687da 100644
+--- a/drivers/infiniband/core/uverbs_cmd.c
++++ b/drivers/infiniband/core/uverbs_cmd.c
+@@ -1008,7 +1008,6 @@ ssize_t ib_uverbs_reg_mr(struct ib_uverbs_file *file,
+ 	mr->pd      = pd;
+ 	mr->uobject = uobj;
+ 	atomic_inc(&pd->usecnt);
+-	atomic_set(&mr->usecnt, 0);
+ 
+ 	uobj->object = mr;
+ 	ret = idr_add_uobj(&ib_uverbs_mr_idr, uobj);
+@@ -1106,11 +1105,6 @@ ssize_t ib_uverbs_rereg_mr(struct ib_uverbs_file *file,
+ 		}
+ 	}
+ 
+-	if (atomic_read(&mr->usecnt)) {
+-		ret = -EBUSY;
+-		goto put_uobj_pd;
+-	}
+-
+ 	old_pd = mr->pd;
+ 	ret = mr->device->rereg_user_mr(mr, cmd.flags, cmd.start,
+ 					cmd.length, cmd.hca_va,
+diff --git a/drivers/infiniband/core/verbs.c b/drivers/infiniband/core/verbs.c
+index d0cb4f9525cf..a4e71b769c80 100644
+--- a/drivers/infiniband/core/verbs.c
++++ b/drivers/infiniband/core/verbs.c
+@@ -1351,7 +1351,6 @@ struct ib_mr *ib_get_dma_mr(struct ib_pd *pd, int mr_access_flags)
+ 		mr->pd      = pd;
+ 		mr->uobject = NULL;
+ 		atomic_inc(&pd->usecnt);
+-		atomic_set(&mr->usecnt, 0);
+ 	}
+ 
+ 	return mr;
+@@ -1367,13 +1366,9 @@ EXPORT_SYMBOL(ib_query_mr);
+ 
+ int ib_dereg_mr(struct ib_mr *mr)
+ {
+-	struct ib_pd *pd;
++	struct ib_pd *pd = mr->pd;
+ 	int ret;
+ 
+-	if (atomic_read(&mr->usecnt))
+-		return -EBUSY;
+-
+-	pd = mr->pd;
+ 	ret = mr->device->dereg_mr(mr);
+ 	if (!ret)
+ 		atomic_dec(&pd->usecnt);
+@@ -1409,7 +1404,6 @@ struct ib_mr *ib_alloc_mr(struct ib_pd *pd,
+ 		mr->pd      = pd;
+ 		mr->uobject = NULL;
+ 		atomic_inc(&pd->usecnt);
+-		atomic_set(&mr->usecnt, 0);
+ 	}
+ 
+ 	return mr;
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_provider.c b/drivers/infiniband/hw/cxgb3/iwch_provider.c
+index ec6058e0c4ff..6ff102baf138 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_provider.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_provider.c
+@@ -458,9 +458,6 @@ static int iwch_dereg_mr(struct ib_mr *ib_mr)
+ 	u32 mmid;
+ 
+ 	PDBG("%s ib_mr %p\n", __func__, ib_mr);
+-	/* There can be no memory windows */
+-	if (atomic_read(&ib_mr->usecnt))
+-		return -EINVAL;
+ 
+ 	mhp = to_iwch_mr(ib_mr);
+ 	kfree(mhp->pages);
+diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
+index 4b682375f465..7adf8e06bfba 100644
+--- a/drivers/infiniband/hw/cxgb4/mem.c
++++ b/drivers/infiniband/hw/cxgb4/mem.c
+@@ -958,9 +958,6 @@ int c4iw_dereg_mr(struct ib_mr *ib_mr)
+ 	u32 mmid;
+ 
+ 	PDBG("%s ib_mr %p\n", __func__, ib_mr);
+-	/* There can be no memory windows */
+-	if (atomic_read(&ib_mr->usecnt))
+-		return -EINVAL;
+ 
+ 	mhp = to_c4iw_mr(ib_mr);
+ 	rhp = mhp->rhp;
+diff --git a/drivers/staging/rdma/ehca/ehca_mrmw.c b/drivers/staging/rdma/ehca/ehca_mrmw.c
+index bcded79908b2..2649bc202682 100644
+--- a/drivers/staging/rdma/ehca/ehca_mrmw.c
++++ b/drivers/staging/rdma/ehca/ehca_mrmw.c
+@@ -1657,7 +1657,6 @@ int ehca_reg_internal_maxmr(
+ 	e_mr->ib.ib_mr.pd = &e_pd->ib_pd;
+ 	e_mr->ib.ib_mr.uobject = NULL;
+ 	atomic_inc(&(e_pd->ib_pd.usecnt));
+-	atomic_set(&(e_mr->ib.ib_mr.usecnt), 0);
+ 	*e_maxmr = e_mr;
+ 	return 0;
+ 
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index d567c4a776e8..f05123379854 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -1406,7 +1406,6 @@ struct ib_mr {
+ 	u64		   iova;
+ 	u32		   length;
+ 	unsigned int	   page_size;
+-	atomic_t	   usecnt; /* count number of MWs */
+ };
+ 
+ struct ib_mw {
+-- 
+2.17.1
+

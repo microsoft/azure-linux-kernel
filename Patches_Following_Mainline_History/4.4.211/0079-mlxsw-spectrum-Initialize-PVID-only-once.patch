@@ -1,0 +1,33 @@
+From d6b75937618b3376020aa0a69659b9fa9f2ac4ae Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Mon, 4 Jan 2016 10:42:23 +0100
+Subject: mlxsw: spectrum: Initialize PVID only once
+Reply-To: joseph.salisbury@microsoft.com
+
+We set PVID to 1 in mlxsw_sp_port_vlan_init(), so we can remove this
+statement.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 7b31abe70b29edb3005a6466f51b7a10f8413a01)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 0e452fbe10d8..a40ed17575ee 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1368,7 +1368,6 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 	mlxsw_sp_port->learning = 1;
+ 	mlxsw_sp_port->learning_sync = 1;
+ 	mlxsw_sp_port->uc_flood = 1;
+-	mlxsw_sp_port->pvid = 1;
+ 	bytes = DIV_ROUND_UP(VLAN_N_VID, BITS_PER_BYTE);
+ 	mlxsw_sp_port->active_vlans = kzalloc(bytes, GFP_KERNEL);
+ 	if (!mlxsw_sp_port->active_vlans) {
+-- 
+2.17.1
+

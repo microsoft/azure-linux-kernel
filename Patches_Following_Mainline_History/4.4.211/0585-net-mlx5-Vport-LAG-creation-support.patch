@@ -1,0 +1,71 @@
+From 1bef422320ac792ae33b52c348a764816934000e Mon Sep 17 00:00:00 2001
+From: Aviv Heller <avivh@mellanox.com>
+Date: Mon, 9 May 2016 10:38:42 +0000
+Subject: net/mlx5: Vport LAG creation support
+Reply-To: joseph.salisbury@microsoft.com
+
+Add interfaces for issuing CREATE_VPORT_LAG and
+DESTROY_VPORT_LAG commands.
+
+Used for receiving PF1's eth traffic on PF0's
+root ft.
+
+Signed-off-by: Aviv Heller <avivh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+(cherry picked from commit 3bc34f3bcb087764796d9a6eaa476e270114eb8f)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/lag.c | 22 +++++++++++++++++++
+ include/linux/mlx5/driver.h                   |  2 ++
+ 2 files changed, 24 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lag.c b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+index 8036a8cd4996..618e46abcce6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/lag.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+@@ -110,6 +110,28 @@ static int mlx5_cmd_destroy_lag(struct mlx5_core_dev *dev)
+ 	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
+ }
+ 
++int mlx5_cmd_create_vport_lag(struct mlx5_core_dev *dev)
++{
++	u32  in[MLX5_ST_SZ_DW(create_vport_lag_in)]  = {0};
++	u32 out[MLX5_ST_SZ_DW(create_vport_lag_out)] = {0};
++
++	MLX5_SET(create_vport_lag_in, in, opcode, MLX5_CMD_OP_CREATE_VPORT_LAG);
++
++	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
++EXPORT_SYMBOL(mlx5_cmd_create_vport_lag);
++
++int mlx5_cmd_destroy_vport_lag(struct mlx5_core_dev *dev)
++{
++	u32  in[MLX5_ST_SZ_DW(destroy_vport_lag_in)]  = {0};
++	u32 out[MLX5_ST_SZ_DW(destroy_vport_lag_out)] = {0};
++
++	MLX5_SET(destroy_vport_lag_in, in, opcode, MLX5_CMD_OP_DESTROY_VPORT_LAG);
++
++	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
++EXPORT_SYMBOL(mlx5_cmd_destroy_vport_lag);
++
+ static struct mlx5_lag *mlx5_lag_dev_get(struct mlx5_core_dev *dev)
+ {
+ 	return dev->priv.lag;
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 2607e81715e0..a4953b34a2f3 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -929,6 +929,8 @@ int mlx5_register_interface(struct mlx5_interface *intf);
+ void mlx5_unregister_interface(struct mlx5_interface *intf);
+ int mlx5_core_query_vendor_id(struct mlx5_core_dev *mdev, u32 *vendor_id);
+ 
++int mlx5_cmd_create_vport_lag(struct mlx5_core_dev *dev);
++int mlx5_cmd_destroy_vport_lag(struct mlx5_core_dev *dev);
+ bool mlx5_lag_is_active(struct mlx5_core_dev *dev);
+ struct net_device *mlx5_lag_get_roce_netdev(struct mlx5_core_dev *dev);
+ 
+-- 
+2.17.1
+

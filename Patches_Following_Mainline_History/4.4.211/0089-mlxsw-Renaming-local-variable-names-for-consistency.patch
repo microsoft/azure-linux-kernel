@@ -1,0 +1,41 @@
+From 5691abf9783a32e569a5e665c42e88d587c10753 Mon Sep 17 00:00:00 2001
+From: Elad Raz <eladr@mellanox.com>
+Date: Wed, 6 Jan 2016 13:01:09 +0100
+Subject: mlxsw: Renaming local variable names for consistency
+Reply-To: joseph.salisbury@microsoft.com
+
+Signed-off-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit e4a13055077af25d310f61f2b52a9bdfaba45eb6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index d95ae4de39b1..4a3d9277a253 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -551,15 +551,15 @@ static int mlxsw_sp_port_vlans_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				   const struct switchdev_obj_port_vlan *vlan,
+ 				   struct switchdev_trans *trans)
+ {
+-	bool untagged_flag = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
+-	bool pvid_flag = vlan->flags & BRIDGE_VLAN_INFO_PVID;
++	bool flag_untagged = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
++	bool flag_pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
+ 
+ 	if (switchdev_trans_ph_prepare(trans))
+ 		return 0;
+ 
+ 	return __mlxsw_sp_port_vlans_add(mlxsw_sp_port,
+ 					 vlan->vid_begin, vlan->vid_end,
+-					 untagged_flag, pvid_flag);
++					 flag_untagged, flag_pvid);
+ }
+ 
+ static enum mlxsw_reg_sfd_rec_policy mlxsw_sp_sfd_rec_policy(bool dynamic)
+-- 
+2.17.1
+

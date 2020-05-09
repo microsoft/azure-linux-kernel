@@ -1,0 +1,79 @@
+From 8cdc620b0d5d9173c994905147a31e97dc7667bb Mon Sep 17 00:00:00 2001
+From: Maor Gottlieb <maorg@mellanox.com>
+Date: Mon, 11 Jan 2016 10:26:06 +0200
+Subject: net/mlx5_core: Export flow steering API
+Reply-To: joseph.salisbury@microsoft.com
+
+Add exports to flow steering API for mlx5_ib usage.
+The following functions are exported:
+
+1. mlx5_create_auto_grouped_flow_table - used to create flow
+table with auto flow grouping management (create and destroy
+flow groups). In auto-grouped flow tables, we create groups
+automatically if needed (if we don't find an existing
+flow group with same match criteria when we add new rule).
+
+2. mlx5_destroy_flow_table - used to destroy  a flow table.
+
+3. mlx5_add_flow_rule - used to add flow rule into a flow table.
+
+4. mlx5_del_flow_rule - used to delete flow rule from its flow table.
+
+5. mlx5_get_flow_namespace - used to get a handle to the required
+namespace sub-tree.
+
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit b217ea25afd8910e7ec0abb556bcb312d397c8a6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 757725bf48a8..6f68dba8d7ed 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -702,6 +702,7 @@ struct mlx5_flow_table *mlx5_create_auto_grouped_flow_table(struct mlx5_flow_nam
+ 
+ 	return ft;
+ }
++EXPORT_SYMBOL(mlx5_create_auto_grouped_flow_table);
+ 
+ /* Flow table should be locked */
+ static struct mlx5_flow_group *create_flow_group_common(struct mlx5_flow_table *ft,
+@@ -1013,11 +1014,13 @@ unlock:
+ 	unlock_ref_node(&ft->node);
+ 	return rule;
+ }
++EXPORT_SYMBOL(mlx5_add_flow_rule);
+ 
+ void mlx5_del_flow_rule(struct mlx5_flow_rule *rule)
+ {
+ 	tree_remove_node(&rule->node);
+ }
++EXPORT_SYMBOL(mlx5_del_flow_rule);
+ 
+ /* Assuming prio->node.children(flow tables) is sorted by level */
+ static struct mlx5_flow_table *find_next_ft(struct mlx5_flow_table *ft)
+@@ -1099,6 +1102,7 @@ int mlx5_destroy_flow_table(struct mlx5_flow_table *ft)
+ 
+ 	return err;
+ }
++EXPORT_SYMBOL(mlx5_destroy_flow_table);
+ 
+ void mlx5_destroy_flow_group(struct mlx5_flow_group *fg)
+ {
+@@ -1143,6 +1147,7 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
+ 
+ 	return ns;
+ }
++EXPORT_SYMBOL(mlx5_get_flow_namespace);
+ 
+ static struct fs_prio *fs_create_prio(struct mlx5_flow_namespace *ns,
+ 				      unsigned prio, int max_ft)
+-- 
+2.17.1
+

@@ -1,0 +1,50 @@
+From 2e90e73de73c39a3f15337f47701b547a113a253 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Wed, 27 Jan 2016 15:20:26 +0100
+Subject: mlxsw: reg: Use correct offset in field definiton
+Reply-To: joseph.salisbury@microsoft.com
+
+The rx_lane, tx_lane and module fields in the PMLP register don't have
+an additional offset besides the base one (0x04), so set it to 0x00.
+
+Fixes: 4ec14b7634b2 ("mlxsw: Add interface to access registers and process events")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit bbeeda27abc516af51ddd93c555b6324559dbb3b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 94f69e83515b..ddb9c46bccf3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -1787,20 +1787,20 @@ MLXSW_ITEM32(reg, pmlp, width, 0x00, 0, 8);
+  * Module number.
+  * Access: RW
+  */
+-MLXSW_ITEM32_INDEXED(reg, pmlp, module, 0x04, 0, 8, 0x04, 0, false);
++MLXSW_ITEM32_INDEXED(reg, pmlp, module, 0x04, 0, 8, 0x04, 0x00, false);
+ 
+ /* reg_pmlp_tx_lane
+  * Tx Lane. When rxtx field is cleared, this field is used for Rx as well.
+  * Access: RW
+  */
+-MLXSW_ITEM32_INDEXED(reg, pmlp, tx_lane, 0x04, 16, 2, 0x04, 16, false);
++MLXSW_ITEM32_INDEXED(reg, pmlp, tx_lane, 0x04, 16, 2, 0x04, 0x00, false);
+ 
+ /* reg_pmlp_rx_lane
+  * Rx Lane. When rxtx field is cleared, this field is ignored and Rx lane is
+  * equal to Tx lane.
+  * Access: RW
+  */
+-MLXSW_ITEM32_INDEXED(reg, pmlp, rx_lane, 0x04, 24, 2, 0x04, 24, false);
++MLXSW_ITEM32_INDEXED(reg, pmlp, rx_lane, 0x04, 24, 2, 0x04, 0x00, false);
+ 
+ static inline void mlxsw_reg_pmlp_pack(char *payload, u8 local_port)
+ {
+-- 
+2.17.1
+

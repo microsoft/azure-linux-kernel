@@ -1,0 +1,95 @@
+From 7f96a9324e87de7d37c4c95bdb18b9cd3264a59b Mon Sep 17 00:00:00 2001
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Tue, 9 Feb 2016 14:57:44 +0200
+Subject: net/mlx5e: Use static constant netdevice ndos
+Reply-To: joseph.salisbury@microsoft.com
+
+Currently our netdevice ops is a one static global variable which
+is referenced by all mlx5e netdevice instances. This can be
+problematic when different driver instances do not share same
+HW capabilities (e.g SRIOV PF and VFs probed to the host).
+
+Now we have two constant global netdevice ops variables, one
+for basic netdevice ops and the other with extended SRIOV ops,
+on netdevice construction we choose the one suitable for
+current device capabilities.
+
+Fixes: 66e49dedada6 ("net/mlx5e: Add support for SR-IOV ndos")
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit b0eed40ea15235b1dd138093901569077ba532ee)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/en_main.c | 41 +++++++++++++------
+ 1 file changed, 28 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index e3ff644c4de6..f4f4f74c8365 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2037,18 +2037,37 @@ static int mlx5e_get_vf_stats(struct net_device *dev,
+ 					    vf_stats);
+ }
+ 
+-static struct net_device_ops mlx5e_netdev_ops = {
++static const struct net_device_ops mlx5e_netdev_ops_basic = {
+ 	.ndo_open                = mlx5e_open,
+ 	.ndo_stop                = mlx5e_close,
+ 	.ndo_start_xmit          = mlx5e_xmit,
+ 	.ndo_get_stats64         = mlx5e_get_stats,
+ 	.ndo_set_rx_mode         = mlx5e_set_rx_mode,
+ 	.ndo_set_mac_address     = mlx5e_set_mac,
+-	.ndo_vlan_rx_add_vid	 = mlx5e_vlan_rx_add_vid,
+-	.ndo_vlan_rx_kill_vid	 = mlx5e_vlan_rx_kill_vid,
++	.ndo_vlan_rx_add_vid     = mlx5e_vlan_rx_add_vid,
++	.ndo_vlan_rx_kill_vid    = mlx5e_vlan_rx_kill_vid,
+ 	.ndo_set_features        = mlx5e_set_features,
+-	.ndo_change_mtu		 = mlx5e_change_mtu,
+-	.ndo_do_ioctl		 = mlx5e_ioctl,
++	.ndo_change_mtu          = mlx5e_change_mtu,
++	.ndo_do_ioctl            = mlx5e_ioctl,
++};
++
++static const struct net_device_ops mlx5e_netdev_ops_sriov = {
++	.ndo_open                = mlx5e_open,
++	.ndo_stop                = mlx5e_close,
++	.ndo_start_xmit          = mlx5e_xmit,
++	.ndo_get_stats64         = mlx5e_get_stats,
++	.ndo_set_rx_mode         = mlx5e_set_rx_mode,
++	.ndo_set_mac_address     = mlx5e_set_mac,
++	.ndo_vlan_rx_add_vid     = mlx5e_vlan_rx_add_vid,
++	.ndo_vlan_rx_kill_vid    = mlx5e_vlan_rx_kill_vid,
++	.ndo_set_features        = mlx5e_set_features,
++	.ndo_change_mtu          = mlx5e_change_mtu,
++	.ndo_do_ioctl            = mlx5e_ioctl,
++	.ndo_set_vf_mac          = mlx5e_set_vf_mac,
++	.ndo_set_vf_vlan         = mlx5e_set_vf_vlan,
++	.ndo_get_vf_config       = mlx5e_get_vf_config,
++	.ndo_set_vf_link_state   = mlx5e_set_vf_link_state,
++	.ndo_get_vf_stats        = mlx5e_get_vf_stats,
+ };
+ 
+ static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
+@@ -2160,15 +2179,11 @@ static void mlx5e_build_netdev(struct net_device *netdev)
+ 
+ 	SET_NETDEV_DEV(netdev, &mdev->pdev->dev);
+ 
+-	if (MLX5_CAP_GEN(mdev, vport_group_manager)) {
+-		mlx5e_netdev_ops.ndo_set_vf_mac = mlx5e_set_vf_mac;
+-		mlx5e_netdev_ops.ndo_set_vf_vlan = mlx5e_set_vf_vlan;
+-		mlx5e_netdev_ops.ndo_get_vf_config = mlx5e_get_vf_config;
+-		mlx5e_netdev_ops.ndo_set_vf_link_state = mlx5e_set_vf_link_state;
+-		mlx5e_netdev_ops.ndo_get_vf_stats = mlx5e_get_vf_stats;
+-	}
++	if (MLX5_CAP_GEN(mdev, vport_group_manager))
++		netdev->netdev_ops = &mlx5e_netdev_ops_sriov;
++	else
++		netdev->netdev_ops = &mlx5e_netdev_ops_basic;
+ 
+-	netdev->netdev_ops        = &mlx5e_netdev_ops;
+ 	netdev->watchdog_timeo    = 15 * HZ;
+ 
+ 	netdev->ethtool_ops	  = &mlx5e_ethtool_ops;
+-- 
+2.17.1
+

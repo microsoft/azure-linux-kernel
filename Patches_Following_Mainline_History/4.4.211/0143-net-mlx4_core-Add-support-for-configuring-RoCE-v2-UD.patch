@@ -1,0 +1,77 @@
+From 4bb0d5a4d909084febd38567739c56c7f5020268 Mon Sep 17 00:00:00 2001
+From: Moni Shoua <monis@mellanox.com>
+Date: Thu, 14 Jan 2016 17:50:36 +0200
+Subject: net/mlx4_core: Add support for configuring RoCE v2 UDP port
+Reply-To: joseph.salisbury@microsoft.com
+
+In order to support RoCE v2, the hardware needs to be configured
+to classify certain UDP packets as RoCE v2 packets and pass it
+through its RoCE pipeline. This patch enables configuring this
+UDP port.
+
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit fca83006294a6356705781eee31da1658fd411a5)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/fw.c | 16 +++++++++++++++-
+ include/linux/mlx4/device.h             |  1 +
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 8f93e6e0cde4..e960c1dbf099 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -2279,7 +2279,8 @@ struct mlx4_config_dev {
+ 	__be32	rsvd1[3];
+ 	__be16	vxlan_udp_dport;
+ 	__be16	rsvd2;
+-	__be32	rsvd3;
++	__be16  roce_v2_entropy;
++	__be16  roce_v2_udp_dport;
+ 	__be32	roce_flags;
+ 	__be32	rsvd4[25];
+ 	__be16	rsvd5;
+@@ -2288,6 +2289,7 @@ struct mlx4_config_dev {
+ };
+ 
+ #define MLX4_VXLAN_UDP_DPORT (1 << 0)
++#define MLX4_ROCE_V2_UDP_DPORT BIT(3)
+ #define MLX4_DISABLE_RX_PORT BIT(18)
+ 
+ static int mlx4_CONFIG_DEV_set(struct mlx4_dev *dev, struct mlx4_config_dev *config_dev)
+@@ -2405,6 +2407,18 @@ int mlx4_disable_rx_port_check(struct mlx4_dev *dev, bool dis)
+ 	return mlx4_CONFIG_DEV_set(dev, &config_dev);
+ }
+ 
++int mlx4_config_roce_v2_port(struct mlx4_dev *dev, u16 udp_port)
++{
++	struct mlx4_config_dev config_dev;
++
++	memset(&config_dev, 0, sizeof(config_dev));
++	config_dev.update_flags    = cpu_to_be32(MLX4_ROCE_V2_UDP_DPORT);
++	config_dev.roce_v2_udp_dport = cpu_to_be16(udp_port);
++
++	return mlx4_CONFIG_DEV_set(dev, &config_dev);
++}
++EXPORT_SYMBOL_GPL(mlx4_config_roce_v2_port);
++
+ int mlx4_virt2phy_port_map(struct mlx4_dev *dev, u32 port1, u32 port2)
+ {
+ 	struct mlx4_cmd_mailbox *mailbox;
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 6ae524a9fb3a..dc6a95767b3d 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -1462,6 +1462,7 @@ int mlx4_get_base_gid_ix(struct mlx4_dev *dev, int slave, int port);
+ 
+ int mlx4_config_vxlan_port(struct mlx4_dev *dev, __be16 udp_port);
+ int mlx4_disable_rx_port_check(struct mlx4_dev *dev, bool dis);
++int mlx4_config_roce_v2_port(struct mlx4_dev *dev, u16 udp_port);
+ int mlx4_virt2phy_port_map(struct mlx4_dev *dev, u32 port1, u32 port2);
+ int mlx4_vf_smi_enabled(struct mlx4_dev *dev, int slave, int port);
+ int mlx4_vf_get_enable_smi_admin(struct mlx4_dev *dev, int slave, int port);
+-- 
+2.17.1
+

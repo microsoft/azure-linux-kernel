@@ -1,0 +1,57 @@
+From 35ffd37325d178b435a3ee7d8bd036861262ab31 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Wed, 27 Jan 2016 15:20:23 +0100
+Subject: mlxsw: spectrum: Use correct netdev when notifying bridge
+Reply-To: joseph.salisbury@microsoft.com
+
+LAG FDB entries pointing to VLAN devices should be reported to the
+bridge with the matching VLAN device and not the underlying LAG device.
+
+Fixes: aac78a440887 ("mlxsw: spectrum: Adjust FDB notifications for VLAN devices")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit e43aca22ed039af235acc2ee0384f943c1fbfe83)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 4f8cbe7fa1e1..7b9ace3be88d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1287,6 +1287,7 @@ static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
+ 						bool adding)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port;
++	struct net_device *dev;
+ 	char mac[ETH_ALEN];
+ 	u16 lag_vid = 0;
+ 	u16 lag_id;
+@@ -1313,10 +1314,12 @@ static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
+ 		}
+ 
+ 		lag_vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
++		dev = mlxsw_sp_vport->dev;
+ 		vid = 0;
+ 		/* Override the physical port with the vPort. */
+ 		mlxsw_sp_port = mlxsw_sp_vport;
+ 	} else {
++		dev = mlxsw_sp_lag_get(mlxsw_sp, lag_id)->dev;
+ 		vid = fid;
+ 	}
+ 
+@@ -1334,8 +1337,7 @@ do_fdb_op:
+ 	if (!do_notification)
+ 		return;
+ 	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning_sync, adding, mac,
+-				    vid,
+-				    mlxsw_sp_lag_get(mlxsw_sp, lag_id)->dev);
++				    vid, dev);
+ 	return;
+ 
+ just_remove:
+-- 
+2.17.1
+

@@ -1,0 +1,49 @@
+From 59b8d8547de0b641dc373b4eaf004603f4c4942e Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Tue, 23 Aug 2016 04:46:39 +0000
+Subject: PCI: hv: Use pci_function_description[0] in struct definitions
+Reply-To: joseph.salisbury@microsoft.com
+
+The 2 structs can use a zero-length array here, because dynamic memory of
+the correct size is allocated in hv_pci_devices_present() and we don't need
+this extra element.
+
+No functional change.
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Acked-by: KY Srinivasan <kys@microsoft.com>
+CC: Jake Oshins <jakeo@microsoft.com>
+CC: Haiyang Zhang <haiyangz@microsoft.com>
+CC: Vitaly Kuznetsov <vkuznets@redhat.com>
+(cherry picked from commit 7d0f8eec976ae5a364af84fd8e92f6da9ec05a41)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/pci/host/pci-hyperv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/pci/host/pci-hyperv.c b/drivers/pci/host/pci-hyperv.c
+index a30f44681984..7745b63c8f69 100644
+--- a/drivers/pci/host/pci-hyperv.c
++++ b/drivers/pci/host/pci-hyperv.c
+@@ -259,7 +259,7 @@ struct pci_bus_d0_entry {
+ struct pci_bus_relations {
+ 	struct pci_incoming_message incoming;
+ 	u32 device_count;
+-	struct pci_function_description func[1];
++	struct pci_function_description func[0];
+ } __packed;
+ 
+ struct pci_q_res_req_response {
+@@ -394,7 +394,7 @@ struct hv_dr_work {
+ struct hv_dr_state {
+ 	struct list_head list_entry;
+ 	u32 device_count;
+-	struct pci_function_description func[1];
++	struct pci_function_description func[0];
+ };
+ 
+ enum hv_pcichild_state {
+-- 
+2.17.1
+

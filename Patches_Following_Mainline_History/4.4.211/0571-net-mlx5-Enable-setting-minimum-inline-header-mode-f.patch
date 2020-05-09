@@ -1,0 +1,80 @@
+From 7b70d3cfd0f33521bf9d197b2a1aa2ed84afdc41 Mon Sep 17 00:00:00 2001
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Date: Wed, 3 Aug 2016 17:27:30 +0300
+Subject: net/mlx5: Enable setting minimum inline header mode for VFs
+Reply-To: joseph.salisbury@microsoft.com
+
+Implement the low-level part of the PF side in setting minimum
+inline header mode for VFs.
+
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+(cherry picked from commit 9def7121bed3be8a9d126c900ca7067647bc4789)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/vport.c   | 20 +++++++++++++++++++
+ include/linux/mlx5/mlx5_ifc.h                 |  2 +-
+ include/linux/mlx5/vport.h                    |  2 ++
+ 3 files changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 5c6164e4b325..c30962bd3b7e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -125,6 +125,26 @@ void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_min_inline);
+ 
++int mlx5_modify_nic_vport_min_inline(struct mlx5_core_dev *mdev,
++				     u16 vport, u8 min_inline)
++{
++	u32 in[MLX5_ST_SZ_DW(modify_nic_vport_context_in)] = {0};
++	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
++	void *nic_vport_ctx;
++
++	MLX5_SET(modify_nic_vport_context_in, in,
++		 field_select.min_inline, 1);
++	MLX5_SET(modify_nic_vport_context_in, in, vport_number, vport);
++	MLX5_SET(modify_nic_vport_context_in, in, other_vport, 1);
++
++	nic_vport_ctx = MLX5_ADDR_OF(modify_nic_vport_context_in,
++				     in, nic_vport_context);
++	MLX5_SET(nic_vport_context, nic_vport_ctx,
++		 min_wqe_inline_mode, min_inline);
++
++	return mlx5_modify_nic_vport_context(mdev, in, inlen);
++}
++
+ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 				     u16 vport, u8 *addr)
+ {
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 75f07eda3552..15438be35c40 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -4723,7 +4723,7 @@ struct mlx5_ifc_modify_nic_vport_field_select_bits {
+ 	u8         reserved_at_0[0x16];
+ 	u8         node_guid[0x1];
+ 	u8         port_guid[0x1];
+-	u8         reserved_at_18[0x1];
++	u8         min_inline[0x1];
+ 	u8         mtu[0x1];
+ 	u8         change_event[0x1];
+ 	u8         promisc[0x1];
+diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
+index e087b7d047ac..451b0bde9083 100644
+--- a/include/linux/mlx5/vport.h
++++ b/include/linux/mlx5/vport.h
+@@ -45,6 +45,8 @@ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 				     u16 vport, u8 *addr);
+ void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
+ 				     u8 *min_inline);
++int mlx5_modify_nic_vport_min_inline(struct mlx5_core_dev *mdev,
++				     u16 vport, u8 min_inline);
+ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *dev,
+ 				      u16 vport, u8 *addr);
+ int mlx5_query_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 *mtu);
+-- 
+2.17.1
+

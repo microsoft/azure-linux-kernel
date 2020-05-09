@@ -1,0 +1,183 @@
+From a40a65e54820087687aabd67f048dd9a913a6a60 Mon Sep 17 00:00:00 2001
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Tue, 1 Dec 2015 18:03:15 +0200
+Subject: net/mlx5: Introduce access functions to modify/query vport vlans
+Reply-To: joseph.salisbury@microsoft.com
+
+Those functions are needed to notify the upcoming L2 table and SR-IOV
+E-Switch(FDB) manager(PF), of the NIC vport (vf) vlan table changes.
+
+preperation for ethernet sriov and l2 table management.
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit c0046cf7b81ac55b8bf056c71918ec04edd99379)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/vport.c   | 112 ++++++++++++++++++
+ include/linux/mlx5/mlx5_ifc.h                 |   7 ++
+ include/linux/mlx5/vport.h                    |   7 ++
+ 3 files changed, 126 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 68aa51df29c1..076197efea9b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -318,6 +318,118 @@ int mlx5_modify_nic_vport_mac_list(struct mlx5_core_dev *dev,
+ }
+ EXPORT_SYMBOL_GPL(mlx5_modify_nic_vport_mac_list);
+ 
++int mlx5_query_nic_vport_vlans(struct mlx5_core_dev *dev,
++			       u32 vport,
++			       u16 vlans[],
++			       int *size)
++{
++	u32 in[MLX5_ST_SZ_DW(query_nic_vport_context_in)];
++	void *nic_vport_ctx;
++	int req_list_size;
++	int max_list_size;
++	int out_sz;
++	void *out;
++	int err;
++	int i;
++
++	req_list_size = *size;
++	max_list_size = 1 << MLX5_CAP_GEN(dev, log_max_vlan_list);
++	if (req_list_size > max_list_size) {
++		mlx5_core_warn(dev, "Requested list size (%d) > (%d) max list size\n",
++			       req_list_size, max_list_size);
++		req_list_size = max_list_size;
++	}
++
++	out_sz = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in) +
++			req_list_size * MLX5_ST_SZ_BYTES(vlan_layout);
++
++	memset(in, 0, sizeof(in));
++	out = kzalloc(out_sz, GFP_KERNEL);
++	if (!out)
++		return -ENOMEM;
++
++	MLX5_SET(query_nic_vport_context_in, in, opcode,
++		 MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT);
++	MLX5_SET(query_nic_vport_context_in, in, allowed_list_type,
++		 MLX5_NVPRT_LIST_TYPE_VLAN);
++	MLX5_SET(query_nic_vport_context_in, in, vport_number, vport);
++
++	if (vport)
++		MLX5_SET(query_nic_vport_context_in, in, other_vport, 1);
++
++	err = mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, out_sz);
++	if (err)
++		goto out;
++
++	nic_vport_ctx = MLX5_ADDR_OF(query_nic_vport_context_out, out,
++				     nic_vport_context);
++	req_list_size = MLX5_GET(nic_vport_context, nic_vport_ctx,
++				 allowed_list_size);
++
++	*size = req_list_size;
++	for (i = 0; i < req_list_size; i++) {
++		void *vlan_addr = MLX5_ADDR_OF(nic_vport_context,
++					       nic_vport_ctx,
++					       current_uc_mac_address[i]);
++		vlans[i] = MLX5_GET(vlan_layout, vlan_addr, vlan);
++	}
++out:
++	kfree(out);
++	return err;
++}
++EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_vlans);
++
++int mlx5_modify_nic_vport_vlans(struct mlx5_core_dev *dev,
++				u16 vlans[],
++				int list_size)
++{
++	u32 out[MLX5_ST_SZ_DW(modify_nic_vport_context_out)];
++	void *nic_vport_ctx;
++	int max_list_size;
++	int in_sz;
++	void *in;
++	int err;
++	int i;
++
++	max_list_size = 1 << MLX5_CAP_GEN(dev, log_max_vlan_list);
++
++	if (list_size > max_list_size)
++		return -ENOSPC;
++
++	in_sz = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in) +
++		list_size * MLX5_ST_SZ_BYTES(vlan_layout);
++
++	memset(out, 0, sizeof(out));
++	in = kzalloc(in_sz, GFP_KERNEL);
++	if (!in)
++		return -ENOMEM;
++
++	MLX5_SET(modify_nic_vport_context_in, in, opcode,
++		 MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT);
++	MLX5_SET(modify_nic_vport_context_in, in,
++		 field_select.addresses_list, 1);
++
++	nic_vport_ctx = MLX5_ADDR_OF(modify_nic_vport_context_in, in,
++				     nic_vport_context);
++
++	MLX5_SET(nic_vport_context, nic_vport_ctx,
++		 allowed_list_type, MLX5_NVPRT_LIST_TYPE_VLAN);
++	MLX5_SET(nic_vport_context, nic_vport_ctx,
++		 allowed_list_size, list_size);
++
++	for (i = 0; i < list_size; i++) {
++		void *vlan_addr = MLX5_ADDR_OF(nic_vport_context,
++					       nic_vport_ctx,
++					       current_uc_mac_address[i]);
++		MLX5_SET(vlan_layout, vlan_addr, vlan, vlans[i]);
++	}
++
++	err = mlx5_cmd_exec_check_status(dev, in, in_sz, out, sizeof(out));
++	kfree(in);
++	return err;
++}
++EXPORT_SYMBOL_GPL(mlx5_modify_nic_vport_vlans);
++
+ int mlx5_query_hca_vport_gid(struct mlx5_core_dev *dev, u8 other_vport,
+ 			     u8 port_num, u16  vf_num, u16 gid_index,
+ 			     union ib_gid *gid)
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 2728b5f6c017..39487d0c305d 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -910,6 +910,13 @@ struct mlx5_ifc_mac_address_layout_bits {
+ 	u8         mac_addr_31_0[0x20];
+ };
+ 
++struct mlx5_ifc_vlan_layout_bits {
++	u8         reserved_0[0x14];
++	u8         vlan[0x0c];
++
++	u8         reserved_1[0x20];
++};
++
+ struct mlx5_ifc_cong_control_r_roce_ecn_np_bits {
+ 	u8         reserved_0[0xa0];
+ 
+diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
+index dbbaed9f975a..638f2ca7a527 100644
+--- a/include/linux/mlx5/vport.h
++++ b/include/linux/mlx5/vport.h
+@@ -77,5 +77,12 @@ int mlx5_modify_nic_vport_promisc(struct mlx5_core_dev *mdev,
+ 				  int promisc_uc,
+ 				  int promisc_mc,
+ 				  int promisc_all);
++int mlx5_query_nic_vport_vlans(struct mlx5_core_dev *dev,
++			       u32 vport,
++			       u16 vlans[],
++			       int *size);
++int mlx5_modify_nic_vport_vlans(struct mlx5_core_dev *dev,
++				u16 vlans[],
++				int list_size);
+ 
+ #endif /* __MLX5_VPORT_H__ */
+-- 
+2.17.1
+

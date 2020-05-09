@@ -1,0 +1,236 @@
+From f498421a00d1040a6b313d3e50f67fbe7ffce4d0 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Wed, 18 Nov 2015 06:30:59 -0800
+Subject: net: move skb_mark_napi_id() into core networking stack
+Reply-To: joseph.salisbury@microsoft.com
+
+We would like to automatically provide busy polling support
+to all NAPI drivers, without them having to implement anything.
+
+skb_mark_napi_id() can be called from napi_gro_receive() and
+napi_get_frags().
+
+Few drivers are still calling skb_mark_napi_id() because
+they use netif_receive_skb(). They should eventually call
+napi_gro_receive() instead. I will leave this to drivers
+maintainers.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 93f93a4404159ecf7e9148f5ad0718ec702ac4cb)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c         | 1 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 7 +------
+ drivers/net/ethernet/chelsio/cxgb4/sge.c         | 1 -
+ drivers/net/ethernet/emulex/benet/be_main.c      | 1 -
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c      | 1 -
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c    | 1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c       | 3 ---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c  | 1 -
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c | 2 +-
+ drivers/net/ethernet/sfc/rx.c                    | 1 -
+ drivers/net/virtio_net.c                         | 2 --
+ net/core/dev.c                                   | 2 ++
+ 13 files changed, 5 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 23fc244eb8a4..9ce502428bac 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -2050,7 +2050,6 @@ skip_data:
+ 		skb->dev = netdev;
+ 		skb->protocol = eth_type_trans(skb, netdev);
+ 		skb_record_rx_queue(skb, channel->queue_index);
+-		skb_mark_napi_id(skb, napi);
+ 
+ 		napi_gro_receive(napi, skb);
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 13de5ce3facf..ca60d366a1ed 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -1097,12 +1097,7 @@ reuse_rx:
+ 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+ 					       le16_to_cpu(cqe_fp->vlan_tag));
+ 
+-		skb_mark_napi_id(skb, &fp->napi);
+-
+-		if (bnx2x_fp_ll_polling(fp))
+-			netif_receive_skb(skb);
+-		else
+-			napi_gro_receive(&fp->napi, skb);
++		napi_gro_receive(&fp->napi, skb);
+ next_rx:
+ 		rx_buf->data = NULL;
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index b7b93e7a643d..f650f295f264 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1864,7 +1864,6 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
+ 	skb->truesize += skb->data_len;
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	skb_record_rx_queue(skb, rxq->rspq.idx);
+-	skb_mark_napi_id(skb, &rxq->rspq.napi);
+ 	pi = netdev_priv(skb->dev);
+ 	if (pi->rxtstamp)
+ 		cxgb4_sgetim_to_hwtstamp(adapter, skb_hwtstamps(skb),
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 7524a33b7032..b89f9f0135ef 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2184,7 +2184,6 @@ static void be_rx_compl_process_gro(struct be_rx_obj *rxo,
+ 		skb_set_hash(skb, rxcp->rss_hash, PKT_HASH_TYPE_L3);
+ 
+ 	skb->csum_level = rxcp->tunneled;
+-	skb_mark_napi_id(skb, napi);
+ 
+ 	if (rxcp->vlanf)
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), rxcp->vlan_tag);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 6dcc3854844d..5ca941a8e9f5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1646,7 +1646,6 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
+ 			continue;
+ 		}
+ #endif
+-		skb_mark_napi_id(skb, &rx_ring->q_vector->napi);
+ 		i40e_receive_skb(rx_ring, skb, vlan_tag);
+ 
+ 		rx_desc->wb.qword1.status_error_len = 0;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 1ed27fcd5031..1b85f38c609a 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1085,7 +1085,6 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
+ 			continue;
+ 		}
+ #endif
+-		skb_mark_napi_id(skb, &rx_ring->q_vector->napi);
+ 		i40e_receive_skb(rx_ring, skb, vlan_tag);
+ 
+ 		rx_desc->wb.qword1.status_error_len = 0;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 4521181aa0ed..f9ba1e41433a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1659,6 +1659,7 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
+ 			 struct sk_buff *skb)
+ {
++	skb_mark_napi_id(skb, &q_vector->napi);
+ 	if (ixgbe_qv_busy_polling(q_vector))
+ 		netif_receive_skb(skb);
+ 	else
+@@ -2123,7 +2124,6 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 		}
+ 
+ #endif /* IXGBE_FCOE */
+-		skb_mark_napi_id(skb, &q_vector->napi);
+ 		ixgbe_rx_skb(q_vector, skb);
+ 
+ 		/* update budget accounting */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 2d60912672b7..23ff57932f0b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -953,7 +953,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 						PKT_HASH_TYPE_L3);
+ 
+ 			skb_record_rx_queue(gro_skb, cq->ring);
+-			skb_mark_napi_id(gro_skb, &cq->napi);
+ 
+ 			if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
+ 				timestamp = mlx4_en_get_cqe_ts(cqe);
+@@ -1016,8 +1015,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 					       timestamp);
+ 		}
+ 
+-		skb_mark_napi_id(skb, &cq->napi);
+-
+ 		napi_gro_receive(&cq->napi, skb);
+ next:
+ 		for (nr = 0; nr < priv->num_frags; nr++)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index b83b489252dc..f67f98219078 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -247,7 +247,6 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
+ 		wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
+ 		skb            = rq->skb[wqe_counter];
+ 		prefetch(skb->data);
+-		skb_mark_napi_id(skb, cq->napi);
+ 		rq->skb[wqe_counter] = NULL;
+ 
+ 		dma_unmap_single(rq->pdev,
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index 8ebf3611aba3..77033c78b368 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -1488,7 +1488,6 @@ myri10ge_rx_done(struct myri10ge_slice_state *ss, int len, __wsum csum)
+ 	}
+ 	myri10ge_vlan_rx(mgp->dev, va, skb);
+ 	skb_record_rx_queue(skb, ss - &mgp->ss[0]);
+-	skb_mark_napi_id(skb, &ss->napi);
+ 
+ 	if (polling) {
+ 		int hlen;
+@@ -1506,6 +1505,7 @@ myri10ge_rx_done(struct myri10ge_slice_state *ss, int len, __wsum csum)
+ 		skb->data_len -= hlen;
+ 		skb->tail += hlen;
+ 		skb->protocol = eth_type_trans(skb, dev);
++		skb_mark_napi_id(skb, &ss->napi);
+ 		netif_receive_skb(skb);
+ 	}
+ 	else
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 809ea4610a77..8956995b2fe7 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -463,7 +463,6 @@ efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
+ 
+ 	skb_record_rx_queue(skb, channel->rx_queue.core_index);
+ 
+-	skb_mark_napi_id(skb, &channel->napi_str);
+ 	gro_result = napi_gro_frags(napi);
+ 	if (gro_result != GRO_DROP)
+ 		channel->irq_mod_score += 2;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 2759d386ade7..8525d701f2b1 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -530,8 +530,6 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
+ 		skb_shinfo(skb)->gso_segs = 0;
+ 	}
+ 
+-	skb_mark_napi_id(skb, &rq->napi);
+-
+ 	napi_gro_receive(&rq->napi, skb);
+ 	return;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 108c32903a74..af5df10f8553 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4461,6 +4461,7 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
+ 
+ gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ {
++	skb_mark_napi_id(skb, napi);
+ 	trace_napi_gro_receive_entry(skb);
+ 
+ 	skb_gro_reset_offset(skb);
+@@ -4499,6 +4500,7 @@ struct sk_buff *napi_get_frags(struct napi_struct *napi)
+ 	if (!skb) {
+ 		skb = napi_alloc_skb(napi, GRO_MAX_HEAD);
+ 		napi->skb = skb;
++		skb_mark_napi_id(skb, napi);
+ 	}
+ 	return skb;
+ }
+-- 
+2.17.1
+

@@ -1,0 +1,69 @@
+From fb9de87cb0eac84a3737bc2ceffffedd7a077944 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Wed, 18 Nov 2015 06:31:02 -0800
+Subject: net: napi_hash_del() returns a boolean status
+Reply-To: joseph.salisbury@microsoft.com
+
+napi_hash_del() will soon be used from both drivers (if they want)
+or core networking stack.
+
+Callers are responsibles to ensure an RCU grace period is respected
+before freeing napi structure : napi_hash_del() can signal if
+this RCU grace period is needed or not.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 34cbe27e811c591c854a39c0dee1b461bb796953)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/netdevice.h |  6 +-----
+ net/core/dev.c            | 10 +++++++---
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 803d117878f1..a6ba95f64e46 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -483,12 +483,8 @@ void napi_hash_add(struct napi_struct *napi);
+  * Warning: caller must observe rcu grace period
+  * before freeing memory containing @napi, if
+  * this function returns true.
+- * Note: core networking stack automatically calls it
+- * from netif_napi_del()
+- * Drivers might want to call this helper to combine all
+- * the needed rcu grace periods into a single one.
+  */
+-void napi_hash_del(struct napi_struct *napi);
++bool napi_hash_del(struct napi_struct *napi);
+ 
+ /**
+  *	napi_disable - prevent NAPI from scheduling
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f419027b9266..68289d01515f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4885,14 +4885,18 @@ EXPORT_SYMBOL_GPL(napi_hash_add);
+ /* Warning : caller is responsible to make sure rcu grace period
+  * is respected before freeing memory containing @napi
+  */
+-void napi_hash_del(struct napi_struct *napi)
++bool napi_hash_del(struct napi_struct *napi)
+ {
++	bool rcu_sync_needed = false;
++
+ 	spin_lock(&napi_hash_lock);
+ 
+-	if (test_and_clear_bit(NAPI_STATE_HASHED, &napi->state))
++	if (test_and_clear_bit(NAPI_STATE_HASHED, &napi->state)) {
++		rcu_sync_needed = true;
+ 		hlist_del_rcu(&napi->napi_hash_node);
+-
++	}
+ 	spin_unlock(&napi_hash_lock);
++	return rcu_sync_needed;
+ }
+ EXPORT_SYMBOL_GPL(napi_hash_del);
+ 
+-- 
+2.17.1
+

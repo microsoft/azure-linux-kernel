@@ -1,0 +1,33 @@
+From ac8caa40018333bb624dd5ec365e574a27929a78 Mon Sep 17 00:00:00 2001
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 13 Jan 2016 15:28:23 +0300
+Subject: mlxsw: fix SWITCHDEV_OBJ_ID_PORT_MDB
+Reply-To: joseph.salisbury@microsoft.com
+
+There is a missing break statement so we always return -EOPNOTSUPP.
+
+Fixes: 3a49b4fde2a1 ('mlxsw: Adding layer 2 multicast support')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 00ae40e71d85ea3fed1b906951ffd80e0321a96d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 51caf417b30d..722d65fffbf0 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1021,6 +1021,7 @@ static int mlxsw_sp_port_obj_del(struct net_device *dev,
+ 	case SWITCHDEV_OBJ_ID_PORT_MDB:
+ 		err = mlxsw_sp_port_mdb_del(mlxsw_sp_port,
+ 					    SWITCHDEV_OBJ_PORT_MDB(obj));
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+-- 
+2.17.1
+

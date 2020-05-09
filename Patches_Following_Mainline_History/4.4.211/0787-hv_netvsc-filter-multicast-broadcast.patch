@@ -1,0 +1,52 @@
+From 8a97e61dfe280c7bb912e2e4388183ce6a6e2e36 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 2 Mar 2018 13:49:08 -0800
+Subject: hv_netvsc: filter multicast/broadcast
+Reply-To: joseph.salisbury@microsoft.com
+
+The netvsc driver was always enabling all multicast and broadcast
+even if netdevice flag had not enabled it.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 009f766ca2383d8788acd65c2c36c51bbfb19470)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/rndis_filter.c | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 6fcc7bc0ba8c..a0fe634f9bfe 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -853,15 +853,19 @@ static void rndis_set_multicast(struct work_struct *w)
+ {
+ 	struct rndis_device *rdev
+ 		= container_of(w, struct rndis_device, mcast_work);
++	u32 filter = NDIS_PACKET_TYPE_DIRECTED;
++	unsigned int flags = rdev->ndev->flags;
+ 
+-	if (rdev->ndev->flags & IFF_PROMISC)
+-		rndis_filter_set_packet_filter(rdev,
+-					       NDIS_PACKET_TYPE_PROMISCUOUS);
+-	else
+-		rndis_filter_set_packet_filter(rdev,
+-					       NDIS_PACKET_TYPE_BROADCAST |
+-					       NDIS_PACKET_TYPE_ALL_MULTICAST |
+-					       NDIS_PACKET_TYPE_DIRECTED);
++	if (flags & IFF_PROMISC) {
++		filter = NDIS_PACKET_TYPE_PROMISCUOUS;
++	} else {
++		if (flags & IFF_ALLMULTI)
++			flags |= NDIS_PACKET_TYPE_ALL_MULTICAST;
++		if (flags & IFF_BROADCAST)
++			flags |= NDIS_PACKET_TYPE_BROADCAST;
++	}
++
++	rndis_filter_set_packet_filter(rdev, filter);
+ }
+ 
+ void rndis_filter_update(struct netvsc_device *nvdev)
+-- 
+2.17.1
+

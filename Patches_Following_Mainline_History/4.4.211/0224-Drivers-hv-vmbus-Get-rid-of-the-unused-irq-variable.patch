@@ -1,0 +1,77 @@
+From a582293f0d1eadab1425c72864736735e581b182 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Mon, 14 Dec 2015 16:01:46 -0800
+Subject: Drivers: hv: vmbus: Get rid of the unused irq variable
+Reply-To: joseph.salisbury@microsoft.com
+
+The irq we extract from ACPI is not used - we deliver hypervisor
+interrupts on a special vector. Make the necessary adjustments.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit efc267226b827f347a329c395e16c08973b0e3d6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/vmbus_drv.c | 16 +++-------------
+ 1 file changed, 3 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index 5842a6a6fe0d..97aafd52e15b 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -48,7 +48,6 @@ static struct acpi_device  *hv_acpi_dev;
+ 
+ static struct tasklet_struct msg_dpc;
+ static struct completion probe_event;
+-static int irq;
+ 
+ 
+ static void hyperv_report_panic(struct pt_regs *regs)
+@@ -850,10 +849,9 @@ static void vmbus_isr(void)
+  * Here, we
+  *	- initialize the vmbus driver context
+  *	- invoke the vmbus hv main init routine
+- *	- get the irq resource
+  *	- retrieve the channel offers
+  */
+-static int vmbus_bus_init(int irq)
++static int vmbus_bus_init(void)
+ {
+ 	int ret;
+ 
+@@ -1048,9 +1046,6 @@ static acpi_status vmbus_walk_resources(struct acpi_resource *res, void *ctx)
+ 	struct resource **prev_res = NULL;
+ 
+ 	switch (res->type) {
+-	case ACPI_RESOURCE_TYPE_IRQ:
+-		irq = res->data.irq.interrupts[0];
+-		return AE_OK;
+ 
+ 	/*
+ 	 * "Address" descriptors are for bus windows. Ignore
+@@ -1316,7 +1311,7 @@ static int __init hv_acpi_init(void)
+ 	init_completion(&probe_event);
+ 
+ 	/*
+-	 * Get irq resources first.
++	 * Get ACPI resources first.
+ 	 */
+ 	ret = acpi_bus_register_driver(&vmbus_acpi_driver);
+ 
+@@ -1329,12 +1324,7 @@ static int __init hv_acpi_init(void)
+ 		goto cleanup;
+ 	}
+ 
+-	if (irq <= 0) {
+-		ret = -ENODEV;
+-		goto cleanup;
+-	}
+-
+-	ret = vmbus_bus_init(irq);
++	ret = vmbus_bus_init();
+ 	if (ret)
+ 		goto cleanup;
+ 
+-- 
+2.17.1
+

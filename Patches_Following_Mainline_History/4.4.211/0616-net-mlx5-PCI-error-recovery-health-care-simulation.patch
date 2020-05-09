@@ -1,0 +1,266 @@
+From 0a0fea61d8d8a99212ea716592ce4fa61cff022d Mon Sep 17 00:00:00 2001
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
+Date: Tue, 25 Oct 2016 18:36:34 +0300
+Subject: net/mlx5: PCI error recovery health care simulation
+Reply-To: joseph.salisbury@microsoft.com
+
+In case that the kernel PCI error handlers are not called, we will
+trigger our own recovery flow.
+
+The health work will give priority to the kernel pci error handlers to
+recover the PCI by waiting for a small period, if the pci error handlers
+are not triggered the manual recovery flow will be executed.
+
+We don't save pci state in case of manual recovery because it will ruin the
+pci configuration space and we will lose dma sync.
+
+Fixes: 89d44f0a6c73 ('net/mlx5_core: Add pci error handlers to mlx5_core driver')
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 04c0c1ab38e95105d950db5b84e727637e149ce7)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c |  4 ++
+ .../net/ethernet/mellanox/mlx5/core/health.c  | 59 +++++++++++++++++--
+ .../net/ethernet/mellanox/mlx5/core/main.c    | 41 ++++---------
+ .../ethernet/mellanox/mlx5/core/mlx5_core.h   |  1 +
+ include/linux/mlx5/driver.h                   |  4 ++
+ 5 files changed, 77 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 987c2b7e0a8b..f2c0c8a46264 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -771,6 +771,10 @@ static void cb_timeout_handler(struct work_struct *work)
+ 	mlx5_cmd_comp_handler(dev, 1UL << ent->idx);
+ }
+ 
++static void free_msg(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *msg);
++static void mlx5_free_cmd_msg(struct mlx5_core_dev *dev,
++			      struct mlx5_cmd_msg *msg);
++
+ static void cmd_work_handler(struct work_struct *work)
+ {
+ 	struct mlx5_cmd_work_ent *ent = container_of(work, struct mlx5_cmd_work_ent, work);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+index 94594d47cae6..a0feeae3e9f9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+@@ -61,10 +61,15 @@ enum {
+ enum {
+ 	MLX5_NIC_IFC_FULL		= 0,
+ 	MLX5_NIC_IFC_DISABLED		= 1,
+-	MLX5_NIC_IFC_NO_DRAM_NIC	= 2
++	MLX5_NIC_IFC_NO_DRAM_NIC	= 2,
++	MLX5_NIC_IFC_INVALID		= 3
+ };
+ 
+-static u8 get_nic_interface(struct mlx5_core_dev *dev)
++enum {
++	MLX5_DROP_NEW_HEALTH_WORK,
++};
++
++static u8 get_nic_state(struct mlx5_core_dev *dev)
+ {
+ 	return (ioread32be(&dev->iseg->cmdq_addr_l_sz) >> 8) & 3;
+ }
+@@ -97,7 +102,7 @@ static int in_fatal(struct mlx5_core_dev *dev)
+ 	struct mlx5_core_health *health = &dev->priv.health;
+ 	struct health_buffer __iomem *h = health->health;
+ 
+-	if (get_nic_interface(dev) == MLX5_NIC_IFC_DISABLED)
++	if (get_nic_state(dev) == MLX5_NIC_IFC_DISABLED)
+ 		return 1;
+ 
+ 	if (ioread32be(&h->fw_ver) == 0xffffffff)
+@@ -127,7 +132,7 @@ unlock:
+ 
+ static void mlx5_handle_bad_state(struct mlx5_core_dev *dev)
+ {
+-	u8 nic_interface = get_nic_interface(dev);
++	u8 nic_interface = get_nic_state(dev);
+ 
+ 	switch (nic_interface) {
+ 	case MLX5_NIC_IFC_FULL:
+@@ -149,8 +154,34 @@ static void mlx5_handle_bad_state(struct mlx5_core_dev *dev)
+ 	mlx5_disable_device(dev);
+ }
+ 
++static void health_recover(struct work_struct *work)
++{
++	struct mlx5_core_health *health;
++	struct delayed_work *dwork;
++	struct mlx5_core_dev *dev;
++	struct mlx5_priv *priv;
++	u8 nic_state;
++
++	dwork = container_of(work, struct delayed_work, work);
++	health = container_of(dwork, struct mlx5_core_health, recover_work);
++	priv = container_of(health, struct mlx5_priv, health);
++	dev = container_of(priv, struct mlx5_core_dev, priv);
++
++	nic_state = get_nic_state(dev);
++	if (nic_state == MLX5_NIC_IFC_INVALID) {
++		dev_err(&dev->pdev->dev, "health recovery flow aborted since the nic state is invalid\n");
++		return;
++	}
++
++	dev_err(&dev->pdev->dev, "starting health recovery flow\n");
++	mlx5_recover_device(dev);
++}
++
++/* How much time to wait until health resetting the driver (in msecs) */
++#define MLX5_RECOVERY_DELAY_MSECS 60000
+ static void health_care(struct work_struct *work)
+ {
++	unsigned long recover_delay = msecs_to_jiffies(MLX5_RECOVERY_DELAY_MSECS);
+ 	struct mlx5_core_health *health;
+ 	struct mlx5_core_dev *dev;
+ 	struct mlx5_priv *priv;
+@@ -160,6 +191,14 @@ static void health_care(struct work_struct *work)
+ 	dev = container_of(priv, struct mlx5_core_dev, priv);
+ 	mlx5_core_warn(dev, "handling bad device here\n");
+ 	mlx5_handle_bad_state(dev);
++
++	spin_lock(&health->wq_lock);
++	if (!test_bit(MLX5_DROP_NEW_HEALTH_WORK, &health->flags))
++		schedule_delayed_work(&health->recover_work, recover_delay);
++	else
++		dev_err(&dev->pdev->dev,
++			"new health works are not permitted at this stage\n");
++	spin_unlock(&health->wq_lock);
+ }
+ 
+ static const char *hsynd_str(u8 synd)
+@@ -297,6 +336,17 @@ void mlx5_stop_health_poll(struct mlx5_core_dev *dev)
+ 	del_timer_sync(&health->timer);
+ }
+ 
++void mlx5_drain_health_wq(struct mlx5_core_dev *dev)
++{
++	struct mlx5_core_health *health = &dev->priv.health;
++
++	spin_lock(&health->wq_lock);
++	set_bit(MLX5_DROP_NEW_HEALTH_WORK, &health->flags);
++	spin_unlock(&health->wq_lock);
++	cancel_delayed_work_sync(&health->recover_work);
++	cancel_work_sync(&health->work);
++}
++
+ void mlx5_health_cleanup(struct mlx5_core_dev *dev)
+ {
+ 	struct mlx5_core_health *health = &dev->priv.health;
+@@ -322,6 +372,7 @@ int mlx5_health_init(struct mlx5_core_dev *dev)
+ 		return -ENOMEM;
+ 
+ 	INIT_WORK(&health->work, health_care);
++	INIT_DELAYED_WORK(&health->recover_work, health_recover);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index e310863fd89f..fdb33d12dcf7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1321,6 +1321,7 @@ static pci_ers_result_t mlx5_pci_err_detected(struct pci_dev *pdev,
+ 	struct mlx5_priv *priv = &dev->priv;
+ 
+ 	dev_info(&pdev->dev, "%s was called\n", __func__);
++
+ 	mlx5_enter_error_state(dev);
+ 	mlx5_unload_one(dev, priv, false);
+ 	pci_save_state(pdev);
+@@ -1349,11 +1350,6 @@ static pci_ers_result_t mlx5_pci_slot_reset(struct pci_dev *pdev)
+ 	return err ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
+ }
+ 
+-void mlx5_disable_device(struct mlx5_core_dev *dev)
+-{
+-	mlx5_pci_err_detected(dev->pdev, 0);
+-}
+-
+ /* wait for the device to show vital signs by waiting
+  * for the health counter to start counting.
+  */
+@@ -1381,29 +1377,6 @@ static int wait_vital(struct pci_dev *pdev)
+ 	return -ETIMEDOUT;
+ }
+ 
+-static void mlx5_pci_resume(struct pci_dev *pdev)
+-{
+-	struct mlx5_core_dev *dev = pci_get_drvdata(pdev);
+-	struct mlx5_priv *priv = &dev->priv;
+-	int err;
+-
+-	dev_info(&pdev->dev, "%s was called\n", __func__);
+-
+-	pci_save_state(pdev);
+-	err = wait_vital(pdev);
+-	if (err) {
+-		dev_err(&pdev->dev, "%s: wait_vital timed out\n", __func__);
+-		return;
+-	}
+-
+-	return PCI_ERS_RESULT_RECOVERED;
+-}
+-
+-void mlx5_disable_device(struct mlx5_core_dev *dev)
+-{
+-	mlx5_pci_err_detected(dev->pdev, 0);
+-}
+-
+ static void mlx5_pci_resume(struct pci_dev *pdev)
+ {
+ 	struct mlx5_core_dev *dev = pci_get_drvdata(pdev);
+@@ -1453,6 +1426,18 @@ static const struct pci_device_id mlx5_core_pci_table[] = {
+ 
+ MODULE_DEVICE_TABLE(pci, mlx5_core_pci_table);
+ 
++void mlx5_disable_device(struct mlx5_core_dev *dev)
++{
++	mlx5_pci_err_detected(dev->pdev, 0);
++}
++
++void mlx5_recover_device(struct mlx5_core_dev *dev)
++{
++	mlx5_pci_disable_device(dev);
++	if (mlx5_pci_slot_reset(dev->pdev) == PCI_ERS_RESULT_RECOVERED)
++		mlx5_pci_resume(dev->pdev);
++}
++
+ static struct pci_driver mlx5_core_driver = {
+ 	.name           = DRIVER_NAME,
+ 	.id_table       = mlx5_core_pci_table,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index bb2ee1f81e92..fd40fcbc8fed 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -83,6 +83,7 @@ void mlx5_core_event(struct mlx5_core_dev *dev, enum mlx5_dev_event event,
+ 		     unsigned long param);
+ void mlx5_enter_error_state(struct mlx5_core_dev *dev);
+ void mlx5_disable_device(struct mlx5_core_dev *dev);
++void mlx5_recover_device(struct mlx5_core_dev *dev);
+ int mlx5_sriov_init(struct mlx5_core_dev *dev);
+ void mlx5_sriov_cleanup(struct mlx5_core_dev *dev);
+ int mlx5_sriov_attach(struct mlx5_core_dev *dev);
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 98acbc808ff7..12bee2a3f743 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -403,8 +403,12 @@ struct mlx5_core_health {
+ 	u32				prev;
+ 	int				miss_counter;
+ 	bool				sick;
++	/* wq spinlock to synchronize draining */
++	spinlock_t                      wq_lock;
+ 	struct workqueue_struct	       *wq;
++	unsigned long                   flags;
+ 	struct work_struct		work;
++	struct delayed_work		recover_work;
+ };
+ 
+ struct mlx5_cq_table {
+-- 
+2.17.1
+

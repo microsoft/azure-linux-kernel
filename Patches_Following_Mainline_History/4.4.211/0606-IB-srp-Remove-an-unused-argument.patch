@@ -1,0 +1,39 @@
+From a00bbe659c85ac39cf1e6c283c1b50f4317e1fb0 Mon Sep 17 00:00:00 2001
+From: Bart Van Assche <bart.vanassche@sandisk.com>
+Date: Mon, 26 Sep 2016 12:57:10 -0700
+Subject: IB/srp: Remove an unused argument
+Reply-To: joseph.salisbury@microsoft.com
+
+Signed-off-by: Bart Van Assche <bart.vanassche@sandisk.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 52bb8c626e0e5526c72b6ad17f1381f0bad283cc)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/ulp/srp/ib_srp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/infiniband/ulp/srp/ib_srp.c b/drivers/infiniband/ulp/srp/ib_srp.c
+index 8868125d07c6..948f834edd2a 100644
+--- a/drivers/infiniband/ulp/srp/ib_srp.c
++++ b/drivers/infiniband/ulp/srp/ib_srp.c
+@@ -1390,7 +1390,7 @@ static int srp_map_finish_fr(struct srp_map_state *state,
+ 
+ static int srp_map_sg_entry(struct srp_map_state *state,
+ 			    struct srp_rdma_ch *ch,
+-			    struct scatterlist *sg, int sg_index)
++			    struct scatterlist *sg)
+ {
+ 	struct srp_target_port *target = ch->target;
+ 	struct srp_device *dev = target->srp_host->srp_dev;
+@@ -1444,7 +1444,7 @@ static int srp_map_sg_fmr(struct srp_map_state *state, struct srp_rdma_ch *ch,
+ 	state->fmr.end = req->fmr_list + ch->target->cmd_sg_cnt;
+ 
+ 	for_each_sg(scat, sg, count, i) {
+-		ret = srp_map_sg_entry(state, ch, sg, i);
++		ret = srp_map_sg_entry(state, ch, sg);
+ 		if (ret)
+ 			return ret;
+ 	}
+-- 
+2.17.1
+

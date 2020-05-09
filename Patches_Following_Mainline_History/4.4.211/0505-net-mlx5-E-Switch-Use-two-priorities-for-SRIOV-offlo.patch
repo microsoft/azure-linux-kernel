@@ -1,0 +1,162 @@
+From 47c28a8da4e3ad0157ac613361ebca53614da815 Mon Sep 17 00:00:00 2001
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu, 14 Jul 2016 10:32:40 +0300
+Subject: net/mlx5: E-Switch, Use two priorities for SRIOV offloads mode
+Reply-To: joseph.salisbury@microsoft.com
+
+In the offloads mode, some slow path rules are added by the driver (e.g
+send-to-vport), while offloaded rules are to be added from upper layers.
+
+The slow path rules have lower priority and we don't want matching on
+offloaded rules to suffer from extra steering hops related to the slow
+path rules.
+
+We use two priorities, one for offloaded rules (fast path), and one for
+the control rules (slow path). To allow for that, we enable two priorities
+for the FDB namespace in the FS core code.
+
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 1033665e63b6d98e91c1b938bad2dc624a72c137)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/eswitch.h |  1 +
+ .../mellanox/mlx5/core/eswitch_offloads.c     | 34 +++++++++++++++----
+ .../net/ethernet/mellanox/mlx5/core/fs_core.c | 22 +++++++-----
+ 3 files changed, 42 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 7b45e6a6efb8..035e536a9911 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -145,6 +145,7 @@ struct mlx5_eswitch_fdb {
+ 		} legacy;
+ 
+ 		struct offloads_fdb {
++			struct mlx5_flow_table *fdb;
+ 			struct mlx5_flow_group *send_to_vport_grp;
+ 			struct mlx5_flow_group *miss_grp;
+ 			struct mlx5_flow_rule  *miss_rule;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index ae6bbeb41525..1442c78fd32f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -38,6 +38,11 @@
+ #include "mlx5_core.h"
+ #include "eswitch.h"
+ 
++enum {
++	FDB_FAST_PATH = 0,
++	FDB_SLOW_PATH
++};
++
+ static struct mlx5_flow_rule *
+ mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn)
+ {
+@@ -149,7 +154,7 @@ static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
+ 	dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
+ 	dest.vport_num = 0;
+ 
+-	flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, spec,
++	flow_rule = mlx5_add_flow_rule(esw->fdb_table.offloads.fdb, spec,
+ 				       MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				       0, &dest);
+ 	if (IS_ERR(flow_rule)) {
+@@ -165,6 +170,8 @@ out:
+ }
+ 
+ #define MAX_PF_SQ 256
++#define ESW_OFFLOADS_NUM_ENTRIES (1 << 13) /* 8K */
++#define ESW_OFFLOADS_NUM_GROUPS  4
+ 
+ int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ {
+@@ -190,15 +197,25 @@ int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ 	esw_debug(dev, "Create offloads FDB table, log_max_size(%d)\n",
+ 		  MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size));
+ 
+-	table_size = nvports + MAX_PF_SQ + 1;
+-	fdb = mlx5_create_flow_table(root_ns, 0, table_size, 0);
++	fdb = mlx5_create_auto_grouped_flow_table(root_ns, FDB_FAST_PATH,
++						  ESW_OFFLOADS_NUM_ENTRIES,
++						  ESW_OFFLOADS_NUM_GROUPS, 0);
+ 	if (IS_ERR(fdb)) {
+ 		err = PTR_ERR(fdb);
+-		esw_warn(dev, "Failed to create FDB Table err %d\n", err);
+-		goto fdb_err;
++		esw_warn(dev, "Failed to create Fast path FDB Table err %d\n", err);
++		goto fast_fdb_err;
+ 	}
+ 	esw->fdb_table.fdb = fdb;
+ 
++	table_size = nvports + MAX_PF_SQ + 1;
++	fdb = mlx5_create_flow_table(root_ns, FDB_SLOW_PATH, table_size, 0);
++	if (IS_ERR(fdb)) {
++		err = PTR_ERR(fdb);
++		esw_warn(dev, "Failed to create slow path FDB Table err %d\n", err);
++		goto slow_fdb_err;
++	}
++	esw->fdb_table.offloads.fdb = fdb;
++
+ 	/* create send-to-vport group */
+ 	memset(flow_group_in, 0, inlen);
+ 	MLX5_SET(create_flow_group_in, flow_group_in, match_criteria_enable,
+@@ -247,8 +264,10 @@ miss_rule_err:
+ miss_err:
+ 	mlx5_destroy_flow_group(esw->fdb_table.offloads.send_to_vport_grp);
+ send_vport_err:
+-	mlx5_destroy_flow_table(fdb);
+-fdb_err:
++	mlx5_destroy_flow_table(esw->fdb_table.offloads.fdb);
++slow_fdb_err:
++	mlx5_destroy_flow_table(esw->fdb_table.fdb);
++fast_fdb_err:
+ ns_err:
+ 	kvfree(flow_group_in);
+ 	return err;
+@@ -264,6 +283,7 @@ void esw_destroy_offloads_fdb_table(struct mlx5_eswitch *esw)
+ 	mlx5_destroy_flow_group(esw->fdb_table.offloads.send_to_vport_grp);
+ 	mlx5_destroy_flow_group(esw->fdb_table.offloads.miss_grp);
+ 
++	mlx5_destroy_flow_table(esw->fdb_table.offloads.fdb);
+ 	mlx5_destroy_flow_table(esw->fdb_table.fdb);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index e2ca00e9f2ca..88aad77caca7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1707,15 +1707,21 @@ static int init_fdb_root_ns(struct mlx5_flow_steering *steering)
+ 	if (!steering->fdb_root_ns)
+ 		return -ENOMEM;
+ 
+-	/* Create single prio */
+ 	prio = fs_create_prio(&steering->fdb_root_ns->ns, 0, 1);
+-	if (IS_ERR(prio)) {
+-		cleanup_root_ns(steering->fdb_root_ns);
+-		steering->fdb_root_ns = NULL;
+-		return PTR_ERR(prio);
+-	} else {
+-		return 0;
+-	}
++	if (IS_ERR(prio))
++		goto out_err;
++
++	prio = fs_create_prio(&steering->fdb_root_ns->ns, 1, 1);
++	if (IS_ERR(prio))
++		goto out_err;
++
++	set_prio_attrs(steering->fdb_root_ns);
++	return 0;
++
++out_err:
++	cleanup_root_ns(steering->fdb_root_ns);
++	steering->fdb_root_ns = NULL;
++	return PTR_ERR(prio);
+ }
+ 
+ static int init_ingress_acl_root_ns(struct mlx5_flow_steering *steering)
+-- 
+2.17.1
+

@@ -1,0 +1,40 @@
+From c48b056214712c56d2d6e474dd0da951728d8e5d Mon Sep 17 00:00:00 2001
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Date: Tue, 9 Feb 2016 21:11:14 +0100
+Subject: net/mlx4: fix some error handling in mlx4_multi_func_init()
+Reply-To: joseph.salisbury@microsoft.com
+
+The while loop after err_slaves should use post-decrement; otherwise
+we'll fail to do the kfrees for i==0, and will run into out-of-bounds
+accesses if the setup above failed already at i==0.
+
+[I'm not sure why one even bothers populating the ->vlan_filter array:
+mlx4.h isn't #included by anything outside
+drivers/net/ethernet/mellanox/mlx4/, and "git grep -C2 -w vlan_filter
+drivers/net/ethernet/mellanox/mlx4/" seems to suggest that the
+vlan_filter elements aren't used at all.]
+
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit fa51b247d67b521e1a1103cad75eb7a666fc9ff9)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/cmd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 9e104dcfa9dd..b4e1d7e359e4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -2440,7 +2440,7 @@ err_thread:
+ 	flush_workqueue(priv->mfunc.master.comm_wq);
+ 	destroy_workqueue(priv->mfunc.master.comm_wq);
+ err_slaves:
+-	while (--i) {
++	while (i--) {
+ 		for (port = 1; port <= MLX4_MAX_PORTS; port++)
+ 			kfree(priv->mfunc.master.slave_state[i].vlan_filter[port]);
+ 	}
+-- 
+2.17.1
+

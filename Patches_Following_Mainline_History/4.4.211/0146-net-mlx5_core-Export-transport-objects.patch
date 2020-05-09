@@ -1,0 +1,190 @@
+From 5826d8b9b62fa3087e306df0130dc3113007f499 Mon Sep 17 00:00:00 2001
+From: "majd@mellanox.com" <majd@mellanox.com>
+Date: Thu, 14 Jan 2016 19:12:59 +0200
+Subject: net/mlx5_core: Export transport objects
+Reply-To: joseph.salisbury@microsoft.com
+
+To be used by mlx5_ib in the following patches for implementing
+RAW PACKET QP.
+
+Add mlx5_core_ prefix to alloc and delloc transport_domain since
+they are exposed now.
+
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 8d7f9ecb371a15e48754fa816e3f716517df7b13)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  6 +++---
+ drivers/net/ethernet/mellanox/mlx5/core/srq.c      |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.c | 14 +++++++++++---
+ .../mlx5/core => include/linux/mlx5}/transobj.h    |  6 ++++--
+ 5 files changed, 20 insertions(+), 10 deletions(-)
+ rename {drivers/net/ethernet/mellanox/mlx5/core => include/linux/mlx5}/transobj.h (94%)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 0fd8a795756f..69719e1b0bdd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -39,8 +39,8 @@
+ #include <linux/mlx5/qp.h>
+ #include <linux/mlx5/cq.h>
+ #include <linux/mlx5/vport.h>
++#include <linux/mlx5/transobj.h>
+ #include "wq.h"
+-#include "transobj.h"
+ #include "mlx5_core.h"
+ 
+ #define MLX5E_MAX_NUM_TC	8
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 54753034be26..e7c54883fca7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2264,7 +2264,7 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
+ 		goto err_unmap_free_uar;
+ 	}
+ 
+-	err = mlx5_alloc_transport_domain(mdev, &priv->tdn);
++	err = mlx5_core_alloc_transport_domain(mdev, &priv->tdn);
+ 	if (err) {
+ 		mlx5_core_err(mdev, "alloc td failed, %d\n", err);
+ 		goto err_dealloc_pd;
+@@ -2347,7 +2347,7 @@ err_destroy_mkey:
+ 	mlx5_core_destroy_mkey(mdev, &priv->mr);
+ 
+ err_dealloc_transport_domain:
+-	mlx5_dealloc_transport_domain(mdev, priv->tdn);
++	mlx5_core_dealloc_transport_domain(mdev, priv->tdn);
+ 
+ err_dealloc_pd:
+ 	mlx5_core_dealloc_pd(mdev, priv->pdn);
+@@ -2379,7 +2379,7 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
+ 	mlx5e_close_drop_rq(priv);
+ 	mlx5e_destroy_tises(priv);
+ 	mlx5_core_destroy_mkey(priv->mdev, &priv->mr);
+-	mlx5_dealloc_transport_domain(priv->mdev, priv->tdn);
++	mlx5_core_dealloc_transport_domain(priv->mdev, priv->tdn);
+ 	mlx5_core_dealloc_pd(priv->mdev, priv->pdn);
+ 	mlx5_unmap_free_uar(priv->mdev, &priv->cq_uar);
+ 	free_netdev(netdev);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/srq.c b/drivers/net/ethernet/mellanox/mlx5/core/srq.c
+index ec5f901cfcfe..04bc522605a0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/srq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/srq.c
+@@ -37,7 +37,7 @@
+ #include <linux/mlx5/srq.h>
+ #include <rdma/ib_verbs.h>
+ #include "mlx5_core.h"
+-#include "transobj.h"
++#include <linux/mlx5/transobj.h>
+ 
+ void mlx5_srq_event(struct mlx5_core_dev *dev, u32 srqn, int event_type)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
+index d7068f54e800..91ea2780e412 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
+@@ -32,9 +32,9 @@
+ 
+ #include <linux/mlx5/driver.h>
+ #include "mlx5_core.h"
+-#include "transobj.h"
++#include <linux/mlx5/transobj.h>
+ 
+-int mlx5_alloc_transport_domain(struct mlx5_core_dev *dev, u32 *tdn)
++int mlx5_core_alloc_transport_domain(struct mlx5_core_dev *dev, u32 *tdn)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(alloc_transport_domain_in)];
+ 	u32 out[MLX5_ST_SZ_DW(alloc_transport_domain_out)];
+@@ -53,8 +53,9 @@ int mlx5_alloc_transport_domain(struct mlx5_core_dev *dev, u32 *tdn)
+ 
+ 	return err;
+ }
++EXPORT_SYMBOL(mlx5_core_alloc_transport_domain);
+ 
+-void mlx5_dealloc_transport_domain(struct mlx5_core_dev *dev, u32 tdn)
++void mlx5_core_dealloc_transport_domain(struct mlx5_core_dev *dev, u32 tdn)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(dealloc_transport_domain_in)];
+ 	u32 out[MLX5_ST_SZ_DW(dealloc_transport_domain_out)];
+@@ -68,6 +69,7 @@ void mlx5_dealloc_transport_domain(struct mlx5_core_dev *dev, u32 tdn)
+ 
+ 	mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
+ }
++EXPORT_SYMBOL(mlx5_core_dealloc_transport_domain);
+ 
+ int mlx5_core_create_rq(struct mlx5_core_dev *dev, u32 *in, int inlen, u32 *rqn)
+ {
+@@ -94,6 +96,7 @@ int mlx5_core_modify_rq(struct mlx5_core_dev *dev, u32 rqn, u32 *in, int inlen)
+ 	memset(out, 0, sizeof(out));
+ 	return mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
+ }
++EXPORT_SYMBOL(mlx5_core_modify_rq);
+ 
+ void mlx5_core_destroy_rq(struct mlx5_core_dev *dev, u32 rqn)
+ {
+@@ -133,6 +136,7 @@ int mlx5_core_modify_sq(struct mlx5_core_dev *dev, u32 sqn, u32 *in, int inlen)
+ 	memset(out, 0, sizeof(out));
+ 	return mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
+ }
++EXPORT_SYMBOL(mlx5_core_modify_sq);
+ 
+ void mlx5_core_destroy_sq(struct mlx5_core_dev *dev, u32 sqn)
+ {
+@@ -162,6 +166,7 @@ int mlx5_core_create_tir(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ 
+ 	return err;
+ }
++EXPORT_SYMBOL(mlx5_core_create_tir);
+ 
+ int mlx5_core_modify_tir(struct mlx5_core_dev *dev, u32 tirn, u32 *in,
+ 			 int inlen)
+@@ -187,6 +192,7 @@ void mlx5_core_destroy_tir(struct mlx5_core_dev *dev, u32 tirn)
+ 
+ 	mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
+ }
++EXPORT_SYMBOL(mlx5_core_destroy_tir);
+ 
+ int mlx5_core_create_tis(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ 			 u32 *tisn)
+@@ -203,6 +209,7 @@ int mlx5_core_create_tis(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ 
+ 	return err;
+ }
++EXPORT_SYMBOL(mlx5_core_create_tis);
+ 
+ void mlx5_core_destroy_tis(struct mlx5_core_dev *dev, u32 tisn)
+ {
+@@ -216,6 +223,7 @@ void mlx5_core_destroy_tis(struct mlx5_core_dev *dev, u32 tisn)
+ 
+ 	mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
+ }
++EXPORT_SYMBOL(mlx5_core_destroy_tis);
+ 
+ int mlx5_core_create_rmp(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ 			 u32 *rmpn)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.h b/include/linux/mlx5/transobj.h
+similarity index 94%
+rename from drivers/net/ethernet/mellanox/mlx5/core/transobj.h
+rename to include/linux/mlx5/transobj.h
+index 74cae51436e4..376229f09499 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
++++ b/include/linux/mlx5/transobj.h
+@@ -33,8 +33,10 @@
+ #ifndef __TRANSOBJ_H__
+ #define __TRANSOBJ_H__
+ 
+-int mlx5_alloc_transport_domain(struct mlx5_core_dev *dev, u32 *tdn);
+-void mlx5_dealloc_transport_domain(struct mlx5_core_dev *dev, u32 tdn);
++#include <linux/mlx5/driver.h>
++
++int mlx5_core_alloc_transport_domain(struct mlx5_core_dev *dev, u32 *tdn);
++void mlx5_core_dealloc_transport_domain(struct mlx5_core_dev *dev, u32 tdn);
+ int mlx5_core_create_rq(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ 			u32 *rqn);
+ int mlx5_core_modify_rq(struct mlx5_core_dev *dev, u32 rqn, u32 *in, int inlen);
+-- 
+2.17.1
+

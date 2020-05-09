@@ -1,0 +1,86 @@
+From 463f46874572efde7cc2cdc0238430cfbd8418cc Mon Sep 17 00:00:00 2001
+From: Jiri Pirko <jiri@mellanox.com>
+Date: Tue, 22 Dec 2015 09:43:07 +0100
+Subject: mlxsw: core: Use devm_kzalloc to allocate mlxsw_hwmon structure
+Reply-To: joseph.salisbury@microsoft.com
+
+KASan reported use-after-free for the hwmon structure. So fix this by
+using devm_kzalloc and let the core take care about freeing the memory
+during device dettach.
+
+Reported-by: Ido Schimmel <idosch@mellanox.com>
+Fixes: 89309da39 ("mlxsw: core: Implement temperature hwmon interface")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit f4cee3af0dedf3270e6d615d772e3fbfa3200769)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/core.c       | 2 --
+ drivers/net/ethernet/mellanox/mlxsw/core.h       | 4 ----
+ drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c | 9 ++-------
+ 3 files changed, 2 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index af8a48b3b3ad..22379eb8e924 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -855,7 +855,6 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ err_debugfs_init:
+ 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
+ err_driver_init:
+-	mlxsw_hwmon_fini(mlxsw_core->hwmon);
+ err_hwmon_init:
+ 	mlxsw_emad_fini(mlxsw_core);
+ err_emad_init:
+@@ -878,7 +877,6 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
+ 
+ 	mlxsw_core_debugfs_fini(mlxsw_core);
+ 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
+-	mlxsw_hwmon_fini(mlxsw_core->hwmon);
+ 	mlxsw_emad_fini(mlxsw_core);
+ 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
+ 	kfree(mlxsw_core->lag.mapping);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index 4833fb33ce07..a01723600f0a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -239,10 +239,6 @@ static inline int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
+ 	return 0;
+ }
+ 
+-static inline void mlxsw_hwmon_fini(struct mlxsw_hwmon *mlxsw_hwmon)
+-{
+-}
+-
+ #endif
+ 
+ #endif
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
+index 00ccf1c0dcda..5b9364f4837d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
+@@ -334,7 +334,8 @@ int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
+ 	struct device *hwmon_dev;
+ 	int err;
+ 
+-	mlxsw_hwmon = kzalloc(sizeof(*mlxsw_hwmon), GFP_KERNEL);
++	mlxsw_hwmon = devm_kzalloc(mlxsw_bus_info->dev, sizeof(*mlxsw_hwmon),
++				   GFP_KERNEL);
+ 	if (!mlxsw_hwmon)
+ 		return -ENOMEM;
+ 	mlxsw_hwmon->core = mlxsw_core;
+@@ -367,11 +368,5 @@ int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
+ err_hwmon_register:
+ err_fans_init:
+ err_temp_init:
+-	kfree(mlxsw_hwmon);
+ 	return err;
+ }
+-
+-void mlxsw_hwmon_fini(struct mlxsw_hwmon *mlxsw_hwmon)
+-{
+-	kfree(mlxsw_hwmon);
+-}
+-- 
+2.17.1
+

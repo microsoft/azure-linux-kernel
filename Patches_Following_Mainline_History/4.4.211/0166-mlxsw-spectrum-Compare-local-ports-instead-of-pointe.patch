@@ -1,0 +1,50 @@
+From 5daf0a4a8ef859a11250fd6c4119fd41b7476c76 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Wed, 27 Jan 2016 15:20:25 +0100
+Subject: mlxsw: spectrum: Compare local ports instead of pointers
+Reply-To: joseph.salisbury@microsoft.com
+
+When dumping the FDB we can't compare the actual pointers of the ports
+structs, as it's possible the struct represents a vPort instead of the
+underlying physical port.
+
+Solve this by comparing the local port number instead, as it's shared
+between the physical ports and all the vPorts on top of him.
+
+Fixes: 54a732018d8e ("mlxsw: spectrum: Adjust switchdev ops for VLAN devices")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 3f47f867814cdb08cd43d4b82f95bfde4a9ae579)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 4bd101ea0acc..eb7f253f7074 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1058,6 +1058,7 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				  struct net_device *orig_dev)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_port *tmp;
+ 	u16 vport_fid = 0;
+ 	char *sfd_pl;
+ 	char mac[ETH_ALEN];
+@@ -1119,8 +1120,9 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			case MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG:
+ 				mlxsw_reg_sfd_uc_lag_unpack(sfd_pl, i,
+ 							    mac, &fid, &lag_id);
+-				if (mlxsw_sp_port ==
+-				    mlxsw_sp_lag_rep_port(mlxsw_sp, lag_id)) {
++				tmp = mlxsw_sp_lag_rep_port(mlxsw_sp, lag_id);
++				if (tmp && tmp->local_port ==
++				    mlxsw_sp_port->local_port) {
+ 					/* LAG records can only point to LAG
+ 					 * devices or VLAN devices on top.
+ 					 */
+-- 
+2.17.1
+

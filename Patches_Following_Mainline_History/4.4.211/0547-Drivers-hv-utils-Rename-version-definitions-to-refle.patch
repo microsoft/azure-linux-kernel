@@ -1,0 +1,70 @@
+From aadd4bfe7b5008594fa377303a83b550d1a66b3f Mon Sep 17 00:00:00 2001
+From: Alex Ng <alexng@messages.microsoft.com>
+Date: Thu, 8 Sep 2016 05:24:12 -0700
+Subject: Drivers: hv: utils: Rename version definitions to reflect protocol
+ version.
+Reply-To: joseph.salisbury@microsoft.com
+
+Different Windows host versions may reuse the same protocol version when
+negotiating the TimeSync, Shutdown, and Heartbeat protocols. We should only
+refer to the protocol version to avoid conflating the two concepts.
+
+Signed-off-by: Alex Ng <alexng@messages.microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit abeda47ebb20997aa3c5b4cac7db70f8bea62d7d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/hv_util.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/hv/hv_util.c b/drivers/hv/hv_util.c
+index 9dc63725363d..09b12349d41e 100644
+--- a/drivers/hv/hv_util.c
++++ b/drivers/hv/hv_util.c
+@@ -34,22 +34,22 @@
+ #define SD_MINOR	0
+ #define SD_VERSION	(SD_MAJOR << 16 | SD_MINOR)
+ 
+-#define SD_WS2008_MAJOR		1
+-#define SD_WS2008_VERSION	(SD_WS2008_MAJOR << 16 | SD_MINOR)
++#define SD_MAJOR_1	1
++#define SD_VERSION_1	(SD_MAJOR_1 << 16 | SD_MINOR)
+ 
+ #define TS_MAJOR	3
+ #define TS_MINOR	0
+ #define TS_VERSION	(TS_MAJOR << 16 | TS_MINOR)
+ 
+-#define TS_WS2008_MAJOR		1
+-#define TS_WS2008_VERSION	(TS_WS2008_MAJOR << 16 | TS_MINOR)
++#define TS_MAJOR_1	1
++#define TS_VERSION_1	(TS_MAJOR_1 << 16 | TS_MINOR)
+ 
+ #define HB_MAJOR	3
+-#define HB_MINOR 0
++#define HB_MINOR	0
+ #define HB_VERSION	(HB_MAJOR << 16 | HB_MINOR)
+ 
+-#define HB_WS2008_MAJOR	1
+-#define HB_WS2008_VERSION	(HB_WS2008_MAJOR << 16 | HB_MINOR)
++#define HB_MAJOR_1	1
++#define HB_VERSION_1	(HB_MAJOR_1 << 16 | HB_MINOR)
+ 
+ static int sd_srv_version;
+ static int ts_srv_version;
+@@ -354,9 +354,9 @@ static int util_probe(struct hv_device *dev,
+ 	switch (vmbus_proto_version) {
+ 	case (VERSION_WS2008):
+ 		util_fw_version = UTIL_WS2K8_FW_VERSION;
+-		sd_srv_version = SD_WS2008_VERSION;
+-		ts_srv_version = TS_WS2008_VERSION;
+-		hb_srv_version = HB_WS2008_VERSION;
++		sd_srv_version = SD_VERSION_1;
++		ts_srv_version = TS_VERSION_1;
++		hb_srv_version = HB_VERSION_1;
+ 		break;
+ 
+ 	default:
+-- 
+2.17.1
+

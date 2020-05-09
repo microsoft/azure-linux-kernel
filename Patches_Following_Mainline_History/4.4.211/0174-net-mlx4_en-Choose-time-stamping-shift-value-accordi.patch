@@ -1,0 +1,60 @@
+From 8c33c039cd5f2a5b7b506d11f4824546d8c56c53 Mon Sep 17 00:00:00 2001
+From: Eugenia Emantayev <eugenia@mellanox.com>
+Date: Wed, 17 Feb 2016 17:24:23 +0200
+Subject: net/mlx4_en: Choose time-stamping shift value according to HW
+ frequency
+Reply-To: joseph.salisbury@microsoft.com
+
+Previously, the shift value used for time-stamping was constant and didn't
+depend on the HW chip frequency. Change that to take the frequency into account
+and calculate the maximal value in cycles per wraparound of ten seconds. This
+time slot was chosen since it gives a good accuracy in time synchronization.
+
+Algorithm for shift value calculation:
+ * Round up the maximal value in cycles to nearest power of two
+
+ * Calculate maximal multiplier by division of all 64 bits set
+   to above result
+
+ * Then, invert the function clocksource_khz2mult() to get the shift from
+   maximal mult value
+
+Fixes: ec693d47010e ('net/mlx4_en: Add HW timestamping (TS) support')
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 31c128b66e5b28f468076e4f3ca3025c35342041)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+index 52e4ed2f639d..59919cb5cd1e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+@@ -243,6 +243,7 @@ static const struct ptp_clock_info mlx4_en_ptp_clock_info = {
+ 	.enable		= mlx4_en_phc_enable,
+ };
+ 
++#define MLX4_EN_WRAP_AROUND_SEC	10ULL
+ 
+ /* This function calculates the max shift that enables the user range
+  * of MLX4_EN_WRAP_AROUND_SEC values in the cycles register.
+@@ -251,11 +252,8 @@ static u32 freq_to_shift(u16 freq)
+ {
+ 	u32 freq_khz = freq * 1000;
+ 	u64 max_val_cycles = freq_khz * 1000 * MLX4_EN_WRAP_AROUND_SEC;
+-	u64 tmp_rounded =
+-		roundup_pow_of_two(max_val_cycles) > max_val_cycles ?
+-		roundup_pow_of_two(max_val_cycles) - 1 : UINT_MAX;
+ 	u64 max_val_cycles_rounded = is_power_of_2(max_val_cycles + 1) ?
+-		max_val_cycles : tmp_rounded;
++		max_val_cycles : roundup_pow_of_two(max_val_cycles) - 1;
+ 	/* calculate max possible multiplier in order to fit in 64bit */
+ 	u64 max_mul = div_u64(0xffffffffffffffffULL, max_val_cycles_rounded);
+ 
+-- 
+2.17.1
+

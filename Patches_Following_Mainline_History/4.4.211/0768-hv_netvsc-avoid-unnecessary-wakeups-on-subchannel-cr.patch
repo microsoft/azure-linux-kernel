@@ -1,0 +1,35 @@
+From 0e77dac032956f728426f72e4b412aa624648cba Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed, 6 Sep 2017 13:53:06 -0700
+Subject: hv_netvsc: avoid unnecessary wakeups on subchannel creation
+Reply-To: joseph.salisbury@microsoft.com
+
+Only need to wakeup the initiator after all sub-channels
+are opened.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 8f2bb1de73344dbedd4195016b782bee7bf3598f)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/rndis_filter.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index f425c7e3b1de..f7a8b5a48bb1 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1051,8 +1051,8 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 	else
+ 		netdev_notice(ndev, "sub channel open failed: %d\n", ret);
+ 
+-	if (refcount_dec_and_test(&nvscdev->sc_offered))
+-		complete(&nvscdev->channel_init_wait);
++	if (atomic_inc_return(&nvscdev->open_chn) == nvscdev->num_chn)
++		wake_up(&nvscdev->subchan_open);
+ }
+ 
+ /* Open sub-channels after completing the handling of the device probe.
+-- 
+2.17.1
+

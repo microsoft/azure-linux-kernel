@@ -1,0 +1,123 @@
+From bb1e9157588fb17d5ada0bb7628abd99fe01b8d9 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Tue, 24 Jan 2017 13:06:10 -0800
+Subject: netvsc: simplify rndis_filter_remove
+Reply-To: joseph.salisbury@microsoft.com
+
+All caller's already have pointer to netvsc_device so pass it.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 2289f0aa706e5160e078f73c32fcbfb56a3ff1e2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |  3 ++-
+ drivers/net/hyperv/netvsc_drv.c   |  8 ++++----
+ drivers/net/hyperv/rndis_filter.c | 12 ++++++------
+ 3 files changed, 12 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index e7eb49a87ba2..adb4155660c7 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -204,7 +204,8 @@ int rndis_filter_open(struct netvsc_device *nvdev);
+ int rndis_filter_close(struct netvsc_device *nvdev);
+ int rndis_filter_device_add(struct hv_device *dev,
+ 			    struct netvsc_device_info *info);
+-void rndis_filter_device_remove(struct hv_device *dev);
++void rndis_filter_device_remove(struct hv_device *dev,
++				struct netvsc_device *nvdev);
+ int rndis_filter_set_rss_param(struct rndis_device *rdev,
+ 			       const u8 *key, int num_queue);
+ int rndis_filter_receive(struct net_device *ndev,
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 206d267c34a5..1837aa83f2c3 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -747,7 +747,7 @@ static int netvsc_set_channels(struct net_device *net,
+ 		return ret;
+ 
+ 	net_device_ctx->start_remove = true;
+-	rndis_filter_device_remove(dev);
++	rndis_filter_device_remove(dev, nvdev);
+ 
+ 	ret = netvsc_set_queues(net, dev, count);
+ 	if (ret == 0)
+@@ -832,7 +832,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 		goto out;
+ 
+ 	ndevctx->start_remove = true;
+-	rndis_filter_device_remove(hdev);
++	rndis_filter_device_remove(hdev, nvdev);
+ 
+ 	ndev->mtu = mtu;
+ 
+@@ -1436,7 +1436,7 @@ static int netvsc_probe(struct hv_device *dev,
+ 	ret = register_netdev(net);
+ 	if (ret != 0) {
+ 		pr_err("Unable to register netdev.\n");
+-		rndis_filter_device_remove(dev);
++		rndis_filter_device_remove(dev, nvdev);
+ 		netvsc_free_netdev(net);
+ 	}
+ 
+@@ -1474,7 +1474,7 @@ static int netvsc_remove(struct hv_device *dev)
+ 	 * Call to the vsc driver to let it know that the device is being
+ 	 * removed
+ 	 */
+-	rndis_filter_device_remove(dev);
++	rndis_filter_device_remove(dev, ndev_ctx->nvdev);
+ 
+ 	hv_set_drvdata(dev, NULL);
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index f433024a1c55..1da0d5b76943 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1062,7 +1062,7 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	/* Send the rndis initialization message */
+ 	ret = rndis_filter_init_device(rndis_device);
+ 	if (ret != 0) {
+-		rndis_filter_device_remove(dev);
++		rndis_filter_device_remove(dev, net_device);
+ 		return ret;
+ 	}
+ 
+@@ -1077,7 +1077,7 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	/* Get the mac address */
+ 	ret = rndis_filter_query_device_mac(rndis_device);
+ 	if (ret != 0) {
+-		rndis_filter_device_remove(dev);
++		rndis_filter_device_remove(dev, net_device);
+ 		return ret;
+ 	}
+ 
+@@ -1086,7 +1086,7 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	/* Find HW offload capabilities */
+ 	ret = rndis_query_hwcaps(rndis_device, &hwcaps);
+ 	if (ret != 0) {
+-		rndis_filter_device_remove(dev);
++		rndis_filter_device_remove(dev, net_device);
+ 		return ret;
+ 	}
+ 
+@@ -1242,13 +1242,13 @@ out:
+ 	return 0; /* return 0 because primary channel can be used alone */
+ 
+ err_dev_remv:
+-	rndis_filter_device_remove(dev);
++	rndis_filter_device_remove(dev, net_device);
+ 	return ret;
+ }
+ 
+-void rndis_filter_device_remove(struct hv_device *dev)
++void rndis_filter_device_remove(struct hv_device *dev,
++				struct netvsc_device *net_dev)
+ {
+-	struct netvsc_device *net_dev = hv_device_to_netvsc_device(dev);
+ 	struct rndis_device *rndis_dev = net_dev->extension;
+ 
+ 	/* If not all subchannel offers are complete, wait for them until
+-- 
+2.17.1
+

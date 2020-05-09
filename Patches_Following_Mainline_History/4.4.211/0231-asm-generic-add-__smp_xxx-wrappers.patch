@@ -1,0 +1,183 @@
+From 743b70b4073719bdddb27b92400b1c5bd8b23499 Mon Sep 17 00:00:00 2001
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 27 Dec 2015 13:50:07 +0200
+Subject: asm-generic: add __smp_xxx wrappers
+Reply-To: joseph.salisbury@microsoft.com
+
+On !SMP, most architectures define their
+barriers as compiler barriers.
+On SMP, most need an actual barrier.
+
+Make it possible to remove the code duplication for
+!SMP by defining low-level __smp_xxx barriers
+which do not depend on the value of SMP, then
+use them from asm-generic conditionally.
+
+Besides reducing code duplication, these low level APIs will also be
+useful for virtualization, where a barrier is sometimes needed even if
+!SMP since we might be talking to another kernel on the same SMP system.
+
+Both virtio and Xen drivers will benefit.
+
+The smp_xxx variants should use __smp_XXX ones or barrier() depending on
+SMP, identically for all architectures.
+
+We keep ifndef guards around them for now - once/if all
+architectures are converted to use the generic
+code, we'll be able to remove these.
+
+Suggested-by: Peter Zijlstra <peterz@infradead.org>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+(backported from commit a9e4252a9b147043142282ebb65da94dcb951e2a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/asm-generic/barrier.h | 91 +++++++++++++++++++++++++++++++----
+ 1 file changed, 82 insertions(+), 9 deletions(-)
+
+diff --git a/include/asm-generic/barrier.h b/include/asm-generic/barrier.h
+index b42afada1280..90f39888e678 100644
+--- a/include/asm-generic/barrier.h
++++ b/include/asm-generic/barrier.h
+@@ -54,22 +54,38 @@
+ #define read_barrier_depends()		do { } while (0)
+ #endif
+ 
++#ifndef __smp_mb
++#define __smp_mb()	mb()
++#endif
++
++#ifndef __smp_rmb
++#define __smp_rmb()	rmb()
++#endif
++
++#ifndef __smp_wmb
++#define __smp_wmb()	wmb()
++#endif
++
++#ifndef __smp_read_barrier_depends
++#define __smp_read_barrier_depends()	read_barrier_depends()
++#endif
++
+ #ifdef CONFIG_SMP
+ 
+ #ifndef smp_mb
+-#define smp_mb()	mb()
++#define smp_mb()	__smp_mb()
+ #endif
+ 
+ #ifndef smp_rmb
+-#define smp_rmb()	rmb()
++#define smp_rmb()	__smp_rmb()
+ #endif
+ 
+ #ifndef smp_wmb
+-#define smp_wmb()	wmb()
++#define smp_wmb()	__smp_wmb()
+ #endif
+ 
+ #ifndef smp_read_barrier_depends
+-#define smp_read_barrier_depends()	read_barrier_depends()
++#define smp_read_barrier_depends()	__smp_read_barrier_depends()
+ #endif
+ 
+ #else	/* !CONFIG_SMP */
+@@ -92,22 +108,77 @@
+ 
+ #endif	/* CONFIG_SMP */
+ 
++#ifndef __smp_store_mb
++#define __smp_store_mb(var, value)  do { WRITE_ONCE(var, value); __smp_mb(); } while (0)
++#endif
++
++#ifndef __smp_mb__before_atomic
++#define __smp_mb__before_atomic()	__smp_mb()
++#endif
++
++#ifndef __smp_mb__after_atomic
++#define __smp_mb__after_atomic()	__smp_mb()
++#endif
++
++#ifndef __smp_store_release
++#define __smp_store_release(p, v)					\
++do {									\
++	compiletime_assert_atomic_type(*p);				\
++	__smp_mb();							\
++	WRITE_ONCE(*p, v);						\
++} while (0)
++#endif
++
++#ifndef __smp_load_acquire
++#define __smp_load_acquire(p)						\
++({									\
++	typeof(*p) ___p1 = READ_ONCE(*p);				\
++	compiletime_assert_atomic_type(*p);				\
++	__smp_mb();							\
++	___p1;								\
++})
++#endif
++
++#ifdef CONFIG_SMP
++
+ #ifndef smp_store_mb
+-#define smp_store_mb(var, value)  do { WRITE_ONCE(var, value); mb(); } while (0)
++#define smp_store_mb(var, value)  __smp_store_mb(var, value)
+ #endif
+ 
+ #ifndef smp_mb__before_atomic
+-#define smp_mb__before_atomic()	smp_mb()
++#define smp_mb__before_atomic()	__smp_mb__before_atomic()
+ #endif
+ 
+ #ifndef smp_mb__after_atomic
+-#define smp_mb__after_atomic()	smp_mb()
++#define smp_mb__after_atomic()	__smp_mb__after_atomic()
++#endif
++
++#ifndef smp_store_release
++#define smp_store_release(p, v) __smp_store_release(p, v)
++#endif
++
++#ifndef smp_load_acquire
++#define smp_load_acquire(p) __smp_load_acquire(p)
++#endif
++
++#else	/* !CONFIG_SMP */
++
++#ifndef smp_store_mb
++#define smp_store_mb(var, value)  do { WRITE_ONCE(var, value); barrier(); } while (0)
++#endif
++
++#ifndef smp_mb__before_atomic
++#define smp_mb__before_atomic()	barrier()
++#endif
++
++#ifndef smp_mb__after_atomic
++#define smp_mb__after_atomic()	barrier()
+ #endif
+ 
+ #define smp_store_release(p, v)						\
+ do {									\
+ 	compiletime_assert_atomic_type(*p);				\
+-	smp_mb();							\
++	barrier();							\
+ 	WRITE_ONCE(*p, v);						\
+ } while (0)
+ 
+@@ -115,9 +186,11 @@ do {									\
+ ({									\
+ 	typeof(*p) ___p1 = READ_ONCE(*p);				\
+ 	compiletime_assert_atomic_type(*p);				\
+-	smp_mb();							\
++	barrier();							\
+ 	___p1;								\
+ })
+ 
++#endif
++
+ #endif /* !__ASSEMBLY__ */
+ #endif /* __ASM_GENERIC_BARRIER_H */
+-- 
+2.17.1
+

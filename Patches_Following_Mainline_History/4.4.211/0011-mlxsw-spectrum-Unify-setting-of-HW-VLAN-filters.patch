@@ -1,0 +1,114 @@
+From 52826e493d2b7b13b24e4176a5710015e650713b Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Thu, 19 Nov 2015 12:27:39 +0100
+Subject: mlxsw: spectrum: Unify setting of HW VLAN filters
+Reply-To: joseph.salisbury@microsoft.com
+
+When adding or deleting VLANs from a bridged port, HW VLAN filters must be
+set accordingly. Instead of having the same code in both add and delete
+functions, just wrap it in a function and call it with the appropriate
+parameters.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 3b7ad5ece49fe72498b50d28253fd39daead1e14)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../mellanox/mlxsw/spectrum_switchdev.c       | 58 +++++++++++--------
+ 1 file changed, 34 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 5ba40142f33e..2bed432d5698 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -348,6 +348,27 @@ err_port_add_vid:
+ 	return err;
+ }
+ 
++static int __mlxsw_sp_port_vlans_set(struct mlxsw_sp_port *mlxsw_sp_port,
++				     u16 vid_begin, u16 vid_end, bool is_member,
++				     bool untagged)
++{
++	u16 vid, vid_e;
++	int err;
++
++	for (vid = vid_begin; vid <= vid_end;
++	     vid += MLXSW_REG_SPVM_REC_MAX_COUNT) {
++		vid_e = min((u16) (vid + MLXSW_REG_SPVM_REC_MAX_COUNT - 1),
++			    vid_end);
++
++		err = mlxsw_sp_port_vlan_set(mlxsw_sp_port, vid, vid_e,
++					     is_member, untagged);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
+ static int __mlxsw_sp_port_vlans_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				     u16 vid_begin, u16 vid_end,
+ 				     bool flag_untagged, bool flag_pvid)
+@@ -402,18 +423,12 @@ static int __mlxsw_sp_port_vlans_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		return err;
+ 	}
+ 
+-	for (vid = vid_begin; vid <= vid_end;
+-	     vid += MLXSW_REG_SPVM_REC_MAX_COUNT) {
+-		vid_e = min((u16) (vid + MLXSW_REG_SPVM_REC_MAX_COUNT - 1),
+-			    vid_end);
+-
+-		err = mlxsw_sp_port_vlan_set(mlxsw_sp_port, vid, vid_e, true,
+-					     flag_untagged);
+-		if (err) {
+-			netdev_err(mlxsw_sp_port->dev, "Unable to add VIDs %d-%d\n",
+-				   vid, vid_e);
+-			return err;
+-		}
++	err = __mlxsw_sp_port_vlans_set(mlxsw_sp_port, vid_begin, vid_end,
++					true, flag_untagged);
++	if (err) {
++		netdev_err(dev, "Unable to add VIDs %d-%d\n", vid_begin,
++			   vid_end);
++		return err;
+ 	}
+ 
+ 	vid = vid_begin;
+@@ -538,7 +553,7 @@ static int __mlxsw_sp_port_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				     u16 vid_begin, u16 vid_end, bool init)
+ {
+ 	struct net_device *dev = mlxsw_sp_port->dev;
+-	u16 vid, vid_e, pvid;
++	u16 vid, pvid;
+ 	int err;
+ 
+ 	/* In case this is invoked with BRIDGE_FLAGS_SELF and port is
+@@ -548,17 +563,12 @@ static int __mlxsw_sp_port_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	if (!init && !mlxsw_sp_port->bridged)
+ 		return mlxsw_sp_port_kill_vids(dev, vid_begin, vid_end);
+ 
+-	for (vid = vid_begin; vid <= vid_end;
+-	     vid += MLXSW_REG_SPVM_REC_MAX_COUNT) {
+-		vid_e = min((u16) (vid + MLXSW_REG_SPVM_REC_MAX_COUNT - 1),
+-			    vid_end);
+-		err = mlxsw_sp_port_vlan_set(mlxsw_sp_port, vid, vid_e, false,
+-					     false);
+-		if (err) {
+-			netdev_err(dev, "Unable to del VIDs %d-%d\n", vid,
+-				   vid_e);
+-			return err;
+-		}
++	err = __mlxsw_sp_port_vlans_set(mlxsw_sp_port, vid_begin, vid_end,
++					false, false);
++	if (err) {
++		netdev_err(dev, "Unable to del VIDs %d-%d\n", vid_begin,
++			   vid_end);
++		return err;
+ 	}
+ 
+ 	pvid = mlxsw_sp_port->pvid;
+-- 
+2.17.1
+

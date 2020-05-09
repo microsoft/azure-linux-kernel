@@ -1,0 +1,33 @@
+From d27b587507bda3cca8fdb6c7d3f527bf5c499a15 Mon Sep 17 00:00:00 2001
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Tue, 9 Feb 2016 14:57:43 +0200
+Subject: net/mlx5e: Remove select queue ndo initialization
+Reply-To: joseph.salisbury@microsoft.com
+
+Currently mlx5e_select_queue is redundant since num_tc is always 1.
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit b236872739df6410c7c60874ff8f3fb188ffb9d0)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index e7c54883fca7..e3ff644c4de6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2160,9 +2160,6 @@ static void mlx5e_build_netdev(struct net_device *netdev)
+ 
+ 	SET_NETDEV_DEV(netdev, &mdev->pdev->dev);
+ 
+-	if (priv->params.num_tc > 1)
+-		mlx5e_netdev_ops.ndo_select_queue = mlx5e_select_queue;
+-
+ 	if (MLX5_CAP_GEN(mdev, vport_group_manager)) {
+ 		mlx5e_netdev_ops.ndo_set_vf_mac = mlx5e_set_vf_mac;
+ 		mlx5e_netdev_ops.ndo_set_vf_vlan = mlx5e_set_vf_vlan;
+-- 
+2.17.1
+

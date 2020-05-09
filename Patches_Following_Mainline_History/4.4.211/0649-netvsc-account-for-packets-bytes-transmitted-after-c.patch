@@ -1,0 +1,132 @@
+From 86089919ee0b92c5de322464bc2f934ce2561524 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Tue, 24 Jan 2017 13:06:12 -0800
+Subject: netvsc: account for packets/bytes transmitted after completion
+Reply-To: joseph.salisbury@microsoft.com
+
+Most drivers do not increment transmit statistics until after the
+transmit is completed. This will also be necessary for BQL support.
+
+Slight additional complexity because the netvsc driver aggregates
+multiple packets into one transmit.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 793e39555511bccd73308c41205b72448d0077db)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  4 +++-
+ drivers/net/hyperv/netvsc.c     | 21 +++++++++++++++++----
+ drivers/net/hyperv/netvsc_drv.c | 13 +++----------
+ 3 files changed, 23 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 7947746cbd15..3959f2de7fb5 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -140,8 +140,10 @@ struct hv_netvsc_packet {
+ 	u8 pad0;
+ 
+ 	u16 q_idx;
+-	u32 send_buf_index;
++	u16 total_packets;
+ 
++	u32 total_bytes;
++	u32 send_buf_index;
+ 	u32 total_data_buflen;
+ 
+ 	void *send_completion_ctx;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 3e9323e3dfa4..f5232366e652 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -613,16 +613,24 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+ 
+ 	/* Notify the layer above us */
+ 	if (likely(skb)) {
+-		struct hv_netvsc_packet *nvsc_packet
++		const struct hv_netvsc_packet *packet
+ 			= (struct hv_netvsc_packet *)skb->cb;
+-		u32 send_index = nvsc_packet->send_buf_index;
++		u32 send_index = packet->send_buf_index;
++		struct netvsc_stats *tx_stats;
+ 
+ 		if (send_index != NETVSC_INVALID_INDEX)
+ 			netvsc_free_send_slot(net_device, send_index);
+-		q_idx = nvsc_packet->q_idx;
++		q_idx = packet->q_idx;
+ 		channel = incoming_channel;
+ 
+-		dev_kfree_skb_any(skb);
++		tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
++
++		u64_stats_update_begin(&tx_stats->syncp);
++		tx_stats->packets += packet->total_packets;
++		tx_stats->bytes += packet->total_bytes;
++		u64_stats_update_end(&tx_stats->syncp);
++
++		dev_consume_skb_any(skb);
+ 	}
+ 
+ 	queue_sends =
+@@ -926,6 +934,11 @@ int netvsc_send(struct hv_device *device,
+ 			packet->total_data_buflen += msd_len;
+ 		}
+ 
++		if (msdp->pkt) {
++			packet->total_packets += msdp->pkt->total_packets;
++			packet->total_bytes += msdp->pkt->total_bytes;
++		}
++
+ 		if (msdp->skb)
+ 			dev_kfree_skb_any(msdp->skb);
+ 
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 1837aa83f2c3..774c9621d228 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -345,7 +345,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	u32 rndis_msg_size;
+ 	struct rndis_per_packet_info *ppi;
+ 	u32 hash;
+-	u32 skb_length;
+ 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
+ 	struct hv_page_buffer *pb = page_buf;
+ 
+@@ -355,7 +354,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	 * more pages we try linearizing it.
+ 	 */
+ 
+-	skb_length = skb->len;
+ 	num_data_pgs = netvsc_get_slots(skb) + 2;
+ 
+ 	if (unlikely(num_data_pgs > MAX_PAGE_BUFFER_COUNT)) {
+@@ -391,6 +389,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	packet->q_idx = skb_get_queue_mapping(skb);
+ 
+ 	packet->total_data_buflen = skb->len;
++	packet->total_bytes = skb->len;
++	packet->total_packets = 1;
+ 
+ 	rndis_msg = (struct rndis_message *)skb->head;
+ 
+@@ -499,15 +499,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 
+ 	ret = netvsc_send(net_device_ctx->device_ctx, packet,
+ 			  rndis_msg, &pb, skb);
+-	if (likely(ret == 0)) {
+-		struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
+-
+-		u64_stats_update_begin(&tx_stats->syncp);
+-		tx_stats->packets++;
+-		tx_stats->bytes += skb_length;
+-		u64_stats_update_end(&tx_stats->syncp);
++	if (likely(ret == 0))
+ 		return NETDEV_TX_OK;
+-	}
+ 
+ 	if (ret == -EAGAIN) {
+ 		++net_device_ctx->eth_stats.tx_busy;
+-- 
+2.17.1
+

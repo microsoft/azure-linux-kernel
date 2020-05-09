@@ -1,0 +1,181 @@
+From ce6ba44447bf0c0ebcc0fd1b9dfce6974b109275 Mon Sep 17 00:00:00 2001
+From: Matthew Finlay <matt@mellanox.com>
+Date: Mon, 22 Feb 2016 18:17:34 +0200
+Subject: net/mlx5e: Add TX inner packet counters
+Reply-To: joseph.salisbury@microsoft.com
+
+Add TSO and TX checksum counters for tunneled, inner packets
+
+Signed-off-by: Matthew Finlay <matt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 89db09eb5979b74f1f50ee2fb2ce519ee8414c48)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h  | 16 +++++++++++++--
+ .../net/ethernet/mellanox/mlx5/core/en_main.c |  8 +++++++-
+ .../net/ethernet/mellanox/mlx5/core/en_tx.c   | 20 ++++++++++---------
+ 3 files changed, 32 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 1e99e8356a52..f4b096ebccea 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -103,12 +103,15 @@ static const char vport_strings[][ETH_GSTRING_LEN] = {
+ 	/* SW counters */
+ 	"tso_packets",
+ 	"tso_bytes",
++	"tso_inner_packets",
++	"tso_inner_bytes",
+ 	"lro_packets",
+ 	"lro_bytes",
+ 	"rx_csum_good",
+ 	"rx_csum_none",
+ 	"rx_csum_sw",
+ 	"tx_csum_offload",
++	"tx_csum_inner",
+ 	"tx_queue_stopped",
+ 	"tx_queue_wake",
+ 	"tx_queue_dropped",
+@@ -141,18 +144,21 @@ struct mlx5e_vport_stats {
+ 	/* SW counters */
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
++	u64 tso_inner_packets;
++	u64 tso_inner_bytes;
+ 	u64 lro_packets;
+ 	u64 lro_bytes;
+ 	u64 rx_csum_good;
+ 	u64 rx_csum_none;
+ 	u64 rx_csum_sw;
+ 	u64 tx_csum_offload;
++	u64 tx_csum_inner;
+ 	u64 tx_queue_stopped;
+ 	u64 tx_queue_wake;
+ 	u64 tx_queue_dropped;
+ 	u64 rx_wqe_err;
+ 
+-#define NUM_VPORT_COUNTERS     32
++#define NUM_VPORT_COUNTERS     35
+ };
+ 
+ static const char pport_strings[][ETH_GSTRING_LEN] = {
+@@ -255,7 +261,10 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"bytes",
+ 	"tso_packets",
+ 	"tso_bytes",
++	"tso_inner_packets",
++	"tso_inner_bytes",
+ 	"csum_offload_none",
++	"csum_offload_inner",
+ 	"stopped",
+ 	"wake",
+ 	"dropped",
+@@ -267,12 +276,15 @@ struct mlx5e_sq_stats {
+ 	u64 bytes;
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
++	u64 tso_inner_packets;
++	u64 tso_inner_bytes;
+ 	u64 csum_offload_none;
++	u64 csum_offload_inner;
+ 	u64 stopped;
+ 	u64 wake;
+ 	u64 dropped;
+ 	u64 nop;
+-#define NUM_SQ_STATS 9
++#define NUM_SQ_STATS 11
+ };
+ 
+ struct mlx5e_stats {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 0545b4639f4f..f9d4d1abd244 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -153,9 +153,12 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 	s->tx_bytes		= 0;
+ 	s->tso_packets		= 0;
+ 	s->tso_bytes		= 0;
++	s->tso_inner_packets	= 0;
++	s->tso_inner_bytes	= 0;
+ 	s->tx_queue_stopped	= 0;
+ 	s->tx_queue_wake	= 0;
+ 	s->tx_queue_dropped	= 0;
++	s->tx_csum_inner	= 0;
+ 	tx_offload_none		= 0;
+ 	s->lro_packets		= 0;
+ 	s->lro_bytes		= 0;
+@@ -180,9 +183,12 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 			s->tx_bytes		+= sq_stats->bytes;
+ 			s->tso_packets		+= sq_stats->tso_packets;
+ 			s->tso_bytes		+= sq_stats->tso_bytes;
++			s->tso_inner_packets	+= sq_stats->tso_inner_packets;
++			s->tso_inner_bytes	+= sq_stats->tso_inner_bytes;
+ 			s->tx_queue_stopped	+= sq_stats->stopped;
+ 			s->tx_queue_wake	+= sq_stats->wake;
+ 			s->tx_queue_dropped	+= sq_stats->dropped;
++			s->tx_csum_inner	+= sq_stats->csum_offload_inner;
+ 			tx_offload_none		+= sq_stats->csum_offload_none;
+ 		}
+ 	}
+@@ -240,7 +246,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 		MLX5_GET_CTR(out, transmitted_eth_broadcast.octets);
+ 
+ 	/* Update calculated offload counters */
+-	s->tx_csum_offload = s->tx_packets - tx_offload_none;
++	s->tx_csum_offload = s->tx_packets - tx_offload_none - s->tx_csum_inner;
+ 	s->rx_csum_good    = s->rx_packets - s->rx_csum_none -
+ 			       s->rx_csum_sw;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 2f9517831f16..02b41af84e28 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -188,11 +188,13 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ 	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+ 		eseg->cs_flags = MLX5_ETH_WQE_L3_CSUM;
+-		if (skb->encapsulation)
++		if (skb->encapsulation) {
+ 			eseg->cs_flags |= MLX5_ETH_WQE_L3_INNER_CSUM |
+ 					  MLX5_ETH_WQE_L4_INNER_CSUM;
+-		else
++			sq->stats.csum_offload_inner++;
++		} else {
+ 			eseg->cs_flags |= MLX5_ETH_WQE_L4_CSUM;
++		}
+ 	} else
+ 		sq->stats.csum_offload_none++;
+ 
+@@ -202,21 +204,21 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	}
+ 
+ 	if (skb_is_gso(skb)) {
+-		u32 payload_len;
+-
+ 		eseg->mss    = cpu_to_be16(skb_shinfo(skb)->gso_size);
+ 		opcode       = MLX5_OPCODE_LSO;
+ 
+-		if (skb->encapsulation)
++		if (skb->encapsulation) {
+ 			ihs = skb_inner_transport_offset(skb) + inner_tcp_hdrlen(skb);
+-		else
++			sq->stats.tso_inner_packets++;
++			sq->stats.tso_inner_bytes += skb->len - ihs;
++		} else {
+ 			ihs = skb_transport_offset(skb) + tcp_hdrlen(skb);
++			sq->stats.tso_packets++;
++			sq->stats.tso_bytes += skb->len - ihs;
++		}
+ 
+-		payload_len   = skb->len - ihs;
+ 		wi->num_bytes = skb->len +
+ 				(skb_shinfo(skb)->gso_segs - 1) * ihs;
+-		sq->stats.tso_packets++;
+-		sq->stats.tso_bytes += payload_len;
+ 	} else {
+ 		bf = sq->bf_budget &&
+ 		     !skb->xmit_more &&
+-- 
+2.17.1
+

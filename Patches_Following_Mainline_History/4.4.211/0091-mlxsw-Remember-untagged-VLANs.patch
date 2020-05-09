@@ -1,0 +1,96 @@
+From 34ce31cc7937972d27ba0e98f92986ccd31f914d Mon Sep 17 00:00:00 2001
+From: Elad Raz <eladr@mellanox.com>
+Date: Wed, 6 Jan 2016 13:01:11 +0100
+Subject: mlxsw: Remember untagged VLANs
+Reply-To: joseph.salisbury@microsoft.com
+
+When a vlan is been configured, remeber the untagged mode of the vlan.
+When displaying the list of configured VLANs, show the untagged attribute.
+
+Signed-off-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit fc1273afb257663de034260f5b5fbbd8d79d6308)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c           | 8 ++++++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h           | 1 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 9 ++++++++-
+ 3 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index b89e0ad3d095..31f74fae3747 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1371,6 +1371,11 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 		err = -ENOMEM;
+ 		goto err_port_active_vlans_alloc;
+ 	}
++	mlxsw_sp_port->untagged_vlans = kzalloc(bytes, GFP_KERNEL);
++	if (!mlxsw_sp_port->untagged_vlans) {
++		err = -ENOMEM;
++		goto err_port_untagged_vlans_alloc;
++	}
+ 	INIT_LIST_HEAD(&mlxsw_sp_port->vports_list);
+ 
+ 	mlxsw_sp_port->pcpu_stats =
+@@ -1473,6 +1478,8 @@ err_port_module_check:
+ err_dev_addr_init:
+ 	free_percpu(mlxsw_sp_port->pcpu_stats);
+ err_alloc_stats:
++	kfree(mlxsw_sp_port->untagged_vlans);
++err_port_untagged_vlans_alloc:
+ 	kfree(mlxsw_sp_port->active_vlans);
+ err_port_active_vlans_alloc:
+ 	free_netdev(dev);
+@@ -1506,6 +1513,7 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 	mlxsw_sp_port_vports_fini(mlxsw_sp_port);
+ 	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
+ 	free_percpu(mlxsw_sp_port->pcpu_stats);
++	kfree(mlxsw_sp_port->untagged_vlans);
+ 	kfree(mlxsw_sp_port->active_vlans);
+ 	free_netdev(mlxsw_sp_port->dev);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index f736383bd90a..657c3caad1a2 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -146,6 +146,7 @@ struct mlxsw_sp_port {
+ 	} vport;
+ 	/* 802.1Q bridge VLANs */
+ 	unsigned long *active_vlans;
++	unsigned long *untagged_vlans;
+ 	/* VLAN interfaces */
+ 	struct list_head vports_list;
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 789b219c97ca..ce2a7e88b0f9 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -532,8 +532,13 @@ static int __mlxsw_sp_port_vlans_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	}
+ 
+ 	/* Changing activity bits only if HW operation succeded */
+-	for (vid = vid_begin; vid <= vid_end; vid++)
++	for (vid = vid_begin; vid <= vid_end; vid++) {
+ 		set_bit(vid, mlxsw_sp_port->active_vlans);
++		if (flag_untagged)
++			set_bit(vid, mlxsw_sp_port->untagged_vlans);
++		else
++			clear_bit(vid, mlxsw_sp_port->untagged_vlans);
++	}
+ 
+ 	/* STP state change must be done after we set active VLANs */
+ 	err = mlxsw_sp_port_stp_state_set(mlxsw_sp_port,
+@@ -960,6 +965,8 @@ static int mlxsw_sp_port_vlan_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		vlan->flags = 0;
+ 		if (vid == mlxsw_sp_port->pvid)
+ 			vlan->flags |= BRIDGE_VLAN_INFO_PVID;
++		if (test_bit(vid, mlxsw_sp_port->untagged_vlans))
++			vlan->flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+ 		vlan->vid_begin = vid;
+ 		vlan->vid_end = vid;
+ 		err = cb(&vlan->obj);
+-- 
+2.17.1
+

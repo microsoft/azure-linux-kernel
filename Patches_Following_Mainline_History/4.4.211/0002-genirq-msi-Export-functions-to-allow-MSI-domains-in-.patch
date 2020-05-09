@@ -1,0 +1,122 @@
+From 95bb44a7f40b170d23e67ebe345d77bca4c820df Mon Sep 17 00:00:00 2001
+From: Jake Oshins <jakeo@microsoft.com>
+Date: Thu, 10 Dec 2015 17:52:59 +0000
+Subject: genirq/msi: Export functions to allow MSI domains in modules
+Reply-To: joseph.salisbury@microsoft.com
+
+The Linux kernel already has the concept of IRQ domain, wherein a
+component can expose a set of IRQs which are managed by a particular
+interrupt controller chip or other subsystem. The PCI driver exposes
+the notion of an IRQ domain for Message-Signaled Interrupts (MSI) from
+PCI Express devices. This patch exposes the functions which are
+necessary for creating a MSI IRQ domain within a module.
+
+[ tglx: Split it into x86 and core irq parts ]
+
+Signed-off-by: Jake Oshins <jakeo@microsoft.com>
+Cc: gregkh@linuxfoundation.org
+Cc: kys@microsoft.com
+Cc: devel@linuxdriverproject.org
+Cc: olaf@aepfle.de
+Cc: apw@canonical.com
+Cc: vkuznets@redhat.com
+Cc: haiyangz@microsoft.com
+Cc: marc.zyngier@arm.com
+Cc: bhelgaas@google.com
+Link: http://lkml.kernel.org/r/1449769983-12948-4-git-send-email-jakeo@microsoft.com
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+(cherry picked from commit a4289dc2ec3a5821076a78ee9678909b4eff297e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/pci/msi.c      | 4 ++++
+ kernel/irq/chip.c      | 1 +
+ kernel/irq/irqdomain.c | 4 ++++
+ 3 files changed, 9 insertions(+)
+
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index 5d5e61d6c548..7e8d13a28cdb 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -257,6 +257,7 @@ void pci_msi_mask_irq(struct irq_data *data)
+ {
+ 	msi_set_mask_bit(data, 1);
+ }
++EXPORT_SYMBOL_GPL(pci_msi_mask_irq);
+ 
+ /**
+  * pci_msi_unmask_irq - Generic irq chip callback to unmask PCI/MSI interrupts
+@@ -266,6 +267,7 @@ void pci_msi_unmask_irq(struct irq_data *data)
+ {
+ 	msi_set_mask_bit(data, 0);
+ }
++EXPORT_SYMBOL_GPL(pci_msi_unmask_irq);
+ 
+ void default_restore_msi_irqs(struct pci_dev *dev)
+ {
+@@ -1126,6 +1128,7 @@ struct pci_dev *msi_desc_to_pci_dev(struct msi_desc *desc)
+ {
+ 	return to_pci_dev(desc->dev);
+ }
++EXPORT_SYMBOL(msi_desc_to_pci_dev);
+ 
+ void *msi_desc_to_pci_sysdata(struct msi_desc *desc)
+ {
+@@ -1287,6 +1290,7 @@ struct irq_domain *pci_msi_create_irq_domain(struct fwnode_handle *fwnode,
+ 	domain->bus_token = DOMAIN_BUS_PCI_MSI;
+ 	return domain;
+ }
++EXPORT_SYMBOL_GPL(pci_msi_create_irq_domain);
+ 
+ /**
+  * pci_msi_domain_alloc_irqs - Allocate interrupts for @dev in @domain
+diff --git a/kernel/irq/chip.c b/kernel/irq/chip.c
+index 67aafc2b249c..1a81b41f8c11 100644
+--- a/kernel/irq/chip.c
++++ b/kernel/irq/chip.c
+@@ -950,6 +950,7 @@ void irq_chip_ack_parent(struct irq_data *data)
+ 	data = data->parent_data;
+ 	data->chip->irq_ack(data);
+ }
++EXPORT_SYMBOL_GPL(irq_chip_ack_parent);
+ 
+ /**
+  * irq_chip_mask_parent - Mask the parent interrupt
+diff --git a/kernel/irq/irqdomain.c b/kernel/irq/irqdomain.c
+index 22aa9612ef7c..aa6ac441afdd 100644
+--- a/kernel/irq/irqdomain.c
++++ b/kernel/irq/irqdomain.c
+@@ -60,6 +60,7 @@ struct fwnode_handle *irq_domain_alloc_fwnode(void *data)
+ 	fwid->fwnode.type = FWNODE_IRQCHIP;
+ 	return &fwid->fwnode;
+ }
++EXPORT_SYMBOL_GPL(irq_domain_alloc_fwnode);
+ 
+ /**
+  * irq_domain_free_fwnode - Free a non-OF-backed fwnode_handle
+@@ -77,6 +78,7 @@ void irq_domain_free_fwnode(struct fwnode_handle *fwnode)
+ 	kfree(fwid->name);
+ 	kfree(fwid);
+ }
++EXPORT_SYMBOL_GPL(irq_domain_free_fwnode);
+ 
+ /**
+  * __irq_domain_add() - Allocate a new irq_domain data structure
+@@ -1013,6 +1015,7 @@ struct irq_data *irq_domain_get_irq_data(struct irq_domain *domain,
+ 
+ 	return NULL;
+ }
++EXPORT_SYMBOL_GPL(irq_domain_get_irq_data);
+ 
+ /**
+  * irq_domain_set_hwirq_and_chip - Set hwirq and irqchip of @virq at @domain
+@@ -1343,6 +1346,7 @@ struct irq_data *irq_domain_get_irq_data(struct irq_domain *domain,
+ 
+ 	return (irq_data && irq_data->domain == domain) ? irq_data : NULL;
+ }
++EXPORT_SYMBOL_GPL(irq_domain_get_irq_data);
+ 
+ /**
+  * irq_domain_set_info - Set the complete data for a @virq in @domain
+-- 
+2.17.1
+

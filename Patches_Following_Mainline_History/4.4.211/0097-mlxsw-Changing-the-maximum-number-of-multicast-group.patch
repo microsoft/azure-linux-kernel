@@ -1,0 +1,46 @@
+From 1d25a9db7cbdbce9036ddc1542b202f39c8dec10 Mon Sep 17 00:00:00 2001
+From: Elad Raz <eladr@mellanox.com>
+Date: Sun, 10 Jan 2016 21:06:26 +0100
+Subject: mlxsw: Changing the maximum number of multicast group to a define
+Reply-To: joseph.salisbury@microsoft.com
+
+Signed-off-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 53ae628316b8db6659bc8cef07698f624608c448)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 31f74fae3747..0b1ac3b6e8bb 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1940,7 +1940,7 @@ static struct mlxsw_config_profile mlxsw_sp_config_profile = {
+ 	.used_max_port_per_lag		= 1,
+ 	.max_port_per_lag		= MLXSW_SP_PORT_PER_LAG_MAX,
+ 	.used_max_mid			= 1,
+-	.max_mid			= 7000,
++	.max_mid			= MLXSW_SP_MID_MAX,
+ 	.used_max_pgt			= 1,
+ 	.max_pgt			= 0,
+ 	.used_max_system_port		= 1,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 657c3caad1a2..9e7dc160a0da 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -54,6 +54,8 @@
+ #define MLXSW_SP_LAG_MAX 64
+ #define MLXSW_SP_PORT_PER_LAG_MAX 16
+ 
++#define MLXSW_SP_MID_MAX 7000
++
+ struct mlxsw_sp_port;
+ 
+ struct mlxsw_sp_upper {
+-- 
+2.17.1
+

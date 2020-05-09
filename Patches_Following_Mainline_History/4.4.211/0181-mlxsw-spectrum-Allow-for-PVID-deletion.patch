@@ -1,0 +1,160 @@
+From 12dd5b6f1a7e69a4fa7a52f91a3c0b4e22d28465 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Thu, 18 Feb 2016 11:30:02 +0100
+Subject: mlxsw: spectrum: Allow for PVID deletion
+Reply-To: joseph.salisbury@microsoft.com
+
+When PVID is toggled off on a port member in a VLAN filtering bridge or
+the PVID VLAN is deleted, make the port drop untagged packets. Reverse
+the operation when PVID is toggled back on.
+
+Set the PVID back to the default (1), when leaving the bridge so that
+untagged traffic will be directed to the CPU.
+
+Fixes: 56ade8fe3fe1 ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 28a01d2d7dbf6d56e6130b3094b7c62a54773f27)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum.c    |  2 +
+ .../net/ethernet/mellanox/mlxsw/spectrum.h    |  1 +
+ .../mellanox/mlxsw/spectrum_switchdev.c       | 69 ++++++++++++++++---
+ 3 files changed, 63 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 308a6781b1e8..f4e5b568914b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2124,6 +2124,8 @@ static int mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	if (flush_fdb && mlxsw_sp_port_fdb_flush(mlxsw_sp_port))
+ 		netdev_err(mlxsw_sp_port->dev, "Failed to flush FDB\n");
+ 
++	mlxsw_sp_port_pvid_set(mlxsw_sp_port, 1);
++
+ 	mlxsw_sp_port->learning = 0;
+ 	mlxsw_sp_port->learning_sync = 0;
+ 	mlxsw_sp_port->uc_flood = 0;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 2425bc4c4e6e..65a115fc0c96 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -256,5 +256,6 @@ int mlxsw_sp_port_kill_vid(struct net_device *dev,
+ int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 vfid,
+ 			     bool set, bool only_uc);
+ void mlxsw_sp_port_active_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port);
++int mlxsw_sp_port_pvid_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid);
+ 
+ #endif
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 87d68c10424f..e1c74efff51a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -375,7 +375,8 @@ static int mlxsw_sp_port_attr_set(struct net_device *dev,
+ 	return err;
+ }
+ 
+-static int mlxsw_sp_port_pvid_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid)
++static int __mlxsw_sp_port_pvid_set(struct mlxsw_sp_port *mlxsw_sp_port,
++				    u16 vid)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	char spvid_pl[MLXSW_REG_SPVID_LEN];
+@@ -384,6 +385,53 @@ static int mlxsw_sp_port_pvid_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid)
+ 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(spvid), spvid_pl);
+ }
+ 
++static int mlxsw_sp_port_allow_untagged_set(struct mlxsw_sp_port *mlxsw_sp_port,
++					    bool allow)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char spaft_pl[MLXSW_REG_SPAFT_LEN];
++
++	mlxsw_reg_spaft_pack(spaft_pl, mlxsw_sp_port->local_port, allow);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(spaft), spaft_pl);
++}
++
++int mlxsw_sp_port_pvid_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid)
++{
++	struct net_device *dev = mlxsw_sp_port->dev;
++	int err;
++
++	if (!vid) {
++		err = mlxsw_sp_port_allow_untagged_set(mlxsw_sp_port, false);
++		if (err) {
++			netdev_err(dev, "Failed to disallow untagged traffic\n");
++			return err;
++		}
++	} else {
++		err = __mlxsw_sp_port_pvid_set(mlxsw_sp_port, vid);
++		if (err) {
++			netdev_err(dev, "Failed to set PVID\n");
++			return err;
++		}
++
++		/* Only allow if not already allowed. */
++		if (!mlxsw_sp_port->pvid) {
++			err = mlxsw_sp_port_allow_untagged_set(mlxsw_sp_port,
++							       true);
++			if (err) {
++				netdev_err(dev, "Failed to allow untagged traffic\n");
++				goto err_port_allow_untagged_set;
++			}
++		}
++	}
++
++	mlxsw_sp_port->pvid = vid;
++	return 0;
++
++err_port_allow_untagged_set:
++	__mlxsw_sp_port_pvid_set(mlxsw_sp_port, mlxsw_sp_port->pvid);
++	return err;
++}
++
+ static int mlxsw_sp_fid_create(struct mlxsw_sp *mlxsw_sp, u16 fid)
+ {
+ 	char sfmr_pl[MLXSW_REG_SFMR_LEN];
+@@ -545,7 +593,12 @@ static int __mlxsw_sp_port_vlans_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			netdev_err(dev, "Unable to add PVID %d\n", vid_begin);
+ 			goto err_port_pvid_set;
+ 		}
+-		mlxsw_sp_port->pvid = vid_begin;
++	} else if (!flag_pvid && old_pvid >= vid_begin && old_pvid <= vid_end) {
++		err = mlxsw_sp_port_pvid_set(mlxsw_sp_port, 0);
++		if (err) {
++			netdev_err(dev, "Unable to del PVID\n");
++			goto err_port_pvid_set;
++		}
+ 	}
+ 
+ 	/* Changing activity bits only if HW operation succeded */
+@@ -897,20 +950,18 @@ static int __mlxsw_sp_port_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		return err;
+ 	}
+ 
++	if (init)
++		goto out;
++
+ 	pvid = mlxsw_sp_port->pvid;
+-	if (pvid >= vid_begin && pvid <= vid_end && pvid != 1) {
+-		/* Default VLAN is always 1 */
+-		err = mlxsw_sp_port_pvid_set(mlxsw_sp_port, 1);
++	if (pvid >= vid_begin && pvid <= vid_end) {
++		err = mlxsw_sp_port_pvid_set(mlxsw_sp_port, 0);
+ 		if (err) {
+ 			netdev_err(dev, "Unable to del PVID %d\n", pvid);
+ 			return err;
+ 		}
+-		mlxsw_sp_port->pvid = 1;
+ 	}
+ 
+-	if (init)
+-		goto out;
+-
+ 	err = __mlxsw_sp_port_flood_set(mlxsw_sp_port, vid_begin, vid_end,
+ 					false, false);
+ 	if (err) {
+-- 
+2.17.1
+

@@ -1,0 +1,857 @@
+From 35d56e7180e2b1022bd63abfd2eb1cc7c259917c Mon Sep 17 00:00:00 2001
+From: Aviv Heller <avivh@mellanox.com>
+Date: Sun, 17 Apr 2016 16:57:32 +0300
+Subject: net/mlx5: Implement RoCE LAG feature
+Reply-To: joseph.salisbury@microsoft.com
+
+Available on dual port cards only, this feature keeps
+track, using netdev LAG events, of the bonding
+and link status of each port's PF netdev.
+
+When both of the card's PF netdevs are enslaved to the
+same bond/team master, and only them, LAG state
+is active.
+
+During LAG, only one IB device is present for both ports.
+
+In addition to the above, this commit includes FW commands
+used for managing the LAG, new facilities for adding and removing
+a single device by interface, and port remap functionality according to
+bond events.
+
+Please note that this feature is currently used only for mimicking
+Ethernet bonding for RoCE - netdevs functionality is not altered,
+and their bonding continues to be managed solely by bond/team driver.
+
+Signed-off-by: Aviv Heller <avivh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+(backported from commit 7907f23adc186700efbe56c032527e47485c86ab)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/Makefile  |   2 +-
+ .../net/ethernet/mellanox/mlx5/core/en_main.c |   3 +
+ drivers/net/ethernet/mellanox/mlx5/core/lag.c | 529 ++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/main.c    |  53 +-
+ .../ethernet/mellanox/mlx5/core/mlx5_core.h   |  12 +
+ include/linux/mlx5/driver.h                   |   4 +
+ include/linux/netdevice.h                     |  32 ++
+ 7 files changed, 620 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lag.c
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 05cc1effc13c..dad326ccd4dd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -3,7 +3,7 @@ obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
+ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o \
+ 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
+-		fs_counters.o rl.o
++		fs_counters.o rl.o lag.o
+ 
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
+ 		en_main.o en_common.o en_fs.o en_ethtool.o en_tx.o \
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index c6c47ae9d65e..ec5036237cb8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3268,6 +3268,8 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
+ 	struct mlx5_eswitch *esw = mdev->priv.eswitch;
+ 	struct mlx5_eswitch_rep rep;
+ 
++	mlx5_lag_add(mdev, netdev);
++
+ 	if (mlx5e_vxlan_allowed(mdev)) {
+ 		rtnl_lock();
+ 		udp_tunnel_get_rx_info(netdev);
+@@ -3290,6 +3292,7 @@ static void mlx5e_nic_disable(struct mlx5e_priv *priv)
+ {
+ 	queue_work(priv->wq, &priv->set_rx_mode_work);
+ 	mlx5e_disable_async_events(priv);
++	mlx5_lag_remove(priv->mdev);
+ }
+ 
+ static const struct mlx5e_profile mlx5e_nic_profile = {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lag.c b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+new file mode 100644
+index 000000000000..c3ac3e1a75f5
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+@@ -0,0 +1,529 @@
++/*
++ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/netdevice.h>
++#include <linux/mlx5/driver.h>
++#include <linux/mlx5/vport.h>
++#include "mlx5_core.h"
++
++enum {
++	MLX5_LAG_FLAG_BONDED = 1 << 0,
++};
++
++struct lag_func {
++	struct mlx5_core_dev *dev;
++	struct net_device    *netdev;
++};
++
++/* Used for collection of netdev event info. */
++struct lag_tracker {
++	enum   netdev_lag_tx_type           tx_type;
++	struct netdev_lag_lower_state_info  netdev_state[MLX5_MAX_PORTS];
++	bool is_bonded;
++};
++
++/* LAG data of a ConnectX card.
++ * It serves both its phys functions.
++ */
++struct mlx5_lag {
++	u8                        flags;
++	u8                        v2p_map[MLX5_MAX_PORTS];
++	struct lag_func           pf[MLX5_MAX_PORTS];
++	struct lag_tracker        tracker;
++	struct delayed_work       bond_work;
++	struct notifier_block     nb;
++};
++
++/* General purpose, use for short periods of time.
++ * Beware of lock dependencies (preferably, no locks should be acquired
++ * under it).
++ */
++static DEFINE_MUTEX(lag_mutex);
++
++static int mlx5_cmd_create_lag(struct mlx5_core_dev *dev, u8 remap_port1,
++			       u8 remap_port2)
++{
++	u32   in[MLX5_ST_SZ_DW(create_lag_in)]   = {0};
++	u32   out[MLX5_ST_SZ_DW(create_lag_out)] = {0};
++	void *lag_ctx = MLX5_ADDR_OF(create_lag_in, in, ctx);
++
++	MLX5_SET(create_lag_in, in, opcode, MLX5_CMD_OP_CREATE_LAG);
++
++	MLX5_SET(lagc, lag_ctx, tx_remap_affinity_1, remap_port1);
++	MLX5_SET(lagc, lag_ctx, tx_remap_affinity_2, remap_port2);
++
++	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
++
++static int mlx5_cmd_modify_lag(struct mlx5_core_dev *dev, u8 remap_port1,
++			       u8 remap_port2)
++{
++	u32   in[MLX5_ST_SZ_DW(modify_lag_in)]   = {0};
++	u32   out[MLX5_ST_SZ_DW(modify_lag_out)] = {0};
++	void *lag_ctx = MLX5_ADDR_OF(modify_lag_in, in, ctx);
++
++	MLX5_SET(modify_lag_in, in, opcode, MLX5_CMD_OP_MODIFY_LAG);
++	MLX5_SET(modify_lag_in, in, field_select, 0x1);
++
++	MLX5_SET(lagc, lag_ctx, tx_remap_affinity_1, remap_port1);
++	MLX5_SET(lagc, lag_ctx, tx_remap_affinity_2, remap_port2);
++
++	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
++
++static int mlx5_cmd_destroy_lag(struct mlx5_core_dev *dev)
++{
++	u32  in[MLX5_ST_SZ_DW(destroy_lag_in)]  = {0};
++	u32 out[MLX5_ST_SZ_DW(destroy_lag_out)] = {0};
++
++	MLX5_SET(destroy_lag_in, in, opcode, MLX5_CMD_OP_DESTROY_LAG);
++
++	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
++
++static struct mlx5_lag *mlx5_lag_dev_get(struct mlx5_core_dev *dev)
++{
++	return dev->priv.lag;
++}
++
++static int mlx5_lag_dev_get_netdev_idx(struct mlx5_lag *ldev,
++				       struct net_device *ndev)
++{
++	int i;
++
++	for (i = 0; i < MLX5_MAX_PORTS; i++)
++		if (ldev->pf[i].netdev == ndev)
++			return i;
++
++	return -1;
++}
++
++static bool mlx5_lag_is_bonded(struct mlx5_lag *ldev)
++{
++	return !!(ldev->flags & MLX5_LAG_FLAG_BONDED);
++}
++
++static void mlx5_infer_tx_affinity_mapping(struct lag_tracker *tracker,
++					   u8 *port1, u8 *port2)
++{
++	if (tracker->tx_type == NETDEV_LAG_TX_TYPE_ACTIVEBACKUP) {
++		if (tracker->netdev_state[0].tx_enabled) {
++			*port1 = 1;
++			*port2 = 1;
++		} else {
++			*port1 = 2;
++			*port2 = 2;
++		}
++	} else {
++		*port1 = 1;
++		*port2 = 2;
++		if (!tracker->netdev_state[0].link_up)
++			*port1 = 2;
++		else if (!tracker->netdev_state[1].link_up)
++			*port2 = 1;
++	}
++}
++
++static void mlx5_activate_lag(struct mlx5_lag *ldev,
++			      struct lag_tracker *tracker)
++{
++	struct mlx5_core_dev *dev0 = ldev->pf[0].dev;
++	int err;
++
++	ldev->flags |= MLX5_LAG_FLAG_BONDED;
++
++	mlx5_infer_tx_affinity_mapping(tracker, &ldev->v2p_map[0],
++				       &ldev->v2p_map[1]);
++
++	err = mlx5_cmd_create_lag(dev0, ldev->v2p_map[0], ldev->v2p_map[1]);
++	if (err)
++		mlx5_core_err(dev0,
++			      "Failed to create LAG (%d)\n",
++			      err);
++}
++
++static void mlx5_deactivate_lag(struct mlx5_lag *ldev)
++{
++	struct mlx5_core_dev *dev0 = ldev->pf[0].dev;
++	int err;
++
++	ldev->flags &= ~MLX5_LAG_FLAG_BONDED;
++
++	err = mlx5_cmd_destroy_lag(dev0);
++	if (err)
++		mlx5_core_err(dev0,
++			      "Failed to destroy LAG (%d)\n",
++			      err);
++}
++
++static void mlx5_do_bond(struct mlx5_lag *ldev)
++{
++	struct mlx5_core_dev *dev0 = ldev->pf[0].dev;
++	struct mlx5_core_dev *dev1 = ldev->pf[1].dev;
++	struct lag_tracker tracker;
++	u8 v2p_port1, v2p_port2;
++	int i, err;
++
++	if (!dev0 || !dev1)
++		return;
++
++	mutex_lock(&lag_mutex);
++	tracker = ldev->tracker;
++	mutex_unlock(&lag_mutex);
++
++	if (tracker.is_bonded && !mlx5_lag_is_bonded(ldev)) {
++		for (i = 0; i < MLX5_MAX_PORTS; i++)
++			mlx5_remove_dev_by_protocol(ldev->pf[i].dev,
++						    MLX5_INTERFACE_PROTOCOL_IB);
++
++		mlx5_activate_lag(ldev, &tracker);
++
++		mlx5_add_dev_by_protocol(dev0, MLX5_INTERFACE_PROTOCOL_IB);
++		mlx5_nic_vport_enable_roce(dev1);
++	} else if (tracker.is_bonded && mlx5_lag_is_bonded(ldev)) {
++		mlx5_infer_tx_affinity_mapping(&tracker, &v2p_port1,
++					       &v2p_port2);
++
++		if ((v2p_port1 != ldev->v2p_map[0]) ||
++		    (v2p_port2 != ldev->v2p_map[1])) {
++			ldev->v2p_map[0] = v2p_port1;
++			ldev->v2p_map[1] = v2p_port2;
++
++			err = mlx5_cmd_modify_lag(dev0, v2p_port1, v2p_port2);
++			if (err)
++				mlx5_core_err(dev0,
++					      "Failed to modify LAG (%d)\n",
++					      err);
++		}
++	} else if (!tracker.is_bonded && mlx5_lag_is_bonded(ldev)) {
++		mlx5_remove_dev_by_protocol(dev0, MLX5_INTERFACE_PROTOCOL_IB);
++		mlx5_nic_vport_disable_roce(dev1);
++
++		mlx5_deactivate_lag(ldev);
++
++		for (i = 0; i < MLX5_MAX_PORTS; i++)
++			if (ldev->pf[i].dev)
++				mlx5_add_dev_by_protocol(ldev->pf[i].dev,
++							 MLX5_INTERFACE_PROTOCOL_IB);
++	}
++}
++
++static void mlx5_queue_bond_work(struct mlx5_lag *ldev, unsigned long delay)
++{
++	schedule_delayed_work(&ldev->bond_work, delay);
++}
++
++static void mlx5_do_bond_work(struct work_struct *work)
++{
++	struct delayed_work *delayed_work = to_delayed_work(work);
++	struct mlx5_lag *ldev = container_of(delayed_work, struct mlx5_lag,
++					     bond_work);
++	int status;
++
++	status = mutex_trylock(&mlx5_intf_mutex);
++	if (!status) {
++		/* 1 sec delay. */
++		mlx5_queue_bond_work(ldev, HZ);
++		return;
++	}
++
++	mlx5_do_bond(ldev);
++	mutex_unlock(&mlx5_intf_mutex);
++}
++
++static int mlx5_handle_changeupper_event(struct mlx5_lag *ldev,
++					 struct lag_tracker *tracker,
++					 struct net_device *ndev,
++					 struct netdev_notifier_changeupper_info *info)
++{
++	struct net_device *upper = info->upper_dev, *ndev_tmp;
++	struct netdev_lag_upper_info *lag_upper_info;
++	bool is_bonded;
++	int bond_status = 0;
++	int num_slaves = 0;
++	int idx;
++
++	if (!netif_is_lag_master(upper))
++		return 0;
++
++	lag_upper_info = info->upper_info;
++
++	/* The event may still be of interest if the slave does not belong to
++	 * us, but is enslaved to a master which has one or more of our netdevs
++	 * as slaves (e.g., if a new slave is added to a master that bonds two
++	 * of our netdevs, we should unbond).
++	 */
++	rcu_read_lock();
++	for_each_netdev_in_bond_rcu(upper, ndev_tmp) {
++		idx = mlx5_lag_dev_get_netdev_idx(ldev, ndev_tmp);
++		if (idx > -1)
++			bond_status |= (1 << idx);
++
++		num_slaves++;
++	}
++	rcu_read_unlock();
++
++	/* None of this lagdev's netdevs are slaves of this master. */
++	if (!(bond_status & 0x3))
++		return 0;
++
++	if (lag_upper_info)
++		tracker->tx_type = lag_upper_info->tx_type;
++
++	/* Determine bonding status:
++	 * A device is considered bonded if both its physical ports are slaves
++	 * of the same lag master, and only them.
++	 * Lag mode must be activebackup or hash.
++	 */
++	is_bonded = (num_slaves == MLX5_MAX_PORTS) &&
++		    (bond_status == 0x3) &&
++		    ((tracker->tx_type == NETDEV_LAG_TX_TYPE_ACTIVEBACKUP) ||
++		     (tracker->tx_type == NETDEV_LAG_TX_TYPE_HASH));
++
++	if (tracker->is_bonded != is_bonded) {
++		tracker->is_bonded = is_bonded;
++		return 1;
++	}
++
++	return 0;
++}
++
++static int mlx5_handle_changelowerstate_event(struct mlx5_lag *ldev,
++					      struct lag_tracker *tracker,
++					      struct net_device *ndev,
++					      struct netdev_notifier_changelowerstate_info *info)
++{
++	struct netdev_lag_lower_state_info *lag_lower_info;
++	int idx;
++
++	if (!netif_is_lag_port(ndev))
++		return 0;
++
++	idx = mlx5_lag_dev_get_netdev_idx(ldev, ndev);
++	if (idx == -1)
++		return 0;
++
++	/* This information is used to determine virtual to physical
++	 * port mapping.
++	 */
++	lag_lower_info = info->lower_state_info;
++	if (!lag_lower_info)
++		return 0;
++
++	tracker->netdev_state[idx] = *lag_lower_info;
++
++	return 1;
++}
++
++static int mlx5_lag_netdev_event(struct notifier_block *this,
++				 unsigned long event, void *ptr)
++{
++	struct net_device *ndev = netdev_notifier_info_to_dev(ptr);
++	struct lag_tracker tracker;
++	struct mlx5_lag *ldev;
++	int changed = 0;
++
++	if (!net_eq(dev_net(ndev), &init_net))
++		return NOTIFY_DONE;
++
++	if ((event != NETDEV_CHANGEUPPER) && (event != NETDEV_CHANGELOWERSTATE))
++		return NOTIFY_DONE;
++
++	ldev    = container_of(this, struct mlx5_lag, nb);
++	tracker = ldev->tracker;
++
++	switch (event) {
++	case NETDEV_CHANGEUPPER:
++		changed = mlx5_handle_changeupper_event(ldev, &tracker, ndev,
++							ptr);
++		break;
++	case NETDEV_CHANGELOWERSTATE:
++		changed = mlx5_handle_changelowerstate_event(ldev, &tracker,
++							     ndev, ptr);
++		break;
++	}
++
++	mutex_lock(&lag_mutex);
++	ldev->tracker = tracker;
++	mutex_unlock(&lag_mutex);
++
++	if (changed)
++		mlx5_queue_bond_work(ldev, 0);
++
++	return NOTIFY_DONE;
++}
++
++static struct mlx5_lag *mlx5_lag_dev_alloc(void)
++{
++	struct mlx5_lag *ldev;
++
++	ldev = kzalloc(sizeof(*ldev), GFP_KERNEL);
++	if (!ldev)
++		return NULL;
++
++	INIT_DELAYED_WORK(&ldev->bond_work, mlx5_do_bond_work);
++
++	return ldev;
++}
++
++static void mlx5_lag_dev_free(struct mlx5_lag *ldev)
++{
++	kfree(ldev);
++}
++
++static void mlx5_lag_dev_add_pf(struct mlx5_lag *ldev,
++				struct mlx5_core_dev *dev,
++				struct net_device *netdev)
++{
++	unsigned int fn = PCI_FUNC(dev->pdev->devfn);
++
++	if (fn >= MLX5_MAX_PORTS)
++		return;
++
++	mutex_lock(&lag_mutex);
++	ldev->pf[fn].dev    = dev;
++	ldev->pf[fn].netdev = netdev;
++	ldev->tracker.netdev_state[fn].link_up = 0;
++	ldev->tracker.netdev_state[fn].tx_enabled = 0;
++
++	dev->priv.lag = ldev;
++	mutex_unlock(&lag_mutex);
++}
++
++static void mlx5_lag_dev_remove_pf(struct mlx5_lag *ldev,
++				   struct mlx5_core_dev *dev)
++{
++	int i;
++
++	for (i = 0; i < MLX5_MAX_PORTS; i++)
++		if (ldev->pf[i].dev == dev)
++			break;
++
++	if (i == MLX5_MAX_PORTS)
++		return;
++
++	mutex_lock(&lag_mutex);
++	memset(&ldev->pf[i], 0, sizeof(*ldev->pf));
++
++	dev->priv.lag = NULL;
++	mutex_unlock(&lag_mutex);
++}
++
++static u16 mlx5_gen_pci_id(struct mlx5_core_dev *dev)
++{
++	return (u16)((dev->pdev->bus->number << 8) |
++		     PCI_SLOT(dev->pdev->devfn));
++}
++
++/* Must be called with intf_mutex held */
++void mlx5_lag_add(struct mlx5_core_dev *dev, struct net_device *netdev)
++{
++	struct mlx5_lag *ldev = NULL;
++	struct mlx5_core_dev *tmp_dev;
++	struct mlx5_priv *priv;
++	u16 pci_id;
++
++	if (!MLX5_CAP_GEN(dev, vport_group_manager) ||
++	    !MLX5_CAP_GEN(dev, lag_master) ||
++	    (MLX5_CAP_GEN(dev, num_lag_ports) != MLX5_MAX_PORTS))
++		return;
++
++	pci_id = mlx5_gen_pci_id(dev);
++
++	mlx5_core_for_each_priv(priv) {
++		tmp_dev = container_of(priv, struct mlx5_core_dev, priv);
++		if ((dev != tmp_dev) &&
++		    (mlx5_gen_pci_id(tmp_dev) == pci_id)) {
++			ldev = tmp_dev->priv.lag;
++			break;
++		}
++	}
++
++	if (!ldev) {
++		ldev = mlx5_lag_dev_alloc();
++		if (!ldev) {
++			mlx5_core_err(dev, "Failed to alloc lag dev\n");
++			return;
++		}
++	}
++
++	mlx5_lag_dev_add_pf(ldev, dev, netdev);
++
++	if (!ldev->nb.notifier_call) {
++		ldev->nb.notifier_call = mlx5_lag_netdev_event;
++		if (register_netdevice_notifier(&ldev->nb)) {
++			ldev->nb.notifier_call = NULL;
++			mlx5_core_err(dev, "Failed to register LAG netdev notifier\n");
++		}
++	}
++}
++
++/* Must be called with intf_mutex held */
++void mlx5_lag_remove(struct mlx5_core_dev *dev)
++{
++	struct mlx5_lag *ldev;
++	int i;
++
++	ldev = mlx5_lag_dev_get(dev);
++	if (!ldev)
++		return;
++
++	if (mlx5_lag_is_bonded(ldev))
++		mlx5_deactivate_lag(ldev);
++
++	mlx5_lag_dev_remove_pf(ldev, dev);
++
++	for (i = 0; i < MLX5_MAX_PORTS; i++)
++		if (ldev->pf[i].dev)
++			break;
++
++	if (i == MLX5_MAX_PORTS) {
++		if (ldev->nb.notifier_call)
++			unregister_netdevice_notifier(&ldev->nb);
++		cancel_delayed_work_sync(&ldev->bond_work);
++		mlx5_lag_dev_free(ldev);
++	}
++}
++
++bool mlx5_lag_is_active(struct mlx5_core_dev *dev)
++{
++	struct mlx5_lag *ldev;
++	bool res;
++
++	mutex_lock(&lag_mutex);
++	ldev = mlx5_lag_dev_get(dev);
++	res  = ldev && mlx5_lag_is_bonded(ldev);
++	mutex_unlock(&lag_mutex);
++
++	return res;
++}
++EXPORT_SYMBOL(mlx5_lag_is_active);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index a6a95f78d578..ca7b095c350e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -73,8 +73,9 @@ module_param_named(prof_sel, prof_sel, int, 0444);
+ MODULE_PARM_DESC(prof_sel, "profile selector. Valid range 0 - 2");
+ 
+ static LIST_HEAD(intf_list);
+-static LIST_HEAD(dev_list);
+-static DEFINE_MUTEX(intf_mutex);
++
++LIST_HEAD(mlx5_dev_list);
++DEFINE_MUTEX(mlx5_intf_mutex);
+ 
+ struct mlx5_device_context {
+ 	struct list_head	list;
+@@ -819,11 +820,11 @@ static int mlx5_register_device(struct mlx5_core_dev *dev)
+ 	struct mlx5_priv *priv = &dev->priv;
+ 	struct mlx5_interface *intf;
+ 
+-	mutex_lock(&intf_mutex);
+-	list_add_tail(&priv->dev_list, &dev_list);
++	mutex_lock(&mlx5_intf_mutex);
++	list_add_tail(&priv->dev_list, &mlx5_dev_list);
+ 	list_for_each_entry(intf, &intf_list, list)
+ 		mlx5_add_device(intf, priv);
+-	mutex_unlock(&intf_mutex);
++	mutex_unlock(&mlx5_intf_mutex);
+ 
+ 	return 0;
+ }
+@@ -833,11 +834,11 @@ static void mlx5_unregister_device(struct mlx5_core_dev *dev)
+ 	struct mlx5_priv *priv = &dev->priv;
+ 	struct mlx5_interface *intf;
+ 
+-	mutex_lock(&intf_mutex);
+-	list_for_each_entry_reverse(intf, &intf_list, list)
++	mutex_lock(&mlx5_intf_mutex);
++	list_for_each_entry(intf, &intf_list, list)
+ 		mlx5_remove_device(intf, priv);
+ 	list_del(&priv->dev_list);
+-	mutex_unlock(&intf_mutex);
++	mutex_unlock(&mlx5_intf_mutex);
+ }
+ 
+ int mlx5_register_interface(struct mlx5_interface *intf)
+@@ -847,11 +848,11 @@ int mlx5_register_interface(struct mlx5_interface *intf)
+ 	if (!intf->add || !intf->remove)
+ 		return -EINVAL;
+ 
+-	mutex_lock(&intf_mutex);
++	mutex_lock(&mlx5_intf_mutex);
+ 	list_add_tail(&intf->list, &intf_list);
+-	list_for_each_entry(priv, &dev_list, dev_list)
++	list_for_each_entry(priv, &mlx5_dev_list, dev_list)
+ 		mlx5_add_device(intf, priv);
+-	mutex_unlock(&intf_mutex);
++	mutex_unlock(&mlx5_intf_mutex);
+ 
+ 	return 0;
+ }
+@@ -861,11 +862,11 @@ void mlx5_unregister_interface(struct mlx5_interface *intf)
+ {
+ 	struct mlx5_priv *priv;
+ 
+-	mutex_lock(&intf_mutex);
+-	list_for_each_entry(priv, &dev_list, dev_list)
++	mutex_lock(&mlx5_intf_mutex);
++	list_for_each_entry(priv, &mlx5_dev_list, dev_list)
+ 		mlx5_remove_device(intf, priv);
+ 	list_del(&intf->list);
+-	mutex_unlock(&intf_mutex);
++	mutex_unlock(&mlx5_intf_mutex);
+ }
+ EXPORT_SYMBOL(mlx5_unregister_interface);
+ 
+@@ -891,6 +892,30 @@ void *mlx5_get_protocol_dev(struct mlx5_core_dev *mdev, int protocol)
+ }
+ EXPORT_SYMBOL(mlx5_get_protocol_dev);
+ 
++/* Must be called with intf_mutex held */
++void mlx5_add_dev_by_protocol(struct mlx5_core_dev *dev, int protocol)
++{
++	struct mlx5_interface *intf;
++
++	list_for_each_entry(intf, &intf_list, list)
++		if (intf->protocol == protocol) {
++			mlx5_add_device(intf, &dev->priv);
++			break;
++		}
++}
++
++/* Must be called with intf_mutex held */
++void mlx5_remove_dev_by_protocol(struct mlx5_core_dev *dev, int protocol)
++{
++	struct mlx5_interface *intf;
++
++	list_for_each_entry(intf, &intf_list, list)
++		if (intf->protocol == protocol) {
++			mlx5_remove_device(intf, &dev->priv);
++			break;
++		}
++}
++
+ static int mlx5_pci_init(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ {
+ 	struct pci_dev *pdev = dev->pdev;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index a4e1ca89cc99..7f7aff393361 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -46,6 +46,9 @@
+ 
+ extern int mlx5_core_debug_mask;
+ 
++extern struct list_head mlx5_dev_list;
++extern struct mutex mlx5_intf_mutex;
++
+ #define mlx5_core_dbg(__dev, format, ...)				\
+ 	dev_dbg(&(__dev)->pdev->dev, "%s:%s:%d:(pid %d): " format,	\
+ 		 (__dev)->priv.name, __func__, __LINE__, current->pid,	\
+@@ -70,6 +73,9 @@ do {									\
+ #define mlx5_core_info(__dev, format, ...)				\
+ 	dev_info(&(__dev)->pdev->dev, format, ##__VA_ARGS__)
+ 
++#define mlx5_core_for_each_priv(__priv)					\
++	list_for_each_entry(__priv, &mlx5_dev_list, dev_list)
++
+ enum {
+ 	MLX5_CMD_DATA, /* print command payload only */
+ 	MLX5_CMD_TIME, /* print command execution time */
+@@ -91,6 +97,12 @@ cycle_t mlx5_read_internal_timer(struct mlx5_core_dev *dev);
+ u32 mlx5_get_msix_vec(struct mlx5_core_dev *dev, int vecidx);
+ struct mlx5_eq *mlx5_eqn2eq(struct mlx5_core_dev *dev, int eqn);
+ 
++void mlx5_lag_add(struct mlx5_core_dev *dev, struct net_device *netdev);
++void mlx5_lag_remove(struct mlx5_core_dev *dev);
++
++void mlx5_add_dev_by_protocol(struct mlx5_core_dev *dev, int protocol);
++void mlx5_remove_dev_by_protocol(struct mlx5_core_dev *dev, int protocol);
++
+ void mlx5e_init(void);
+ void mlx5e_cleanup(void);
+ 
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index e6c3f1aa7da6..1998acd64c31 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -462,6 +462,7 @@ struct mlx5_fc_stats {
+ };
+ 
+ struct mlx5_eswitch;
++struct mlx5_lag;
+ 
+ struct mlx5_rl_entry {
+ 	u32                     rate;
+@@ -535,6 +536,7 @@ struct mlx5_priv {
+ 	struct mlx5_flow_steering *steering;
+ 	struct mlx5_eswitch     *eswitch;
+ 	struct mlx5_core_sriov	sriov;
++	struct mlx5_lag		*lag;
+ 	unsigned long		pci_dev_data;
+ 	struct mlx5_fc_stats		fc_stats;
+ 	struct mlx5_rl_table            rl_table;
+@@ -927,6 +929,8 @@ int mlx5_register_interface(struct mlx5_interface *intf);
+ void mlx5_unregister_interface(struct mlx5_interface *intf);
+ int mlx5_core_query_vendor_id(struct mlx5_core_dev *mdev, u32 *vendor_id);
+ 
++bool mlx5_lag_is_active(struct mlx5_core_dev *dev);
++
+ struct mlx5_profile {
+ 	u64	mask;
+ 	u8	log_max_qp;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1f1471499641..e133a97d20d3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1322,6 +1322,8 @@ enum netdev_priv_flags {
+ 	IFF_L3MDEV_SLAVE		= 1<<23,
+ 	IFF_TEAM			= 1<<24,
+ 	IFF_RXFH_CONFIGURED		= 1<<25,
++	IFF_PHONY_HEADROOM              = 1<<26,
++	IFF_MACSEC                      = 1<<27,
+ };
+ 
+ #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+@@ -1350,6 +1352,7 @@ enum netdev_priv_flags {
+ #define IFF_L3MDEV_SLAVE		IFF_L3MDEV_SLAVE
+ #define IFF_TEAM			IFF_TEAM
+ #define IFF_RXFH_CONFIGURED		IFF_RXFH_CONFIGURED
++#define IFF_MACSEC                      IFF_MACSEC
+ 
+ /**
+  *	struct net_device - The DEVICE structure.
+@@ -2196,6 +2199,24 @@ struct pcpu_sw_netstats {
+ #define netdev_alloc_pcpu_stats(type)					\
+ 	__netdev_alloc_pcpu_stats(type, GFP_KERNEL)
+ 
++enum netdev_lag_tx_type {
++	NETDEV_LAG_TX_TYPE_UNKNOWN,
++	NETDEV_LAG_TX_TYPE_RANDOM,
++	NETDEV_LAG_TX_TYPE_BROADCAST,
++	NETDEV_LAG_TX_TYPE_ROUNDROBIN,
++	NETDEV_LAG_TX_TYPE_ACTIVEBACKUP,
++	NETDEV_LAG_TX_TYPE_HASH,
++};
++
++struct netdev_lag_upper_info {
++	enum netdev_lag_tx_type tx_type;
++};
++
++struct netdev_lag_lower_state_info {
++	u8 link_up : 1,
++	   tx_enabled : 1;
++};
++
+ #include <linux/notifier.h>
+ 
+ /* netdevice notifier chain. Please remember to update the rtnetlink
+@@ -2259,6 +2280,12 @@ struct netdev_notifier_changeupper_info {
+ 	struct net_device *upper_dev; /* new upper dev */
+ 	bool master; /* is upper dev master */
+ 	bool linking; /* is the nofication for link or unlink */
++	void *upper_info; /* upper dev info */
++};
++
++struct netdev_notifier_changelowerstate_info {
++	struct netdev_notifier_info info; /* must be first */
++	void *lower_state_info; /* is lower dev state */
+ };
+ 
+ static inline void netdev_notifier_info_init(struct netdev_notifier_info *info,
+@@ -4027,6 +4054,11 @@ static inline bool netif_is_ovs_master(const struct net_device *dev)
+ 	return dev->priv_flags & IFF_OPENVSWITCH;
+ }
+ 
++static inline bool netif_is_ovs_port(const struct net_device *dev)
++{
++	return dev->priv_flags & IFF_OVS_DATAPATH;
++}
++
+ static inline bool netif_is_team_master(const struct net_device *dev)
+ {
+ 	return dev->priv_flags & IFF_TEAM;
+-- 
+2.17.1
+

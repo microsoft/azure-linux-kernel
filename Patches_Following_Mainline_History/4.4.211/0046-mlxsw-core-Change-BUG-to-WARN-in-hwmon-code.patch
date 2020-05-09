@@ -1,0 +1,34 @@
+From cbebec677332f4fb54be113aa74ae3f89221f387 Mon Sep 17 00:00:00 2001
+From: Jiri Pirko <jiri@mellanox.com>
+Date: Thu, 3 Dec 2015 10:12:03 +0100
+Subject: mlxsw: core: Change BUG to WARN in hwmon code
+Reply-To: joseph.salisbury@microsoft.com
+
+Better to just warn the user that something really odd is going on and
+continue to run.
+
+Suggested-by: Or Gerlitz <gerlitz.or@gmail.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 6b20da4d8f3f6a3be9f67e3207f435cfaa5f7f97)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
+index ad8b27418a7f..4dad146b41ae 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
+@@ -215,7 +215,7 @@ static void mlxsw_hwmon_attr_add(struct mlxsw_hwmon *mlxsw_hwmon,
+ 			 "pwm%u", num + 1);
+ 		break;
+ 	default:
+-		BUG();
++		WARN_ON(1);
+ 	}
+ 
+ 	mlxsw_hwmon_attr->type_index = type_index;
+-- 
+2.17.1
+

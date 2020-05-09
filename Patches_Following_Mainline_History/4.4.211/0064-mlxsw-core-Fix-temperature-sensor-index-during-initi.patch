@@ -1,0 +1,35 @@
+From 8340d20143efaa5f1f51a525e8a369c7fbacd5b4 Mon Sep 17 00:00:00 2001
+From: Jiri Pirko <jiri@mellanox.com>
+Date: Fri, 11 Dec 2015 18:26:00 +0100
+Subject: mlxsw: core: Fix temperature sensor index during initialization
+Reply-To: joseph.salisbury@microsoft.com
+
+Sensor index should be passed instead of 0. For now, this does not make
+a difference, since there is so far only one temperature sensor
+exposed by HW.
+
+Fixes: 89309da39 ("mlxsw: core: Implement temperature hwmon interface")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit b626f2cb75cfc9ab707fce6e60df0d94650a4abf)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
+index 913106d37bb0..b86db967eab9 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
+@@ -242,7 +242,7 @@ static int mlxsw_hwmon_temp_init(struct mlxsw_hwmon *mlxsw_hwmon)
+ 	}
+ 	sensor_count = mlxsw_reg_mtcap_sensor_count_get(mtcap_pl);
+ 	for (i = 0; i < sensor_count; i++) {
+-		mlxsw_reg_mtmp_pack(mtmp_pl, 0, true, true);
++		mlxsw_reg_mtmp_pack(mtmp_pl, i, true, true);
+ 		err = mlxsw_reg_write(mlxsw_hwmon->core,
+ 				      MLXSW_REG(mtmp), mtmp_pl);
+ 		if (err) {
+-- 
+2.17.1
+

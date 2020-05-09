@@ -1,0 +1,159 @@
+From ae50e9118d599707ff24614ce8c9cedf99c39c83 Mon Sep 17 00:00:00 2001
+From: "majd@mellanox.com" <majd@mellanox.com>
+Date: Thu, 14 Jan 2016 19:13:06 +0200
+Subject: IB/mlx5: Support setting Ethernet priority for Raw Packet QPs
+Reply-To: joseph.salisbury@microsoft.com
+
+When the user changes the Address Vector(AV) in the modify QP, he
+provides an SL. This SL should be translated to Ethernet Priority
+by taking the 3 LSB bits, and modify the QP's TIS according to this
+Ethernet priority.
+
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 75850d0bcece42416ba81bd38e4c719f101c832d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/qp.c               | 38 +++++++++++++++++--
+ .../ethernet/mellanox/mlx5/core/transobj.c    | 12 ++++++
+ include/linux/mlx5/mlx5_ifc.h                 |  9 ++++-
+ include/linux/mlx5/transobj.h                 |  2 +
+ 4 files changed, 57 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
+index 7f9acd822ba1..d2e063240107 100644
+--- a/drivers/infiniband/hw/mlx5/qp.c
++++ b/drivers/infiniband/hw/mlx5/qp.c
+@@ -1731,7 +1731,33 @@ static int ib_rate_to_mlx5(struct mlx5_ib_dev *dev, u8 rate)
+ 	return rate ? rate + MLX5_STAT_RATE_OFFSET : rate;
+ }
+ 
+-static int mlx5_set_path(struct mlx5_ib_dev *dev, const struct ib_ah_attr *ah,
++static int modify_raw_packet_eth_prio(struct mlx5_core_dev *dev,
++				      struct mlx5_ib_sq *sq, u8 sl)
++{
++	void *in;
++	void *tisc;
++	int inlen;
++	int err;
++
++	inlen = MLX5_ST_SZ_BYTES(modify_tis_in);
++	in = mlx5_vzalloc(inlen);
++	if (!in)
++		return -ENOMEM;
++
++	MLX5_SET(modify_tis_in, in, bitmask.prio, 1);
++
++	tisc = MLX5_ADDR_OF(modify_tis_in, in, ctx);
++	MLX5_SET(tisc, tisc, prio, ((sl & 0x7) << 1));
++
++	err = mlx5_core_modify_tis(dev, sq->tisn, in, inlen);
++
++	kvfree(in);
++
++	return err;
++}
++
++static int mlx5_set_path(struct mlx5_ib_dev *dev, struct mlx5_ib_qp *qp,
++			 const struct ib_ah_attr *ah,
+ 			 struct mlx5_qp_path *path, u8 port, int attr_mask,
+ 			 u32 path_flags, const struct ib_qp_attr *attr)
+ {
+@@ -1787,6 +1813,11 @@ static int mlx5_set_path(struct mlx5_ib_dev *dev, const struct ib_ah_attr *ah,
+ 	if (attr_mask & IB_QP_TIMEOUT)
+ 		path->ackto_lt = attr->timeout << 3;
+ 
++	if ((qp->ibqp.qp_type == IB_QPT_RAW_PACKET) && qp->sq.wqe_cnt)
++		return modify_raw_packet_eth_prio(dev->mdev,
++						  &qp->raw_packet_qp.sq,
++						  ah->sl & 0xf);
++
+ 	return 0;
+ }
+ 
+@@ -2008,7 +2039,7 @@ static int __mlx5_ib_modify_qp(struct ib_qp *ibqp,
+ 		context->pri_path.port = attr->port_num;
+ 
+ 	if (attr_mask & IB_QP_AV) {
+-		err = mlx5_set_path(dev, &attr->ah_attr, &context->pri_path,
++		err = mlx5_set_path(dev, qp, &attr->ah_attr, &context->pri_path,
+ 				    attr_mask & IB_QP_PORT ? attr->port_num : qp->port,
+ 				    attr_mask, 0, attr);
+ 		if (err)
+@@ -2019,7 +2050,8 @@ static int __mlx5_ib_modify_qp(struct ib_qp *ibqp,
+ 		context->pri_path.ackto_lt |= attr->timeout << 3;
+ 
+ 	if (attr_mask & IB_QP_ALT_PATH) {
+-		err = mlx5_set_path(dev, &attr->alt_ah_attr, &context->alt_path,
++		err = mlx5_set_path(dev, qp, &attr->alt_ah_attr,
++				    &context->alt_path,
+ 				    attr->alt_port_num, attr_mask, 0, attr);
+ 		if (err)
+ 			goto out;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
+index 460d9ff0222f..03a5093ffeb7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
+@@ -235,6 +235,18 @@ int mlx5_core_create_tis(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ }
+ EXPORT_SYMBOL(mlx5_core_create_tis);
+ 
++int mlx5_core_modify_tis(struct mlx5_core_dev *dev, u32 tisn, u32 *in,
++			 int inlen)
++{
++	u32 out[MLX5_ST_SZ_DW(modify_tis_out)] = {0};
++
++	MLX5_SET(modify_tis_in, in, tisn, tisn);
++	MLX5_SET(modify_tis_in, in, opcode, MLX5_CMD_OP_MODIFY_TIS);
++
++	return mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
++}
++EXPORT_SYMBOL(mlx5_core_modify_tis);
++
+ void mlx5_core_destroy_tis(struct mlx5_core_dev *dev, u32 tisn)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(destroy_tis_in)];
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index a5a6f2857ecf..3af6ec3d7a88 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -4193,6 +4193,13 @@ struct mlx5_ifc_modify_tis_out_bits {
+ 	u8         reserved_1[0x40];
+ };
+ 
++struct mlx5_ifc_modify_tis_bitmask_bits {
++	u8         reserved_0[0x20];
++
++	u8         reserved_1[0x1f];
++	u8         prio[0x1];
++};
++
+ struct mlx5_ifc_modify_tis_in_bits {
+ 	u8         opcode[0x10];
+ 	u8         reserved_0[0x10];
+@@ -4205,7 +4212,7 @@ struct mlx5_ifc_modify_tis_in_bits {
+ 
+ 	u8         reserved_3[0x20];
+ 
+-	u8         modify_bitmask[0x40];
++	struct mlx5_ifc_modify_tis_bitmask_bits bitmask;
+ 
+ 	u8         reserved_4[0x40];
+ 
+diff --git a/include/linux/mlx5/transobj.h b/include/linux/mlx5/transobj.h
+index d259e4c423dd..88441f5ece25 100644
+--- a/include/linux/mlx5/transobj.h
++++ b/include/linux/mlx5/transobj.h
+@@ -54,6 +54,8 @@ int mlx5_core_modify_tir(struct mlx5_core_dev *dev, u32 tirn, u32 *in,
+ void mlx5_core_destroy_tir(struct mlx5_core_dev *dev, u32 tirn);
+ int mlx5_core_create_tis(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ 			 u32 *tisn);
++int mlx5_core_modify_tis(struct mlx5_core_dev *dev, u32 tisn, u32 *in,
++			 int inlen);
+ void mlx5_core_destroy_tis(struct mlx5_core_dev *dev, u32 tisn);
+ int mlx5_core_create_rmp(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ 			 u32 *rmpn);
+-- 
+2.17.1
+

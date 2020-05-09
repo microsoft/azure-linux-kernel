@@ -1,0 +1,326 @@
+From 5dd397c87c6915ce33d70fbb63f094d3ace19ebc Mon Sep 17 00:00:00 2001
+From: Maor Gottlieb <maorg@mellanox.com>
+Date: Thu, 10 Dec 2015 17:12:39 +0200
+Subject: net/mlx5_core: Introduce flow steering firmware commands
+Reply-To: joseph.salisbury@microsoft.com
+
+Introduce new Flow Steering (FS) firmware commands,
+in-order to support the new flow steering infrastructure.
+
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 26a8145390b36cbe97a5bd0b9e97249f21af6aea)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/fs_cmd.c  | 52 +----------
+ .../net/ethernet/mellanox/mlx5/core/fs_core.h | 92 +------------------
+ include/linux/mlx5/fs.h                       | 54 -----------
+ include/linux/mlx5/mlx5_ifc.h                 |  5 +-
+ 4 files changed, 7 insertions(+), 196 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+index a9894d2e8e26..5096f4f336bd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+@@ -38,28 +38,9 @@
+ #include "fs_cmd.h"
+ #include "mlx5_core.h"
+ 
+-int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
+-			    struct mlx5_flow_table *ft)
+-{
+-	u32 in[MLX5_ST_SZ_DW(set_flow_table_root_in)];
+-	u32 out[MLX5_ST_SZ_DW(set_flow_table_root_out)];
+-
+-	memset(in, 0, sizeof(in));
+-
+-	MLX5_SET(set_flow_table_root_in, in, opcode,
+-		 MLX5_CMD_OP_SET_FLOW_TABLE_ROOT);
+-	MLX5_SET(set_flow_table_root_in, in, table_type, ft->type);
+-	MLX5_SET(set_flow_table_root_in, in, table_id, ft->id);
+-
+-	memset(out, 0, sizeof(out));
+-	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
+-					  sizeof(out));
+-}
+-
+ int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
+ 			       enum fs_flow_table_type type, unsigned int level,
+-			       unsigned int log_size, struct mlx5_flow_table
+-			       *next_ft, unsigned int *table_id)
++			       unsigned int log_size, unsigned int *table_id)
+ {
+ 	u32 out[MLX5_ST_SZ_DW(create_flow_table_out)];
+ 	u32 in[MLX5_ST_SZ_DW(create_flow_table_in)];
+@@ -70,10 +51,6 @@ int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
+ 	MLX5_SET(create_flow_table_in, in, opcode,
+ 		 MLX5_CMD_OP_CREATE_FLOW_TABLE);
+ 
+-	if (next_ft) {
+-		MLX5_SET(create_flow_table_in, in, table_miss_mode, 1);
+-		MLX5_SET(create_flow_table_in, in, table_miss_id, next_ft->id);
+-	}
+ 	MLX5_SET(create_flow_table_in, in, table_type, type);
+ 	MLX5_SET(create_flow_table_in, in, level, level);
+ 	MLX5_SET(create_flow_table_in, in, log_size, log_size);
+@@ -106,33 +83,6 @@ int mlx5_cmd_destroy_flow_table(struct mlx5_core_dev *dev,
+ 					  sizeof(out));
+ }
+ 
+-int mlx5_cmd_modify_flow_table(struct mlx5_core_dev *dev,
+-			       struct mlx5_flow_table *ft,
+-			       struct mlx5_flow_table *next_ft)
+-{
+-	u32 in[MLX5_ST_SZ_DW(modify_flow_table_in)];
+-	u32 out[MLX5_ST_SZ_DW(modify_flow_table_out)];
+-
+-	memset(in, 0, sizeof(in));
+-	memset(out, 0, sizeof(out));
+-
+-	MLX5_SET(modify_flow_table_in, in, opcode,
+-		 MLX5_CMD_OP_MODIFY_FLOW_TABLE);
+-	MLX5_SET(modify_flow_table_in, in, table_type, ft->type);
+-	MLX5_SET(modify_flow_table_in, in, table_id, ft->id);
+-	MLX5_SET(modify_flow_table_in, in, modify_field_select,
+-		 MLX5_MODIFY_FLOW_TABLE_MISS_TABLE_ID);
+-	if (next_ft) {
+-		MLX5_SET(modify_flow_table_in, in, table_miss_mode, 1);
+-		MLX5_SET(modify_flow_table_in, in, table_miss_id, next_ft->id);
+-	} else {
+-		MLX5_SET(modify_flow_table_in, in, table_miss_mode, 0);
+-	}
+-
+-	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
+-					  sizeof(out));
+-}
+-
+ int mlx5_cmd_create_flow_group(struct mlx5_core_dev *dev,
+ 			       struct mlx5_flow_table *ft,
+ 			       u32 *in,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+index 00245fd7e4bc..b9e9153e77f7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+@@ -46,7 +46,6 @@ enum fs_node_type {
+ 
+ enum fs_flow_table_type {
+ 	FS_FT_NIC_RX	 = 0x0,
+-	FS_FT_FDB	 = 0X4,
+ };
+ 
+ enum fs_fte_status {
+@@ -57,12 +56,12 @@ struct fs_node {
+ 	struct list_head	list;
+ 	struct list_head	children;
+ 	enum fs_node_type	type;
+-	struct fs_node		*parent;
+-	struct fs_node		*root;
++	struct fs_node          *parent;
++	struct fs_node          *root;
+ 	/* lock the node for writing and traversing */
+-	struct mutex		lock;
+-	atomic_t		refcount;
+-	void			(*remove_func)(struct fs_node *);
++	struct mutex            lock;
++	atomic_t                refcount;
++	void                    (*remove_func)(struct fs_node *);
+ };
+ 
+ struct mlx5_flow_rule {
+@@ -70,21 +69,12 @@ struct mlx5_flow_rule {
+ 	struct mlx5_flow_destination		dest_attr;
+ };
+ 
+-/* Type of children is mlx5_flow_group */
+ struct mlx5_flow_table {
+ 	struct fs_node			node;
+ 	u32				id;
+-	unsigned int			max_fte;
+-	unsigned int			level;
+ 	enum fs_flow_table_type		type;
+-	struct {
+-		bool			active;
+-		unsigned int		required_groups;
+-		unsigned int		num_groups;
+-	} autogroup;
+ };
+ 
+-/* Type of children is mlx5_flow_rule */
+ struct fs_fte {
+ 	struct fs_node			node;
+ 	u32				val[MLX5_ST_SZ_DW(fte_match_param)];
+@@ -92,78 +82,6 @@ struct fs_fte {
+ 	u32				flow_tag;
+ 	u32				index;
+ 	u32				action;
+-	enum fs_fte_status		status;
+ };
+ 
+-/* Type of children is mlx5_flow_table/namespace */
+-struct fs_prio {
+-	struct fs_node			node;
+-	unsigned int			max_ft;
+-	unsigned int			start_level;
+-	unsigned int			prio;
+-	unsigned int			num_ft;
+-};
+-
+-/* Type of children is fs_prio */
+-struct mlx5_flow_namespace {
+-	/* parent == NULL => root ns */
+-	struct	fs_node			node;
+-};
+-
+-struct mlx5_flow_group_mask {
+-	u8	match_criteria_enable;
+-	u32	match_criteria[MLX5_ST_SZ_DW(fte_match_param)];
+-};
+-
+-/* Type of children is fs_fte */
+-struct mlx5_flow_group {
+-	struct fs_node			node;
+-	struct mlx5_flow_group_mask	mask;
+-	u32				start_index;
+-	u32				max_ftes;
+-	u32				num_ftes;
+-	u32				id;
+-};
+-
+-struct mlx5_flow_root_namespace {
+-	struct mlx5_flow_namespace	ns;
+-	enum   fs_flow_table_type	table_type;
+-	struct mlx5_core_dev		*dev;
+-	struct mlx5_flow_table		*root_ft;
+-	/* Should be held when chaining flow tables */
+-	struct mutex			chain_lock;
+-};
+-
+-int mlx5_init_fs(struct mlx5_core_dev *dev);
+-void mlx5_cleanup_fs(struct mlx5_core_dev *dev);
+-
+-#define fs_get_obj(v, _node)  {v = container_of((_node), typeof(*v), node); }
+-
+-#define fs_list_for_each_entry(pos, root)		\
+-	list_for_each_entry(pos, root, node.list)
+-
+-#define fs_for_each_ns_or_ft_reverse(pos, prio)				\
+-	list_for_each_entry_reverse(pos, &(prio)->node.children, list)
+-
+-#define fs_for_each_ns_or_ft(pos, prio)					\
+-	list_for_each_entry(pos, (&(prio)->node.children), list)
+-
+-#define fs_for_each_prio(pos, ns)			\
+-	fs_list_for_each_entry(pos, &(ns)->node.children)
+-
+-#define fs_for_each_ns(pos, prio)			\
+-	fs_list_for_each_entry(pos, &(prio)->node.children)
+-
+-#define fs_for_each_ft(pos, prio)			\
+-	fs_list_for_each_entry(pos, &(prio)->node.children)
+-
+-#define fs_for_each_fg(pos, ft)			\
+-	fs_list_for_each_entry(pos, &(ft)->node.children)
+-
+-#define fs_for_each_fte(pos, fg)			\
+-	fs_list_for_each_entry(pos, &(fg)->node.children)
+-
+-#define fs_for_each_dst(pos, fte)			\
+-	fs_list_for_each_entry(pos, &(fte)->node.children)
+-
+ #endif
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index a94341271e3f..34fd8dc0b3e1 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -33,69 +33,15 @@
+ #ifndef _MLX5_FS_
+ #define _MLX5_FS_
+ 
+-#include <linux/mlx5/driver.h>
+ #include <linux/mlx5/mlx5_ifc.h>
+ 
+-#define MLX5_FS_DEFAULT_FLOW_TAG 0x0
+-
+-enum mlx5_flow_namespace_type {
+-	MLX5_FLOW_NAMESPACE_BYPASS,
+-	MLX5_FLOW_NAMESPACE_KERNEL,
+-	MLX5_FLOW_NAMESPACE_LEFTOVERS,
+-	MLX5_FLOW_NAMESPACE_FDB,
+-};
+-
+ struct mlx5_flow_table;
+-struct mlx5_flow_group;
+-struct mlx5_flow_rule;
+-struct mlx5_flow_namespace;
+ 
+ struct mlx5_flow_destination {
+ 	enum mlx5_flow_destination_type	type;
+ 	union {
+ 		u32			tir_num;
+ 		struct mlx5_flow_table	*ft;
+-		u32			vport_num;
+ 	};
+ };
+-
+-struct mlx5_flow_namespace *
+-mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
+-			enum mlx5_flow_namespace_type type);
+-
+-struct mlx5_flow_table *
+-mlx5_create_auto_grouped_flow_table(struct mlx5_flow_namespace *ns,
+-				    int prio,
+-				    int num_flow_table_entries,
+-				    int max_num_groups);
+-
+-struct mlx5_flow_table *
+-mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
+-		       int prio,
+-		       int num_flow_table_entries);
+-int mlx5_destroy_flow_table(struct mlx5_flow_table *ft);
+-
+-/* inbox should be set with the following values:
+- * start_flow_index
+- * end_flow_index
+- * match_criteria_enable
+- * match_criteria
+- */
+-struct mlx5_flow_group *
+-mlx5_create_flow_group(struct mlx5_flow_table *ft, u32 *in);
+-void mlx5_destroy_flow_group(struct mlx5_flow_group *fg);
+-
+-/* Single destination per rule.
+- * Group ID is implied by the match criteria.
+- */
+-struct mlx5_flow_rule *
+-mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+-		   u8 match_criteria_enable,
+-		   u32 *match_criteria,
+-		   u32 *match_value,
+-		   u32 action,
+-		   u32 flow_tag,
+-		   struct mlx5_flow_destination *dest);
+-void mlx5_del_flow_rule(struct mlx5_flow_rule *fr);
+-
+ #endif
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 5f0a41c240f0..88dc464494c3 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -265,10 +265,7 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
+ 	u8         ft_support[0x1];
+ 	u8         reserved_0[0x2];
+ 	u8	   flow_modify_en[0x1];
+-	u8         modify_root[0x1];
+-	u8         identified_miss_table_mode[0x1];
+-	u8         flow_table_modify[0x1];
+-	u8         reserved_1[0x19];
++	u8         reserved_1[0x1c];
+ 
+ 	u8         reserved_2[0x2];
+ 	u8         log_max_ft_size[0x6];
+-- 
+2.17.1
+

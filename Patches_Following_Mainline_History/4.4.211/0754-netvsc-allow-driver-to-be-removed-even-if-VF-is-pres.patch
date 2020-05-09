@@ -1,0 +1,60 @@
+From 07209a91b47e92bc2ff819b62614dbf0a6549adf Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 31 Aug 2017 16:16:13 -0700
+Subject: netvsc: allow driver to be removed even if VF is present
+Reply-To: joseph.salisbury@microsoft.com
+
+If VF is attached then can still allow netvsc driver module to
+be removed. Just have to make sure and do the cleanup.
+
+Also, avoid extra rtnl round trip when calling unregister.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit ec158f77def2df084d9f62565357e3037b04bd3f)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 56dcaed04f58..f2326483d212 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1951,7 +1951,6 @@ static int netvsc_remove(struct hv_device *dev)
+ {
+ 	struct net_device *net;
+ 	struct net_device_context *ndev_ctx;
+-	struct netvsc_device *net_device;
+ 
+ 	net = hv_get_drvdata(dev);
+ 
+@@ -1960,9 +1959,7 @@ static int netvsc_remove(struct hv_device *dev)
+ 		return 0;
+ 	}
+ 
+-
+ 	ndev_ctx = netdev_priv(net);
+-	net_device = ndev_ctx->nvdev;
+ 
+ 	netif_device_detach(net);
+ 
+@@ -1980,7 +1977,6 @@ static int netvsc_remove(struct hv_device *dev)
+ 
+ 	hv_set_drvdata(dev, NULL);
+ 
+-	free_percpu(ndev_ctx->vf_stats);
+ 	free_netdev(net);
+ 	return 0;
+ }
+@@ -2001,7 +1997,6 @@ static struct  hv_driver netvsc_drv = {
+ 	.remove = netvsc_remove,
+ };
+ 
+-
+ /*
+  * On Hyper-V, every VF interface is matched with a corresponding
+  * synthetic interface. The synthetic interface is presented first
+-- 
+2.17.1
+

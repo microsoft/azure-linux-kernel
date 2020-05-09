@@ -1,0 +1,84 @@
+From 28382e3d6ac3e4dfa5a92f2d9a908a3e3736e9bc Mon Sep 17 00:00:00 2001
+From: Achiad Shochat <achiad@mellanox.com>
+Date: Mon, 22 Feb 2016 18:17:24 +0200
+Subject: net/mlx5: Introduce physical port PFC access functions
+Reply-To: joseph.salisbury@microsoft.com
+
+Add access functions to set and query a physical port PFC
+(Priority Flow Control) parameters.
+
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit ad909eb064219a64fd10e9c7d9f39a3042760025)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/port.c    | 41 +++++++++++++++++++
+ include/linux/mlx5/port.h                     |  4 ++
+ 2 files changed, 45 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 9afd0eed571f..d4bab2737dae 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -364,3 +364,44 @@ int mlx5_query_port_pause(struct mlx5_core_dev *dev,
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_pause);
++
++int mlx5_set_port_pfc(struct mlx5_core_dev *dev, u8 pfc_en_tx, u8 pfc_en_rx)
++{
++	u32 in[MLX5_ST_SZ_DW(pfcc_reg)];
++	u32 out[MLX5_ST_SZ_DW(pfcc_reg)];
++
++	memset(in, 0, sizeof(in));
++	MLX5_SET(pfcc_reg, in, local_port, 1);
++	MLX5_SET(pfcc_reg, in, pfctx, pfc_en_tx);
++	MLX5_SET(pfcc_reg, in, pfcrx, pfc_en_rx);
++	MLX5_SET_TO_ONES(pfcc_reg, in, prio_mask_tx);
++	MLX5_SET_TO_ONES(pfcc_reg, in, prio_mask_rx);
++
++	return mlx5_core_access_reg(dev, in, sizeof(in), out,
++				    sizeof(out), MLX5_REG_PFCC, 0, 1);
++}
++EXPORT_SYMBOL_GPL(mlx5_set_port_pfc);
++
++int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx, u8 *pfc_en_rx)
++{
++	u32 in[MLX5_ST_SZ_DW(pfcc_reg)];
++	u32 out[MLX5_ST_SZ_DW(pfcc_reg)];
++	int err;
++
++	memset(in, 0, sizeof(in));
++	MLX5_SET(pfcc_reg, in, local_port, 1);
++
++	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
++				   sizeof(out), MLX5_REG_PFCC, 0, 0);
++	if (err)
++		return err;
++
++	if (pfc_en_tx)
++		*pfc_en_tx = MLX5_GET(pfcc_reg, out, pfctx);
++
++	if (pfc_en_rx)
++		*pfc_en_rx = MLX5_GET(pfcc_reg, out, pfcrx);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_pfc);
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index 7accd4a65da5..4b3644caa936 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -66,4 +66,8 @@ int mlx5_set_port_pause(struct mlx5_core_dev *dev, u32 rx_pause, u32 tx_pause);
+ int mlx5_query_port_pause(struct mlx5_core_dev *dev,
+ 			  u32 *rx_pause, u32 *tx_pause);
+ 
++int mlx5_set_port_pfc(struct mlx5_core_dev *dev, u8 pfc_en_tx, u8 pfc_en_rx);
++int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx,
++			u8 *pfc_en_rx);
++
+ #endif /* __MLX5_PORT_H__ */
+-- 
+2.17.1
+

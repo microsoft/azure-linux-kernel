@@ -1,0 +1,97 @@
+From 452e296ee8022d439993cff989e73137fd27a64f Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Tue, 15 Dec 2015 16:03:43 +0100
+Subject: mlxsw: spectrum: Handle VLAN devices linking / unlinking
+Reply-To: joseph.salisbury@microsoft.com
+
+When a VLAN interface is configured on top of a physical port we should
+associate the VLAN device with the matching vPort. Likewise, when it's
+removed, we should revert back to the underlying port netdev.
+
+While not a must, this is consistent with port netdevs and also provides
+a more accurate error printing via netdev_err() and friends.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 9589a7b5d7d9172b7849031377e0bd581ee055c2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum.c    | 54 +++++++++++++++++--
+ 1 file changed, 51 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index a35be3668ec5..8005adce98ab 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2260,6 +2260,40 @@ static int mlxsw_sp_port_lag_changed(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return mlxsw_sp_port_lag_tx_en_set(mlxsw_sp_port, info->tx_enabled);
+ }
+ 
++static int mlxsw_sp_port_vlan_link(struct mlxsw_sp_port *mlxsw_sp_port,
++				   struct net_device *vlan_dev)
++{
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++	u16 vid = vlan_dev_vlan_id(vlan_dev);
++
++	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
++	if (!mlxsw_sp_vport) {
++		WARN_ON(!mlxsw_sp_vport);
++		return -EINVAL;
++	}
++
++	mlxsw_sp_vport->dev = vlan_dev;
++
++	return 0;
++}
++
++static int mlxsw_sp_port_vlan_unlink(struct mlxsw_sp_port *mlxsw_sp_port,
++				     struct net_device *vlan_dev)
++{
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++	u16 vid = vlan_dev_vlan_id(vlan_dev);
++
++	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
++	if (!mlxsw_sp_vport) {
++		WARN_ON(!mlxsw_sp_vport);
++		return -EINVAL;
++	}
++
++	mlxsw_sp_vport->dev = mlxsw_sp_port->dev;
++
++	return 0;
++}
++
+ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
+ 					       unsigned long event, void *ptr)
+ {
+@@ -2289,9 +2323,23 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
+ 		break;
+ 	case NETDEV_CHANGEUPPER:
+ 		upper_dev = info->upper_dev;
+-		if (!info->master)
+-			break;
+-		if (netif_is_bridge_master(upper_dev)) {
++		if (is_vlan_dev(upper_dev)) {
++			if (info->linking) {
++				err = mlxsw_sp_port_vlan_link(mlxsw_sp_port,
++							      upper_dev);
++				if (err) {
++					netdev_err(dev, "Failed to link VLAN device\n");
++					return NOTIFY_BAD;
++				}
++			} else {
++				err = mlxsw_sp_port_vlan_unlink(mlxsw_sp_port,
++								upper_dev);
++				if (err) {
++					netdev_err(dev, "Failed to unlink VLAN device\n");
++					return NOTIFY_BAD;
++				}
++			}
++		} else if (netif_is_bridge_master(upper_dev)) {
+ 			if (info->linking) {
+ 				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port);
+ 				if (err)
+-- 
+2.17.1
+

@@ -1,0 +1,295 @@
+From 6ab40771c2898da61da200039e4cc0b4a9dc012c Mon Sep 17 00:00:00 2001
+From: "majd@mellanox.com" <majd@mellanox.com>
+Date: Thu, 14 Jan 2016 19:13:00 +0200
+Subject: net/mlx5_core: Add RQ and SQ event handling
+Reply-To: joseph.salisbury@microsoft.com
+
+RQ/SQ will be used to implement IB verbs QPs, so the IB QP affiliated
+events are affiliated also with SQs and RQs.
+
+Since SQ, RQ and QP resource numbers do not share the same name
+space, a queue type field was added to the event data to specify
+the SW object that the event is affiliated with.
+
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit e2013b212f9f201c71fc5826ce41f39ebece0852)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/qp.c | 126 ++++++++++++++++---
+ include/linux/mlx5/device.h                  |  12 +-
+ include/linux/mlx5/driver.h                  |   8 +-
+ include/linux/mlx5/qp.h                      |   8 ++
+ 5 files changed, 132 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+index 23c244a7e5d7..647a3ca2c2a9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+@@ -230,6 +230,7 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
+ 		case MLX5_EVENT_TYPE_WQ_INVAL_REQ_ERROR:
+ 		case MLX5_EVENT_TYPE_WQ_ACCESS_ERROR:
+ 			rsn = be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff;
++			rsn |= (eqe->data.qp_srq.type << MLX5_USER_INDEX_LEN);
+ 			mlx5_core_dbg(dev, "event %s(%d) arrived on resource 0x%x\n",
+ 				      eqe_type_str(eqe->type), eqe->type, rsn);
+ 			mlx5_rsc_event(dev, rsn, eqe->type);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
+index 803a1f268c0f..431885f77369 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
+@@ -36,6 +36,7 @@
+ #include <linux/mlx5/cmd.h>
+ #include <linux/mlx5/qp.h>
+ #include <linux/mlx5/driver.h>
++#include <linux/mlx5/transobj.h>
+ 
+ #include "mlx5_core.h"
+ 
+@@ -77,6 +78,8 @@ void mlx5_rsc_event(struct mlx5_core_dev *dev, u32 rsn, int event_type)
+ 
+ 	switch (common->res) {
+ 	case MLX5_RES_QP:
++	case MLX5_RES_RQ:
++	case MLX5_RES_SQ:
+ 		qp = (struct mlx5_core_qp *)common;
+ 		qp->event(qp, event_type);
+ 		break;
+@@ -177,12 +180,48 @@ void mlx5_eq_pagefault(struct mlx5_core_dev *dev, struct mlx5_eqe *eqe)
+ }
+ #endif
+ 
++static int create_qprqsq_common(struct mlx5_core_dev *dev,
++				struct mlx5_core_qp *qp,
++				int rsc_type)
++{
++	struct mlx5_qp_table *table = &dev->priv.qp_table;
++	int err;
++
++	qp->common.res = rsc_type;
++	spin_lock_irq(&table->lock);
++	err = radix_tree_insert(&table->tree,
++				qp->qpn | (rsc_type << MLX5_USER_INDEX_LEN),
++				qp);
++	spin_unlock_irq(&table->lock);
++	if (err)
++		return err;
++
++	atomic_set(&qp->common.refcount, 1);
++	init_completion(&qp->common.free);
++	qp->pid = current->pid;
++
++	return 0;
++}
++
++static void destroy_qprqsq_common(struct mlx5_core_dev *dev,
++				  struct mlx5_core_qp *qp)
++{
++	struct mlx5_qp_table *table = &dev->priv.qp_table;
++	unsigned long flags;
++
++	spin_lock_irqsave(&table->lock, flags);
++	radix_tree_delete(&table->tree,
++			  qp->qpn | (qp->common.res << MLX5_USER_INDEX_LEN));
++	spin_unlock_irqrestore(&table->lock, flags);
++	mlx5_core_put_rsc((struct mlx5_core_rsc_common *)qp);
++	wait_for_completion(&qp->common.free);
++}
++
+ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
+ 			struct mlx5_core_qp *qp,
+ 			struct mlx5_create_qp_mbox_in *in,
+ 			int inlen)
+ {
+-	struct mlx5_qp_table *table = &dev->priv.qp_table;
+ 	struct mlx5_create_qp_mbox_out out;
+ 	struct mlx5_destroy_qp_mbox_in din;
+ 	struct mlx5_destroy_qp_mbox_out dout;
+@@ -206,24 +245,16 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
+ 	qp->qpn = be32_to_cpu(out.qpn) & 0xffffff;
+ 	mlx5_core_dbg(dev, "qpn = 0x%x\n", qp->qpn);
+ 
+-	qp->common.res = MLX5_RES_QP;
+-	spin_lock_irq(&table->lock);
+-	err = radix_tree_insert(&table->tree, qp->qpn, qp);
+-	spin_unlock_irq(&table->lock);
+-	if (err) {
+-		mlx5_core_warn(dev, "err %d\n", err);
++	err = create_qprqsq_common(dev, qp, MLX5_RES_QP);
++	if (err)
+ 		goto err_cmd;
+-	}
+ 
+ 	err = mlx5_debug_qp_add(dev, qp);
+ 	if (err)
+ 		mlx5_core_dbg(dev, "failed adding QP 0x%x to debug file system\n",
+ 			      qp->qpn);
+ 
+-	qp->pid = current->pid;
+-	atomic_set(&qp->common.refcount, 1);
+ 	atomic_inc(&dev->num_qps);
+-	init_completion(&qp->common.free);
+ 
+ 	return 0;
+ 
+@@ -243,18 +274,11 @@ int mlx5_core_destroy_qp(struct mlx5_core_dev *dev,
+ {
+ 	struct mlx5_destroy_qp_mbox_in in;
+ 	struct mlx5_destroy_qp_mbox_out out;
+-	struct mlx5_qp_table *table = &dev->priv.qp_table;
+-	unsigned long flags;
+ 	int err;
+ 
+ 	mlx5_debug_qp_remove(dev, qp);
+ 
+-	spin_lock_irqsave(&table->lock, flags);
+-	radix_tree_delete(&table->tree, qp->qpn);
+-	spin_unlock_irqrestore(&table->lock, flags);
+-
+-	mlx5_core_put_rsc((struct mlx5_core_rsc_common *)qp);
+-	wait_for_completion(&qp->common.free);
++	destroy_qprqsq_common(dev, qp);
+ 
+ 	memset(&in, 0, sizeof(in));
+ 	memset(&out, 0, sizeof(out));
+@@ -442,3 +466,67 @@ int mlx5_core_page_fault_resume(struct mlx5_core_dev *dev, u32 qpn,
+ }
+ EXPORT_SYMBOL_GPL(mlx5_core_page_fault_resume);
+ #endif
++
++int mlx5_core_create_rq_tracked(struct mlx5_core_dev *dev, u32 *in, int inlen,
++				struct mlx5_core_qp *rq)
++{
++	int err;
++	u32 rqn;
++
++	err = mlx5_core_create_rq(dev, in, inlen, &rqn);
++	if (err)
++		return err;
++
++	rq->qpn = rqn;
++	err = create_qprqsq_common(dev, rq, MLX5_RES_RQ);
++	if (err)
++		goto err_destroy_rq;
++
++	return 0;
++
++err_destroy_rq:
++	mlx5_core_destroy_rq(dev, rq->qpn);
++
++	return err;
++}
++EXPORT_SYMBOL(mlx5_core_create_rq_tracked);
++
++void mlx5_core_destroy_rq_tracked(struct mlx5_core_dev *dev,
++				  struct mlx5_core_qp *rq)
++{
++	destroy_qprqsq_common(dev, rq);
++	mlx5_core_destroy_rq(dev, rq->qpn);
++}
++EXPORT_SYMBOL(mlx5_core_destroy_rq_tracked);
++
++int mlx5_core_create_sq_tracked(struct mlx5_core_dev *dev, u32 *in, int inlen,
++				struct mlx5_core_qp *sq)
++{
++	int err;
++	u32 sqn;
++
++	err = mlx5_core_create_sq(dev, in, inlen, &sqn);
++	if (err)
++		return err;
++
++	sq->qpn = sqn;
++	err = create_qprqsq_common(dev, sq, MLX5_RES_SQ);
++	if (err)
++		goto err_destroy_sq;
++
++	return 0;
++
++err_destroy_sq:
++	mlx5_core_destroy_sq(dev, sq->qpn);
++
++	return err;
++}
++EXPORT_SYMBOL(mlx5_core_create_sq_tracked);
++
++void mlx5_core_destroy_sq_tracked(struct mlx5_core_dev *dev,
++				  struct mlx5_core_qp *sq)
++{
++	destroy_qprqsq_common(dev, sq);
++	mlx5_core_destroy_sq(dev, sq->qpn);
++}
++EXPORT_SYMBOL(mlx5_core_destroy_sq_tracked);
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index a97effb8a294..86104eb1b6a2 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -223,6 +223,14 @@ enum {
+ #define MLX5_UMR_MTT_MASK      (MLX5_UMR_MTT_ALIGNMENT - 1)
+ #define MLX5_UMR_MTT_MIN_CHUNK_SIZE MLX5_UMR_MTT_ALIGNMENT
+ 
++#define MLX5_USER_INDEX_LEN (MLX5_FLD_SZ_BYTES(qpc, user_index) * 8)
++
++enum {
++	MLX5_EVENT_QUEUE_TYPE_QP = 0,
++	MLX5_EVENT_QUEUE_TYPE_RQ = 1,
++	MLX5_EVENT_QUEUE_TYPE_SQ = 2,
++};
++
+ enum mlx5_event {
+ 	MLX5_EVENT_TYPE_COMP		   = 0x0,
+ 
+@@ -491,7 +499,9 @@ struct mlx5_eqe_comp {
+ };
+ 
+ struct mlx5_eqe_qp_srq {
+-	__be32	reserved[6];
++	__be32	reserved1[5];
++	u8	type;
++	u8	reserved2[3];
+ 	__be32	qp_srq_n;
+ };
+ 
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 4bc8dbd3cf57..694f2622aba5 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -341,9 +341,11 @@ struct mlx5_core_mr {
+ };
+ 
+ enum mlx5_res_type {
+-	MLX5_RES_QP,
+-	MLX5_RES_SRQ,
+-	MLX5_RES_XSRQ,
++	MLX5_RES_QP	= MLX5_EVENT_QUEUE_TYPE_QP,
++	MLX5_RES_RQ	= MLX5_EVENT_QUEUE_TYPE_RQ,
++	MLX5_RES_SQ	= MLX5_EVENT_QUEUE_TYPE_SQ,
++	MLX5_RES_SRQ	= 3,
++	MLX5_RES_XSRQ	= 4,
+ };
+ 
+ struct mlx5_core_rsc_common {
+diff --git a/include/linux/mlx5/qp.h b/include/linux/mlx5/qp.h
+index 6897f1fcfdf3..8f726abc7a12 100644
+--- a/include/linux/mlx5/qp.h
++++ b/include/linux/mlx5/qp.h
+@@ -649,6 +649,14 @@ void mlx5_debug_qp_remove(struct mlx5_core_dev *dev, struct mlx5_core_qp *qp);
+ int mlx5_core_page_fault_resume(struct mlx5_core_dev *dev, u32 qpn,
+ 				u8 context, int error);
+ #endif
++int mlx5_core_create_rq_tracked(struct mlx5_core_dev *dev, u32 *in, int inlen,
++				struct mlx5_core_qp *rq);
++void mlx5_core_destroy_rq_tracked(struct mlx5_core_dev *dev,
++				  struct mlx5_core_qp *rq);
++int mlx5_core_create_sq_tracked(struct mlx5_core_dev *dev, u32 *in, int inlen,
++				struct mlx5_core_qp *sq);
++void mlx5_core_destroy_sq_tracked(struct mlx5_core_dev *dev,
++				  struct mlx5_core_qp *sq);
+ 
+ static inline const char *mlx5_qp_type_str(int type)
+ {
+-- 
+2.17.1
+

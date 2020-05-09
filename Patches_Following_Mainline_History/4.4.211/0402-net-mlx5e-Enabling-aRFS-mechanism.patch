@@ -1,0 +1,237 @@
+From fd9655b1e6cee4da1b3e0bee94256f008244a99d Mon Sep 17 00:00:00 2001
+From: Maor Gottlieb <maorg@mellanox.com>
+Date: Fri, 29 Apr 2016 01:36:42 +0300
+Subject: net/mlx5e: Enabling aRFS mechanism
+Reply-To: joseph.salisbury@microsoft.com
+
+Accelerated RFS requires that ntuple filtering is enabled via
+ethtool and driver supports ndo_rx_flow_steer.
+When the ntuple filtering is enabled, we modify the l3_l4 ttc
+rules to point on the aRFS flow tables and when the filtering
+is disabled, we modify the l3_l4 ttc rules to point on the RSS
+TIRs.
+
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 45bf454ae88414e80b80979ebb2c22bd66ea7d1b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h  | 12 +++
+ .../net/ethernet/mellanox/mlx5/core/en_arfs.c | 77 ++++++++++++++++++-
+ .../ethernet/mellanox/mlx5/core/en_ethtool.c  | 14 ++++
+ .../net/ethernet/mellanox/mlx5/core/en_main.c | 25 ++++++
+ 4 files changed, 126 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 858cb1dfc1a0..6802fbd62b0d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -690,9 +690,21 @@ static inline int mlx5e_arfs_create_tables(struct mlx5e_priv *priv)
+ }
+ 
+ static inline void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv) {}
++
++static inline int mlx5e_arfs_enable(struct mlx5e_priv *priv)
++{
++	return -ENOTSUPP;
++}
++
++static inline int mlx5e_arfs_disable(struct mlx5e_priv *priv)
++{
++	return -ENOTSUPP;
++}
+ #else
+ int mlx5e_arfs_create_tables(struct mlx5e_priv *priv);
+ void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv);
++int mlx5e_arfs_enable(struct mlx5e_priv *priv);
++int mlx5e_arfs_disable(struct mlx5e_priv *priv);
+ int mlx5e_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+ 			u16 rxq_index, u32 flow_id);
+ #endif
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
+index e54fbc16f34d..b4ae0fe15878 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
+@@ -72,14 +72,87 @@ struct arfs_rule {
+ 	for (j = 0; j < ARFS_HASH_SIZE; j++) \
+ 		hlist_for_each_entry_safe(hn, tmp, &hash[j], hlist)
+ 
++static enum mlx5e_traffic_types arfs_get_tt(enum arfs_type type)
++{
++	switch (type) {
++	case ARFS_IPV4_TCP:
++		return MLX5E_TT_IPV4_TCP;
++	case ARFS_IPV4_UDP:
++		return MLX5E_TT_IPV4_UDP;
++	case ARFS_IPV6_TCP:
++		return MLX5E_TT_IPV6_TCP;
++	case ARFS_IPV6_UDP:
++		return MLX5E_TT_IPV6_UDP;
++	default:
++		return -EINVAL;
++	}
++}
++
++static int arfs_disable(struct mlx5e_priv *priv)
++{
++	struct mlx5_flow_destination dest;
++	u32 *tirn = priv->indir_tirn;
++	int err = 0;
++	int tt;
++	int i;
++
++	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
++	for (i = 0; i < ARFS_NUM_TYPES; i++) {
++		dest.tir_num = tirn[i];
++		tt = arfs_get_tt(i);
++		/* Modify ttc rules destination to bypass the aRFS tables*/
++		err = mlx5_modify_rule_destination(priv->fs.ttc.rules[tt],
++						   &dest);
++		if (err) {
++			netdev_err(priv->netdev,
++				   "%s: modify ttc destination failed\n",
++				   __func__);
++			return err;
++		}
++	}
++	return 0;
++}
++
++static void arfs_del_rules(struct mlx5e_priv *priv);
++
++int mlx5e_arfs_disable(struct mlx5e_priv *priv)
++{
++	arfs_del_rules(priv);
++
++	return arfs_disable(priv);
++}
++
++int mlx5e_arfs_enable(struct mlx5e_priv *priv)
++{
++	struct mlx5_flow_destination dest;
++	int err = 0;
++	int tt;
++	int i;
++
++	dest.type = MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE;
++	for (i = 0; i < ARFS_NUM_TYPES; i++) {
++		dest.ft = priv->fs.arfs.arfs_tables[i].ft.t;
++		tt = arfs_get_tt(i);
++		/* Modify ttc rules destination to point on the aRFS FTs */
++		err = mlx5_modify_rule_destination(priv->fs.ttc.rules[tt],
++						   &dest);
++		if (err) {
++			netdev_err(priv->netdev,
++				   "%s: modify ttc destination failed err=%d\n",
++				   __func__, err);
++			arfs_disable(priv);
++			return err;
++		}
++	}
++	return 0;
++}
++
+ static void arfs_destroy_table(struct arfs_table *arfs_t)
+ {
+ 	mlx5_del_flow_rule(arfs_t->default_rule);
+ 	mlx5e_destroy_flow_table(&arfs_t->ft);
+ }
+ 
+-static void arfs_del_rules(struct mlx5e_priv *priv);
+-
+ void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv)
+ {
+ 	int i;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 53d56e3cc4dd..f24802564fad 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -485,13 +485,27 @@ static int mlx5e_set_channels(struct net_device *dev,
+ 	if (was_opened)
+ 		mlx5e_close_locked(dev);
+ 
++	arfs_enabled = dev->features & NETIF_F_NTUPLE;
++	if (arfs_enabled)
++		mlx5e_arfs_disable(priv);
++
+ 	priv->params.num_channels = count;
+ 	mlx5e_build_default_indir_rqt(priv->mdev, priv->params.indirection_rqt,
+ 				      MLX5E_INDIR_RQT_SIZE, count);
+ 
+ 	if (was_opened)
+ 		err = mlx5e_open_locked(dev);
++	if (err)
++		goto out;
+ 
++	if (arfs_enabled) {
++		err = mlx5e_arfs_enable(priv);
++		if (err)
++			netdev_err(dev, "%s: mlx5e_arfs_enable failed: %d\n",
++				   __func__, err);
++	}
++
++out:
+ 	mutex_unlock(&priv->state_lock);
+ 
+ 	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 9c9b2ce14521..33b73a56ca20 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2277,6 +2277,21 @@ static int set_feature_rx_vlan(struct net_device *netdev, bool enable)
+ 	return err;
+ }
+ 
++#ifdef CONFIG_RFS_ACCEL
++static int set_feature_arfs(struct net_device *netdev, bool enable)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	int err;
++
++	if (enable)
++		err = mlx5e_arfs_enable(priv);
++	else
++		err = mlx5e_arfs_disable(priv);
++
++	return err;
++}
++#endif
++
+ static int mlx5e_handle_feature(struct net_device *netdev,
+ 				netdev_features_t wanted_features,
+ 				netdev_features_t feature,
+@@ -2316,6 +2331,10 @@ static int mlx5e_set_features(struct net_device *netdev,
+ 				    set_feature_rx_all);
+ 	err |= mlx5e_handle_feature(netdev, features, NETIF_F_HW_VLAN_CTAG_RX,
+ 				    set_feature_rx_vlan);
++#ifdef CONFIG_RFS_ACCEL
++	err |= mlx5e_handle_feature(netdev, features, NETIF_F_NTUPLE,
++				    set_feature_arfs);
++#endif
+ 
+ 	return err ? -EINVAL : 0;
+ }
+@@ -2531,6 +2550,9 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
+ 	.ndo_set_features        = mlx5e_set_features,
+ 	.ndo_change_mtu          = mlx5e_change_mtu,
+ 	.ndo_do_ioctl            = mlx5e_ioctl,
++#ifdef CONFIG_RFS_ACCEL
++	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
++#endif
+ };
+ 
+ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+@@ -2550,6 +2572,9 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+ 	.ndo_add_vxlan_port      = mlx5e_add_vxlan_port,
+ 	.ndo_del_vxlan_port      = mlx5e_del_vxlan_port,
+ 	.ndo_features_check      = mlx5e_features_check,
++#ifdef CONFIG_RFS_ACCEL
++	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
++#endif
+ 	.ndo_set_vf_mac          = mlx5e_set_vf_mac,
+ 	.ndo_set_vf_vlan         = mlx5e_set_vf_vlan,
+ 	.ndo_get_vf_config       = mlx5e_get_vf_config,
+-- 
+2.17.1
+

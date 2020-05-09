@@ -1,0 +1,127 @@
+From efca1bf0b95f1baddc3d19754d16390752900e1f Mon Sep 17 00:00:00 2001
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Tue, 1 Dec 2015 18:03:17 +0200
+Subject: net/mlx5e: Write vlan list into vport context
+Reply-To: joseph.salisbury@microsoft.com
+
+Each Vport/vNIC must notify underlying e-Switch layer
+for vlan table changes in-order to update SR-IOV FDB tables.
+
+We do that at vlan_rx_add_vid and vlan_rx_kill_vid ndos.
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit aad9e6e41e5e595528e316871bbc5be78a8a1eb4)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h  |  1 +
+ .../mellanox/mlx5/core/en_flow_table.c        | 52 +++++++++++++++++++
+ 2 files changed, 53 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 4a852a766f3e..8d1ba64d3bcd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -465,6 +465,7 @@ enum {
+ };
+ 
+ struct mlx5e_vlan_db {
++	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ 	u32           active_vlans_ft_ix[VLAN_N_VID];
+ 	u32           untagged_rule_ft_ix;
+ 	u32           any_vlan_rule_ft_ix;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+index fb02f6c0891f..5b93c9c6e341 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+@@ -502,6 +502,49 @@ add_eth_addr_rule_out:
+ 	return err;
+ }
+ 
++static int mlx5e_vport_context_update_vlans(struct mlx5e_priv *priv)
++{
++	struct net_device *ndev = priv->netdev;
++	int max_list_size;
++	int list_size;
++	u16 *vlans;
++	int vlan;
++	int err;
++	int i;
++
++	list_size = 0;
++	for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID)
++		list_size++;
++
++	max_list_size = 1 << MLX5_CAP_GEN(priv->mdev, log_max_vlan_list);
++
++	if (list_size > max_list_size) {
++		netdev_warn(ndev,
++			    "netdev vlans list size (%d) > (%d) max vport list size, some vlans will be dropped\n",
++			    list_size, max_list_size);
++		list_size = max_list_size;
++	}
++
++	vlans = kcalloc(list_size, sizeof(*vlans), GFP_KERNEL);
++	if (!vlans)
++		return -ENOMEM;
++
++	i = 0;
++	for_each_set_bit(vlan, priv->vlan.active_vlans, VLAN_N_VID) {
++		if (i >= list_size)
++			break;
++		vlans[i++] = vlan;
++	}
++
++	err = mlx5_modify_nic_vport_vlans(priv->mdev, vlans, list_size);
++	if (err)
++		netdev_err(ndev, "Failed to modify vport vlans list err(%d)\n",
++			   err);
++
++	kfree(vlans);
++	return err;
++}
++
+ enum mlx5e_vlan_rule_type {
+ 	MLX5E_VLAN_RULE_TYPE_UNTAGGED,
+ 	MLX5E_VLAN_RULE_TYPE_ANY_VID,
+@@ -552,6 +595,10 @@ static int mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
+ 			 1);
+ 		break;
+ 	default: /* MLX5E_VLAN_RULE_TYPE_MATCH_VID */
++		err = mlx5e_vport_context_update_vlans(priv);
++		if (err)
++			goto add_vlan_rule_out;
++
+ 		ft_ix = &priv->vlan.active_vlans_ft_ix[vid];
+ 		MLX5_SET(fte_match_param, match_value, outer_headers.vlan_tag,
+ 			 1);
+@@ -588,6 +635,7 @@ static void mlx5e_del_vlan_rule(struct mlx5e_priv *priv,
+ 	case MLX5E_VLAN_RULE_TYPE_MATCH_VID:
+ 		mlx5_del_flow_table_entry(priv->ft.vlan,
+ 					  priv->vlan.active_vlans_ft_ix[vid]);
++		mlx5e_vport_context_update_vlans(priv);
+ 		break;
+ 	}
+ }
+@@ -619,6 +667,8 @@ int mlx5e_vlan_rx_add_vid(struct net_device *dev, __always_unused __be16 proto,
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 
++	set_bit(vid, priv->vlan.active_vlans);
++
+ 	return mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
+ }
+ 
+@@ -627,6 +677,8 @@ int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 
++	clear_bit(vid, priv->vlan.active_vlans);
++
+ 	mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
+ 
+ 	return 0;
+-- 
+2.17.1
+

@@ -1,0 +1,56 @@
+From d5f365139a4f061bd8d11e3ba99f008ee3afc2ff Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Mon, 14 Dec 2015 16:01:44 -0800
+Subject: Drivers: hv: vmbus: Use uuid_le_cmp() for comparing GUIDs
+Reply-To: joseph.salisbury@microsoft.com
+
+Use uuid_le_cmp() for comparing GUIDs.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 4ae9250893485f380275e7d5cb291df87c4d9710)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel_mgmt.c | 3 +--
+ drivers/hv/vmbus_drv.c    | 4 ++--
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index 9002c563e975..d248c9d404e8 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -406,8 +406,7 @@ static void init_vp_index(struct vmbus_channel *channel, const uuid_le *type_gui
+ 	struct cpumask *alloced_mask;
+ 
+ 	for (i = IDE; i < MAX_PERF_CHN; i++) {
+-		if (!memcmp(type_guid->b, &hp_devs[i].guid,
+-				 sizeof(uuid_le))) {
++		if (!uuid_le_cmp(*type_guid, hp_devs[i].guid)) {
+ 			perf_chn = true;
+ 			break;
+ 		}
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index 704a2eea97de..5842a6a6fe0d 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -555,7 +555,7 @@ static const uuid_le null_guid;
+ 
+ static inline bool is_null_guid(const uuid_le *guid)
+ {
+-	if (memcmp(guid, &null_guid, sizeof(uuid_le)))
++	if (uuid_le_cmp(*guid, null_guid))
+ 		return false;
+ 	return true;
+ }
+@@ -569,7 +569,7 @@ static const struct hv_vmbus_device_id *hv_vmbus_get_id(
+ 					const uuid_le *guid)
+ {
+ 	for (; !is_null_guid(&id->guid); id++)
+-		if (!memcmp(&id->guid, guid, sizeof(uuid_le)))
++		if (!uuid_le_cmp(id->guid, *guid))
+ 			return id;
+ 
+ 	return NULL;
+-- 
+2.17.1
+

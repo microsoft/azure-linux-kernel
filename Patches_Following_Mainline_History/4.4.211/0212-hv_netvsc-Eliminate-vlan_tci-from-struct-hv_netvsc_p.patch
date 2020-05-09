@@ -1,0 +1,130 @@
+From 21a1e58605c2603eb9cc73dd66e7e2cb1d6475bb Mon Sep 17 00:00:00 2001
+From: KY Srinivasan <kys@microsoft.com>
+Date: Tue, 1 Dec 2015 16:43:19 -0800
+Subject: hv_netvsc: Eliminate vlan_tci from struct hv_netvsc_packet
+Reply-To: joseph.salisbury@microsoft.com
+
+Eliminate vlan_tci from struct hv_netvsc_packet.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 760d1e36cc16fa6444dd2000ac645455de1ecd51)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |  4 ++--
+ drivers/net/hyperv/netvsc_drv.c   | 17 +++++++----------
+ drivers/net/hyperv/rndis_filter.c |  8 ++++----
+ 3 files changed, 13 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index c74101e65b7c..be5c799b7f01 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -139,7 +139,6 @@ struct hv_netvsc_packet {
+ 	u8 page_buf_cnt;
+ 	u8 pad0;
+ 
+-	u16 vlan_tci;
+ 	u16 q_idx;
+ 	u32 send_buf_index;
+ 
+@@ -193,7 +192,8 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 			struct hv_netvsc_packet *packet,
+ 			void **data,
+ 			struct ndis_tcp_ip_checksum_info *csum_info,
+-			struct vmbus_channel *channel);
++			struct vmbus_channel *channel,
++			u16 vlan_tci);
+ void netvsc_channel_cb(void *context);
+ int rndis_filter_open(struct hv_device *dev);
+ int rndis_filter_close(struct hv_device *dev);
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 4f485f52cd34..8e28a5ab3994 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -414,7 +414,6 @@ check_size:
+ 
+ 	packet->status = 0;
+ 
+-	packet->vlan_tci = skb->vlan_tci;
+ 
+ 	packet->q_idx = skb_get_queue_mapping(skb);
+ 
+@@ -424,10 +423,7 @@ check_size:
+ 
+ 	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
+ 
+-	/* Set the completion routine */
+-	packet->completion_func = 1;
+-
+-	isvlan = packet->vlan_tci & VLAN_TAG_PRESENT;
++	isvlan = skb->vlan_tci & VLAN_TAG_PRESENT;
+ 
+ 	/* Add the rndis header */
+ 	rndis_msg->ndis_msg_type = RNDIS_MSG_PACKET;
+@@ -455,8 +451,8 @@ check_size:
+ 					IEEE_8021Q_INFO);
+ 		vlan = (struct ndis_pkt_8021q_info *)((void *)ppi +
+ 						ppi->ppi_offset);
+-		vlan->vlanid = packet->vlan_tci & VLAN_VID_MASK;
+-		vlan->pri = (packet->vlan_tci & VLAN_PRIO_MASK) >>
++		vlan->vlanid = skb->vlan_tci & VLAN_VID_MASK;
++		vlan->pri = (skb->vlan_tci & VLAN_PRIO_MASK) >>
+ 				VLAN_PRIO_SHIFT;
+ 	}
+ 
+@@ -619,7 +615,8 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 				struct hv_netvsc_packet *packet,
+ 				void **data,
+ 				struct ndis_tcp_ip_checksum_info *csum_info,
+-				struct vmbus_channel *channel)
++				struct vmbus_channel *channel,
++				u16 vlan_tci)
+ {
+ 	struct net_device *net;
+ 	struct net_device_context *net_device_ctx;
+@@ -661,9 +658,9 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 			skb->ip_summed = CHECKSUM_NONE;
+ 	}
+ 
+-	if (packet->vlan_tci & VLAN_TAG_PRESENT)
++	if (vlan_tci & VLAN_TAG_PRESENT)
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+-				       packet->vlan_tci);
++				       vlan_tci);
+ 
+ 	skb_record_rx_queue(skb, channel->
+ 			    offermsg.offer.sub_channel_index);
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 0b986743abe6..b856141d73fc 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -357,6 +357,7 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
+ 	u32 data_offset;
+ 	struct ndis_pkt_8021q_info *vlan;
+ 	struct ndis_tcp_ip_checksum_info *csum_info;
++	u16 vlan_tci = 0;
+ 
+ 	rndis_pkt = &msg->msg.pkt;
+ 
+@@ -387,14 +388,13 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
+ 
+ 	vlan = rndis_get_ppi(rndis_pkt, IEEE_8021Q_INFO);
+ 	if (vlan) {
+-		pkt->vlan_tci = VLAN_TAG_PRESENT | vlan->vlanid |
++		vlan_tci = VLAN_TAG_PRESENT | vlan->vlanid |
+ 			(vlan->pri << VLAN_PRIO_SHIFT);
+-	} else {
+-		pkt->vlan_tci = 0;
+ 	}
+ 
+ 	csum_info = rndis_get_ppi(rndis_pkt, TCPIP_CHKSUM_PKTINFO);
+-	netvsc_recv_callback(dev->net_dev->dev, pkt, data, csum_info, channel);
++	return netvsc_recv_callback(dev->net_dev->dev, pkt, data,
++				    csum_info, channel, vlan_tci);
+ }
+ 
+ int rndis_filter_receive(struct hv_device *dev,
+-- 
+2.17.1
+
