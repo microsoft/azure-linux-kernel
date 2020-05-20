@@ -1,0 +1,228 @@
+From c072196a7a68a0acb04d76b61c572f90b3c78ee8 Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Mon, 20 Apr 2020 17:39:12 -0700
+Subject: [PATCH 5/5] Fix the NULL pointer panic triggered by hotplugging the
+ VF device
+
+This patch is backported from:
+
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=dad72a1d28442b03aac86836a42de2d00a1014ab
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=6463a4571ceefc43908df4b016d8d5d8b8e85357
+
+The panic call-trace is:
+
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000004
+IP: [<ffffffff813cef46>] hv_ringbuffer_read+0x31/0x177
+PGD 0
+Oops: 0000 [#1] SMP
+Modules linked in: 8021q tun nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter
+ip6_tables xt_tcpudp xt_state iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4
+nf_nat_ipv4 nf_nat xt_CT iptable_raw nf_conntrack_tftp nf_conntrack_ftp
+nf_conntrack mlx5_core(O) mlxfw(O) mlx_compat(O) mlx4_en iptable_filter
+ip_tables x_tables nfsd exportfs dm_mod video thermal_sys mlx4_core
+pci_hyperv button i2c_piix4
+CPU: 0 PID: 5732 Comm: kworker/0:0 Tainted: G           O 3.10.88-9.0.6.0.53 #1
+Hardware name: Microsoft Corporation Virtual Machine/Virtual Machine, BIOS 090007  06/02/2017
+Workqueue: hv_vmbus_con vmbus_onmessage_work
+task: ffff8802efa43790 ti: ffff88070c8e0000 task.ti: ffff88070c8e0000
+RIP: 0010:[<ffffffff813cef46>]  [<ffffffff813cef46>] hv_ringbuffer_read+0x31/0x177
+RSP: 0018:ffff8807bee03e28  EFLAGS: 00010206
+RAX: ffff880700753400 RBX: ffff8807077741c0 RCX: ffff8807bee03e64
+RDX: 0000000000000100 RSI: 0000000000000000 RDI: ffff880700753400
+RBP: ffff8807bee03e40 R08: ffff8807bee03e68 R09: 0000000000000001
+R10: 0000000000000000 R11: 0000000000001827 R12: 0000000000000000
+R13: ffff88078d73f000 R14: 0000000000000100 R15: 0000000000000100
+FS:  0000000000000000(0000) GS:ffff8807bee00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000000000004 CR3: 000000000180e000 CR4: 00000000003406f0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+Stack:
+ffff8807077741c0 0000000000000000 ffff88078d73f000 ffff8807bee03e50
+ffffffff813cda05 ffff8807bee03e90 ffffffffa000c8fe 0000000000000202
+0000000000000000 ffff880700753400 0000000000000000 0000000000000006
+Call Trace:
+<IRQ>
+ [<ffffffff813cda05>] vmbus_recvpacket_raw+0xf/0x11
+[<ffffffffa000c8fe>] hv_pci_onchannelcallback+0x58/0x1db [pci_hyperv]
+[<ffffffff813cc750>] vmbus_on_event+0x1d/0x81
+[<ffffffff81043ed6>] tasklet_action+0x77/0xbf
+[<ffffffff810439c2>] __do_softirq+0xd8/0x1ff
+[<ffffffff814afbdc>] call_softirq+0x1c/0x30
+[<ffffffff81010bf2>] do_softirq+0x40/0x7e
+[<ffffffff81043bcb>] irq_exit+0x44/0x52
+[<ffffffff810108c9>] do_IRQ+0x98/0xaf
+[<ffffffff814a80ad>] common_interrupt+0x6d/0x6d
+<EOI>
+ [<ffffffff814a7bf7>] ? _raw_spin_lock+0x19/0x1f
+[<ffffffff810da717>] alloc_vmap_area.isra.18+0x94/0x26c
+[<ffffffff810db75e>] __get_vm_area_node.isra.19+0xbb/0x16b
+[<ffffffff810db942>] get_vm_area_caller+0x30/0x32
+[<ffffffff813ced64>] ? hv_ringbuffer_init+0x96/0xe7
+[<ffffffff810dbc0f>] vmap+0x2c/0x5d
+[<ffffffff813ced64>] hv_ringbuffer_init+0x96/0xe7
+[<ffffffff813cd321>] vmbus_open+0x145/0x3a9
+[<ffffffffa000ba2b>] hv_pci_probe+0x11c/0x9d6 [pci_hyperv]
+[<ffffffff81145430>] ? sysfs_add_one+0x16/0xa5
+[<ffffffff81145cd0>] ? sysfs_do_create_link_sd+0x138/0x17f
+[<ffffffff813cb2a2>] ? hv_vmbus_get_id+0x69/0x7f
+
+[<ffffffff813cb97e>] vmbus_probe+0x37/0x89
+
+[<ffffffff812d32c6>] driver_probe_device+0x99/0x1c5
+[<ffffffff812d33f2>] ? driver_probe_device+0x1c5/0x1c5
+[<ffffffff812d3417>] __device_attach+0x25/0x38
+[<ffffffff812d1ae5>] bus_for_each_drv+0x74/0x7e
+[<ffffffff812d31fd>] device_attach+0x6c/0x80
+[<ffffffff812d2877>] bus_probe_device+0x2b/0x94
+[<ffffffff812d1164>] device_add+0x480/0x589
+[<ffffffff812d850b>] ? device_pm_sleep_init+0x44/0x69
+[<ffffffff812d1282>] device_register+0x15/0x18
+[<ffffffff813cbf87>] vmbus_device_register+0x59/0x74
+
+[<ffffffff813ce5e4>] vmbus_onoffer+0x45d/0x575
+[<ffffffff813ceb0c>] vmbus_onmessage+0x57/0x6c
+[<ffffffff813cb8a2>] vmbus_onmessage_work+0x1a/0x25
+[<ffffffff81053e42>] process_one_work+0x1df/0x354
+[<ffffffff81054add>] worker_thread+0x1d5/0x2c1
+[<ffffffff81054908>] ? rescuer_thread+0x272/0x272
+[<ffffffff81058fba>] kthread+0xb5/0xbd
+[<ffffffff81058f05>] ? kthread_create_on_node+0x10e/0x10e
+[<ffffffff814ae7d8>] ret_from_fork+0x58/0x90
+[<ffffffff81058f05>] ? kthread_create_on_node+0x10e/0x10e
+Code: 00 00 55 48 89 f8 48 89 e5 41 55 41 54 53 c7 01 00 00 00 00 48 ...
+RIP  [<ffffffff813cef46>] hv_ringbuffer_read+0x31/0x177
+RSP <ffff8807bee03e28>
+CR2: 0000000000000004
+---[ end trace facc1122e166beb5 ]---
+Kernel panic - not syncing: Fatal exception in interrupt
+---
+ drivers/hv/channel.c      | 14 ++++++--------
+ drivers/hv/channel_mgmt.c | 19 -------------------
+ include/linux/hyperv.h    |  3 ---
+ 3 files changed, 6 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index 78f811fba825..e07c35a9e92a 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -557,15 +557,13 @@ static int vmbus_close_internal(struct vmbus_channel *channel)
+ 	int ret;
+ 
+ 	/*
+-	 * vmbus_on_event(), running in the tasklet, can race
++	 * vmbus_on_event(), running in the per-channel tasklet, can race
+ 	 * with vmbus_close_internal() in the case of SMP guest, e.g., when
+ 	 * the former is accessing channel->inbound.ring_buffer, the latter
+-	 * could be freeing the ring_buffer pages.
+-	 *
+-	 * To resolve the race, we can serialize them by disabling the
+-	 * tasklet when the latter is running here.
++	 * could be freeing the ring_buffer pages, so here we must stop it
++	 * first.
+ 	 */
+-	hv_event_tasklet_disable(channel);
++	tasklet_disable(&channel->callback_event);
+ 
+ 	/*
+ 	 * In case a device driver's probe() fails (e.g.,
+@@ -632,8 +630,8 @@ static int vmbus_close_internal(struct vmbus_channel *channel)
+ 		get_order(channel->ringbuffer_pagecount * PAGE_SIZE));
+ 
+ out:
+-	hv_event_tasklet_enable(channel);
+-
++	/* re-enable tasklet for use on re-open */
++	tasklet_enable(&channel->callback_event);
+ 	return ret;
+ }
+ 
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index 7396f5e5840f..500afc17c023 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -356,19 +356,6 @@ static void vmbus_release_relid(u32 relid)
+ 		       true);
+ }
+ 
+-void hv_event_tasklet_disable(struct vmbus_channel *channel)
+-{
+-	tasklet_disable(&channel->callback_event);
+-}
+-
+-void hv_event_tasklet_enable(struct vmbus_channel *channel)
+-{
+-	tasklet_enable(&channel->callback_event);
+-
+-	/* In case there is any pending event */
+-	tasklet_schedule(&channel->callback_event);
+-}
+-
+ void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid)
+ {
+ 	unsigned long flags;
+@@ -377,7 +364,6 @@ void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid)
+ 	BUG_ON(!channel->rescind);
+ 	BUG_ON(!mutex_is_locked(&vmbus_connection.channel_mutex));
+ 
+-	hv_event_tasklet_disable(channel);
+ 	if (channel->target_cpu != get_cpu()) {
+ 		put_cpu();
+ 		smp_call_function_single(channel->target_cpu,
+@@ -386,7 +372,6 @@ void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid)
+ 		percpu_channel_deq(channel);
+ 		put_cpu();
+ 	}
+-	hv_event_tasklet_enable(channel);
+ 
+ 	if (channel->primary_channel == NULL) {
+ 		list_del(&channel->listentry);
+@@ -480,7 +465,6 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
+ 
+ 	init_vp_index(newchannel, dev_type);
+ 
+-	hv_event_tasklet_disable(newchannel);
+ 	if (newchannel->target_cpu != get_cpu()) {
+ 		put_cpu();
+ 		smp_call_function_single(newchannel->target_cpu,
+@@ -490,7 +474,6 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
+ 		percpu_channel_enq(newchannel);
+ 		put_cpu();
+ 	}
+-	hv_event_tasklet_enable(newchannel);
+ 
+ 	/*
+ 	 * This state is used to indicate a successful open
+@@ -540,7 +523,6 @@ err_deq_chan:
+ 	list_del(&newchannel->listentry);
+ 	mutex_unlock(&vmbus_connection.channel_mutex);
+ 
+-	hv_event_tasklet_disable(newchannel);
+ 	if (newchannel->target_cpu != get_cpu()) {
+ 		put_cpu();
+ 		smp_call_function_single(newchannel->target_cpu,
+@@ -549,7 +531,6 @@ err_deq_chan:
+ 		percpu_channel_deq(newchannel);
+ 		put_cpu();
+ 	}
+-	hv_event_tasklet_enable(newchannel);
+ 
+ 	vmbus_release_relid(newchannel->offermsg.child_relid);
+ 
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index f4f1cf554863..64488a123142 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1479,9 +1479,6 @@ extern bool vmbus_prep_negotiate_resp(struct icmsg_hdr *icmsghdrp, u8 *buf,
+                                 const int *srv_version, int srv_vercnt,
+                                 int *nego_fw_version, int *nego_srv_version);
+ 
+-void hv_event_tasklet_disable(struct vmbus_channel *channel);
+-void hv_event_tasklet_enable(struct vmbus_channel *channel);
+-
+ void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid);
+ 
+ void vmbus_setevent(struct vmbus_channel *channel);
+-- 
+2.17.1
+
