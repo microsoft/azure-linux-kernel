@@ -1,0 +1,33 @@
+From 16947de9da6af7dd6814f5390164b5c6a2ca6dce Mon Sep 17 00:00:00 2001
+From: Jiri Pirko <jiri@mellanox.com>
+Date: Fri, 11 Dec 2015 16:10:39 +0100
+Subject: mlxsw: reg: Fix max temperature getting
+Reply-To: joseph.salisbury@microsoft.com
+
+Fix copy & paste error in MTPM unpack helper.
+
+Fixes: 85926f877040 ("mlxsw: reg: Add definition of temperature management registers")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit acf35a4ec6f75bcb1c20c7aa02586de6220d76c5)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 2453f2aa48d9..820d846725b5 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -2684,7 +2684,7 @@ static inline void mlxsw_reg_mtmp_unpack(char *payload, unsigned int *p_temp,
+ 		*p_temp = MLXSW_REG_MTMP_TEMP_TO_MC(temp);
+ 	}
+ 	if (p_max_temp) {
+-		temp = mlxsw_reg_mtmp_temperature_get(payload);
++		temp = mlxsw_reg_mtmp_max_temperature_get(payload);
+ 		*p_max_temp = MLXSW_REG_MTMP_TEMP_TO_MC(temp);
+ 	}
+ 	if (sensor_name)
+-- 
+2.17.1
+

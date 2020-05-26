@@ -1,0 +1,110 @@
+From d6161ff0d2f8b2e50c070631fe16bfad59259ef5 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 9 Aug 2017 17:46:12 -0700
+Subject: netvsc: keep track of some non-fatal overload conditions
+Reply-To: joseph.salisbury@microsoft.com
+
+Add ethtool statistics for case where send chimmeny buffer is
+exhausted and driver has to fall back to doing scatter/gather
+send. Also, add statistic for case where ring buffer is full and
+receive completions are delayed.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit cad5c197704d82faf33ffdbef414f15db08d9ef9)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  2 ++
+ drivers/net/hyperv/netvsc.c     | 19 +++++++++++++------
+ drivers/net/hyperv/netvsc_drv.c |  2 ++
+ 3 files changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index ab06e7ec035c..c352f7b8ac67 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -687,6 +687,8 @@ struct netvsc_ethtool_stats {
+ 	unsigned long tx_no_space;
+ 	unsigned long tx_too_big;
+ 	unsigned long tx_busy;
++	unsigned long tx_send_full;
++	unsigned long rx_comp_busy;
+ };
+ 
+ struct netvsc_vf_pcpu_stats {
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index ef7b24a539d6..585d0db8dcf8 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -888,7 +888,9 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ 	} else if ((skb != NULL) && pktlen + net_device->pkt_align <
+ 		   net_device->send_section_size) {
+ 		section_index = netvsc_get_next_send_section(net_device);
+-		if (section_index != NETVSC_INVALID_INDEX) {
++		if (unlikely(section_index == NETVSC_INVALID_INDEX)) {
++			++ndev_ctx->eth_stats.tx_send_full;
++		} else {
+ 			move_pkt_msd(&msd_send, &msd_skb, msdp);
+ 			msd_len = 0;
+ 		}
+@@ -954,9 +956,10 @@ send_now:
+ }
+ 
+ /* Send pending recv completions */
+-static int send_recv_completions(struct netvsc_channel *nvchan)
++static int send_recv_completions(struct net_device *ndev,
++				 struct netvsc_device *nvdev,
++				 struct netvsc_channel *nvchan)
+ {
+-	struct netvsc_device *nvdev = nvchan->net_device;
+ 	struct multi_recv_comp *mrc = &nvchan->mrc;
+ 	struct recv_comp_msg {
+ 		struct nvsp_message_header hdr;
+@@ -974,8 +977,12 @@ static int send_recv_completions(struct netvsc_channel *nvchan)
+ 		msg.status = rcd->status;
+ 		ret = vmbus_sendpacket(nvchan->channel, &msg, sizeof(msg),
+ 				       rcd->tid, VM_PKT_COMP, 0);
+-		if (unlikely(ret))
++		if (unlikely(ret)) {
++			struct net_device_context *ndev_ctx = netdev_priv(ndev);
++
++			++ndev_ctx->eth_stats.rx_comp_busy;
+ 			return ret;
++		}
+ 
+ 		if (++mrc->first == nvdev->recv_completion_cnt)
+ 			mrc->first = 0;
+@@ -1016,7 +1023,7 @@ static void enq_receive_complete(struct net_device *ndev,
+ 	recv_comp_slot_avail(nvdev, mrc, &filled, &avail);
+ 
+ 	if (unlikely(filled > NAPI_POLL_WEIGHT)) {
+-		send_recv_completions(nvchan);
++		send_recv_completions(ndev, nvdev, nvchan);
+ 		recv_comp_slot_avail(nvdev, mrc, &filled, &avail);
+ 	}
+ 
+@@ -1200,7 +1207,7 @@ int netvsc_poll(struct napi_struct *napi, int budget)
+ 	 * then re-enable host interrupts
+ 	 *     and reschedule if ring is not empty.
+ 	 */
+-	if (send_recv_completions(nvchan) == 0 &&
++	if (send_recv_completions(ndev, net_device, nvchan) == 0 &&
+ 	    work_done < budget &&
+ 	    napi_complete_done(napi, work_done) &&
+ 	    hv_end_read(&channel->inbound)) {
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index dc199fe89f36..bea534beec58 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1086,6 +1086,8 @@ static const struct {
+ 	{ "tx_no_space",  offsetof(struct netvsc_ethtool_stats, tx_no_space) },
+ 	{ "tx_too_big",	  offsetof(struct netvsc_ethtool_stats, tx_too_big) },
+ 	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
++	{ "tx_send_full", offsetof(struct netvsc_ethtool_stats, tx_send_full) },
++	{ "rx_comp_busy", offsetof(struct netvsc_ethtool_stats, rx_comp_busy) },
+ }, vf_stats[] = {
+ 	{ "vf_rx_packets", offsetof(struct netvsc_vf_pcpu_stats, rx_packets) },
+ 	{ "vf_rx_bytes",   offsetof(struct netvsc_vf_pcpu_stats, rx_bytes) },
+-- 
+2.17.1
+

@@ -1,0 +1,273 @@
+From ca6601b69fadd641a83cf9d533da94e24618e0c6 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 9 Jun 2016 17:08:57 -0700
+Subject: Drivers: hv: utils: fix a race on userspace daemons registration
+Reply-To: joseph.salisbury@microsoft.com
+
+Background: userspace daemons registration protocol for Hyper-V utilities
+drivers has two steps:
+1) daemon writes its own version to kernel
+2) kernel reads it and replies with module version
+at this point we consider the handshake procedure being completed and we
+do hv_poll_channel() transitioning the utility device to HVUTIL_READY
+state. At this point we're ready to handle messages from kernel.
+
+When hvutil_transport is in HVUTIL_TRANSPORT_CHARDEV mode we have a
+single buffer for outgoing message. hvutil_transport_send() puts to this
+buffer and till the buffer is cleared with hvt_op_read() returns -EFAULT
+to all consequent calls. Host<->guest protocol guarantees there is no more
+than one request at a time and we will not get new requests till we reply
+to the previous one so this single message buffer is enough.
+
+Now to the race. When we finish negotiation procedure and send kernel
+module version to userspace with hvutil_transport_send() it goes into the
+above mentioned buffer and if the daemon is slow enough to read it from
+there we can get a collision when a request from the host comes, we won't
+be able to put anything to the buffer so the request will be lost. To
+solve the issue we need to know when the negotiation is really done (when
+the version message is read by the daemon) and transition to HVUTIL_READY
+state after this happens. Implement a callback on read to support this.
+Old style netlink communication is not affected by the change, we don't
+really know when these messages are delivered but we don't have a single
+message buffer there.
+
+Reported-by: Barry Davis <barry_davis@stormagic.com>
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit e0fa3e5e7df61eb2c339c9f0067c202c0cdeec2c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/hv_fcopy.c           | 14 ++++++++++----
+ drivers/hv/hv_kvp.c             | 27 ++++++++++++++++-----------
+ drivers/hv/hv_snapshot.c        | 16 +++++++++++-----
+ drivers/hv/hv_utils_transport.c | 15 ++++++++++++++-
+ drivers/hv/hv_utils_transport.h |  4 +++-
+ 5 files changed, 54 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/hv/hv_fcopy.c b/drivers/hv/hv_fcopy.c
+index 2cce48d9e903..75126e4e3f05 100644
+--- a/drivers/hv/hv_fcopy.c
++++ b/drivers/hv/hv_fcopy.c
+@@ -84,6 +84,12 @@ static void fcopy_timeout_func(struct work_struct *dummy)
+ 	hv_poll_channel(fcopy_transaction.recv_channel, fcopy_poll_wrapper);
+ }
+ 
++static void fcopy_register_done(void)
++{
++	pr_debug("FCP: userspace daemon registered\n");
++	hv_poll_channel(fcopy_transaction.recv_channel, fcopy_poll_wrapper);
++}
++
+ static int fcopy_handle_handshake(u32 version)
+ {
+ 	u32 our_ver = FCOPY_CURRENT_VERSION;
+@@ -95,7 +101,8 @@ static int fcopy_handle_handshake(u32 version)
+ 		break;
+ 	case FCOPY_VERSION_1:
+ 		/* Daemon expects us to reply with our own version */
+-		if (hvutil_transport_send(hvt, &our_ver, sizeof(our_ver)))
++		if (hvutil_transport_send(hvt, &our_ver, sizeof(our_ver),
++		    fcopy_register_done))
+ 			return -EFAULT;
+ 		dm_reg_value = version;
+ 		break;
+@@ -108,8 +115,7 @@ static int fcopy_handle_handshake(u32 version)
+ 		 */
+ 		return -EINVAL;
+ 	}
+-	pr_debug("FCP: userspace daemon ver. %d registered\n", version);
+-	hv_poll_channel(fcopy_transaction.recv_channel, fcopy_poll_wrapper);
++	pr_debug("FCP: userspace daemon ver. %d connected\n", version);
+ 	return 0;
+ }
+ 
+@@ -166,7 +172,7 @@ static void fcopy_send_data(struct work_struct *dummy)
+ 	}
+ 
+ 	fcopy_transaction.state = HVUTIL_USERSPACE_REQ;
+-	rc = hvutil_transport_send(hvt, out_src, out_len);
++	rc = hvutil_transport_send(hvt, out_src, out_len, NULL);
+ 	if (rc) {
+ 		pr_debug("FCP: failed to communicate to the daemon: %d\n", rc);
+ 		if (cancel_delayed_work_sync(&fcopy_timeout_work)) {
+diff --git a/drivers/hv/hv_kvp.c b/drivers/hv/hv_kvp.c
+index 1771a968c3f2..f1b1fe33ed01 100644
+--- a/drivers/hv/hv_kvp.c
++++ b/drivers/hv/hv_kvp.c
+@@ -103,6 +103,17 @@ static void kvp_poll_wrapper(void *channel)
+ 	hv_kvp_onchannelcallback(channel);
+ }
+ 
++static void kvp_register_done(void)
++{
++	/*
++	 * If we're still negotiating with the host cancel the timeout
++	 * work to not poll the channel twice.
++	 */
++	pr_debug("KVP: userspace daemon registered\n");
++	cancel_delayed_work_sync(&kvp_host_handshake_work);
++	hv_poll_channel(kvp_transaction.recv_channel, kvp_poll_wrapper);
++}
++
+ static void
+ kvp_register(int reg_value)
+ {
+@@ -117,7 +128,8 @@ kvp_register(int reg_value)
+ 		kvp_msg->kvp_hdr.operation = reg_value;
+ 		strcpy(version, HV_DRV_VERSION);
+ 
+-		hvutil_transport_send(hvt, kvp_msg, sizeof(*kvp_msg));
++		hvutil_transport_send(hvt, kvp_msg, sizeof(*kvp_msg),
++				      kvp_register_done);
+ 		kfree(kvp_msg);
+ 	}
+ }
+@@ -159,17 +171,10 @@ static int kvp_handle_handshake(struct hv_kvp_msg *msg)
+ 	/*
+ 	 * We have a compatible daemon; complete the handshake.
+ 	 */
+-	pr_debug("KVP: userspace daemon ver. %d registered\n",
+-		 KVP_OP_REGISTER);
++	pr_debug("KVP: userspace daemon ver. %d connected\n",
++		 msg->kvp_hdr.operation);
+ 	kvp_register(dm_reg_value);
+ 
+-	/*
+-	 * If we're still negotiating with the host cancel the timeout
+-	 * work to not poll the channel twice.
+-	 */
+-	cancel_delayed_work_sync(&kvp_host_handshake_work);
+-	hv_poll_channel(kvp_transaction.recv_channel, kvp_poll_wrapper);
+-
+ 	return 0;
+ }
+ 
+@@ -456,7 +461,7 @@ kvp_send_key(struct work_struct *dummy)
+ 	}
+ 
+ 	kvp_transaction.state = HVUTIL_USERSPACE_REQ;
+-	rc = hvutil_transport_send(hvt, message, sizeof(*message));
++	rc = hvutil_transport_send(hvt, message, sizeof(*message), NULL);
+ 	if (rc) {
+ 		pr_debug("KVP: failed to communicate to the daemon: %d\n", rc);
+ 		if (cancel_delayed_work_sync(&kvp_timeout_work)) {
+diff --git a/drivers/hv/hv_snapshot.c b/drivers/hv/hv_snapshot.c
+index b0feddb17170..4a953390e853 100644
+--- a/drivers/hv/hv_snapshot.c
++++ b/drivers/hv/hv_snapshot.c
+@@ -96,6 +96,12 @@ static void vss_timeout_func(struct work_struct *dummy)
+ 	hv_poll_channel(vss_transaction.recv_channel, vss_poll_wrapper);
+ }
+ 
++static void vss_register_done(void)
++{
++	hv_poll_channel(vss_transaction.recv_channel, vss_poll_wrapper);
++	pr_debug("VSS: userspace daemon registered\n");
++}
++
+ static int vss_handle_handshake(struct hv_vss_msg *vss_msg)
+ {
+ 	u32 our_ver = VSS_OP_REGISTER1;
+@@ -106,16 +112,16 @@ static int vss_handle_handshake(struct hv_vss_msg *vss_msg)
+ 		dm_reg_value = VSS_OP_REGISTER;
+ 		break;
+ 	case VSS_OP_REGISTER1:
+-		/* Daemon expects us to reply with our own version*/
+-		if (hvutil_transport_send(hvt, &our_ver, sizeof(our_ver)))
++		/* Daemon expects us to reply with our own version */
++		if (hvutil_transport_send(hvt, &our_ver, sizeof(our_ver),
++					  vss_register_done))
+ 			return -EFAULT;
+ 		dm_reg_value = VSS_OP_REGISTER1;
+ 		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+-	hv_poll_channel(vss_transaction.recv_channel, vss_poll_wrapper);
+-	pr_debug("VSS: userspace daemon ver. %d registered\n", dm_reg_value);
++	pr_debug("VSS: userspace daemon ver. %d connected\n", dm_reg_value);
+ 	return 0;
+ }
+ 
+@@ -169,7 +175,7 @@ static void vss_send_op(struct work_struct *dummy)
+ 	vss_msg->vss_hdr.operation = op;
+ 
+ 	vss_transaction.state = HVUTIL_USERSPACE_REQ;
+-	rc = hvutil_transport_send(hvt, vss_msg, sizeof(*vss_msg));
++	rc = hvutil_transport_send(hvt, vss_msg, sizeof(*vss_msg), NULL);
+ 	if (rc) {
+ 		pr_warn("VSS: failed to communicate to the daemon: %d\n", rc);
+ 		if (cancel_delayed_work_sync(&vss_timeout_work)) {
+diff --git a/drivers/hv/hv_utils_transport.c b/drivers/hv/hv_utils_transport.c
+index 1505ee6e6605..0bbfa70d1343 100644
+--- a/drivers/hv/hv_utils_transport.c
++++ b/drivers/hv/hv_utils_transport.c
+@@ -67,6 +67,10 @@ static ssize_t hvt_op_read(struct file *file, char __user *buf,
+ 	hvt->outmsg = NULL;
+ 	hvt->outmsg_len = 0;
+ 
++	if (hvt->on_read)
++		hvt->on_read();
++	hvt->on_read = NULL;
++
+ out_unlock:
+ 	mutex_unlock(&hvt->outmsg_lock);
+ 	return ret;
+@@ -177,7 +181,8 @@ static void hvt_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
+ 		pr_warn("hvt_cn_callback: unexpected netlink message!\n");
+ }
+ 
+-int hvutil_transport_send(struct hvutil_transport *hvt, void *msg, int len)
++int hvutil_transport_send(struct hvutil_transport *hvt, void *msg, int len,
++			  void (*on_read_cb)(void))
+ {
+ 	struct cn_msg *cn_msg;
+ 	int ret = 0;
+@@ -194,6 +199,13 @@ int hvutil_transport_send(struct hvutil_transport *hvt, void *msg, int len)
+ 		memcpy(cn_msg->data, msg, len);
+ 		ret = cn_netlink_send(cn_msg, 0, 0, GFP_ATOMIC);
+ 		kfree(cn_msg);
++		/*
++		 * We don't know when netlink messages are delivered but unlike
++		 * in CHARDEV mode we're not blocked and we can send next
++		 * messages right away.
++		 */
++		if (on_read_cb)
++			on_read_cb();
+ 		return ret;
+ 	}
+ 	/* HVUTIL_TRANSPORT_CHARDEV */
+@@ -207,6 +219,7 @@ int hvutil_transport_send(struct hvutil_transport *hvt, void *msg, int len)
+ 	if (hvt->outmsg) {
+ 		memcpy(hvt->outmsg, msg, len);
+ 		hvt->outmsg_len = len;
++		hvt->on_read = on_read_cb;
+ 		wake_up_interruptible(&hvt->outmsg_q);
+ 	} else
+ 		ret = -ENOMEM;
+diff --git a/drivers/hv/hv_utils_transport.h b/drivers/hv/hv_utils_transport.h
+index 314c76ce1b07..f5844f993f57 100644
+--- a/drivers/hv/hv_utils_transport.h
++++ b/drivers/hv/hv_utils_transport.h
+@@ -35,6 +35,7 @@ struct hvutil_transport {
+ 	struct list_head list;              /* hvt_list */
+ 	int (*on_msg)(void *, int);         /* callback on new user message */
+ 	void (*on_reset)(void);             /* callback when userspace drops */
++	void (*on_read)(void);              /* callback on message read */
+ 	u8 *outmsg;                         /* message to the userspace */
+ 	int outmsg_len;                     /* its length */
+ 	wait_queue_head_t outmsg_q;         /* poll/read wait queue */
+@@ -45,7 +46,8 @@ struct hvutil_transport *hvutil_transport_init(const char *name,
+ 					       u32 cn_idx, u32 cn_val,
+ 					       int (*on_msg)(void *, int),
+ 					       void (*on_reset)(void));
+-int hvutil_transport_send(struct hvutil_transport *hvt, void *msg, int len);
++int hvutil_transport_send(struct hvutil_transport *hvt, void *msg, int len,
++			  void (*on_read_cb)(void));
+ void hvutil_transport_destroy(struct hvutil_transport *hvt);
+ 
+ #endif /* _HV_UTILS_TRANSPORT_H */
+-- 
+2.17.1
+

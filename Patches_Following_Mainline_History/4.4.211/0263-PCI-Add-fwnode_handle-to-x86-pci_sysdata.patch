@@ -1,0 +1,77 @@
+From 857d046aadae3968e43bb668a99d2bcb48bb6473 Mon Sep 17 00:00:00 2001
+From: Jake Oshins <jakeo@microsoft.com>
+Date: Tue, 16 Feb 2016 21:56:21 +0000
+Subject: PCI: Add fwnode_handle to x86 pci_sysdata
+Reply-To: joseph.salisbury@microsoft.com
+
+Add an fwnode_handle to the x86 struct pci_sysdata, which will be used to
+locate an IRQ domain associated with a root PCI bus.
+
+[bhelgaas: changelog]
+Signed-off-by: Jake Oshins <jakeo@microsoft.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+(cherry picked from commit 92016ba5c1d71fbe4e9952df518b5386f2a0556b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/include/asm/pci.h | 15 +++++++++++++++
+ include/linux/pci.h        |  4 ++++
+ 2 files changed, 19 insertions(+)
+
+diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
+index 462594320d39..6fc3c7c554b2 100644
+--- a/arch/x86/include/asm/pci.h
++++ b/arch/x86/include/asm/pci.h
+@@ -20,6 +20,9 @@ struct pci_sysdata {
+ #ifdef CONFIG_X86_64
+ 	void		*iommu;		/* IOMMU private data */
+ #endif
++#ifdef CONFIG_PCI_MSI_IRQ_DOMAIN
++	void		*fwnode;	/* IRQ domain for MSI assignment */
++#endif
+ };
+ 
+ extern int pci_routeirq;
+@@ -32,6 +35,7 @@ extern int noioapicreroute;
+ static inline int pci_domain_nr(struct pci_bus *bus)
+ {
+ 	struct pci_sysdata *sd = bus->sysdata;
++
+ 	return sd->domain;
+ }
+ 
+@@ -41,6 +45,17 @@ static inline int pci_proc_domain(struct pci_bus *bus)
+ }
+ #endif
+ 
++#ifdef CONFIG_PCI_MSI_IRQ_DOMAIN
++static inline void *_pci_root_bus_fwnode(struct pci_bus *bus)
++{
++	struct pci_sysdata *sd = bus->sysdata;
++
++	return sd->fwnode;
++}
++
++#define pci_root_bus_fwnode	_pci_root_bus_fwnode
++#endif
++
+ /* Can be used to override the logic in pci_scan_bus for skipping
+    already-configured bus numbers - to be used for buggy BIOSes
+    or architectures with incomplete PCI setup by the loader */
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 5f37614f2451..1387e152c32d 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1501,6 +1501,10 @@ static inline int pci_get_new_domain_nr(void) { return -ENOSYS; }
+ 
+ #include <asm/pci.h>
+ 
++#ifndef pci_root_bus_fwnode
++#define pci_root_bus_fwnode(bus)	NULL
++#endif
++
+ /* these helpers provide future and backwards compatibility
+  * for accessing popular PCI BAR info */
+ #define pci_resource_start(dev, bar)	((dev)->resource[(bar)].start)
+-- 
+2.17.1
+

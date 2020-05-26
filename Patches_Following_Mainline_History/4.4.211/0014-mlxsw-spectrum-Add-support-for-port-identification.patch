@@ -1,0 +1,63 @@
+From 01bedf496283c236f72c8b272adba98c0fbe1adf Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Fri, 27 Nov 2015 13:45:55 +0100
+Subject: mlxsw: spectrum: Add support for port identification
+Reply-To: joseph.salisbury@microsoft.com
+
+Allow a user to flash the port's LED in order to identify it. This is
+achieved by setting the Management LED Control Register (MLCR).
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 3a66ee38dcde2e7befcd1563151615644a560072)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum.c    | 24 +++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index cb165c2d4803..3f32c62c3eeb 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -860,6 +860,29 @@ static void mlxsw_sp_port_get_strings(struct net_device *dev,
+ 	}
+ }
+ 
++static int mlxsw_sp_port_set_phys_id(struct net_device *dev,
++				     enum ethtool_phys_id_state state)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char mlcr_pl[MLXSW_REG_MLCR_LEN];
++	bool active;
++
++	switch (state) {
++	case ETHTOOL_ID_ACTIVE:
++		active = true;
++		break;
++	case ETHTOOL_ID_INACTIVE:
++		active = false;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	mlxsw_reg_mlcr_pack(mlcr_pl, mlxsw_sp_port->local_port, active);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mlcr), mlcr_pl);
++}
++
+ static void mlxsw_sp_port_get_stats(struct net_device *dev,
+ 				    struct ethtool_stats *stats, u64 *data)
+ {
+@@ -1206,6 +1229,7 @@ static const struct ethtool_ops mlxsw_sp_port_ethtool_ops = {
+ 	.get_drvinfo		= mlxsw_sp_port_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_strings		= mlxsw_sp_port_get_strings,
++	.set_phys_id		= mlxsw_sp_port_set_phys_id,
+ 	.get_ethtool_stats	= mlxsw_sp_port_get_stats,
+ 	.get_sset_count		= mlxsw_sp_port_get_sset_count,
+ 	.get_settings		= mlxsw_sp_port_get_settings,
+-- 
+2.17.1
+

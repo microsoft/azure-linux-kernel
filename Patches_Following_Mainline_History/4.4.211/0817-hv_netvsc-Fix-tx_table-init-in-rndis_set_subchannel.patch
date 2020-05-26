@@ -1,0 +1,136 @@
+From 9dddd832221b8d274e872fc0667dceed76d4dc91 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Wed, 11 Dec 2019 14:26:27 -0800
+Subject: hv_netvsc: Fix tx_table init in rndis_set_subchannel()
+Reply-To: joseph.salisbury@microsoft.com
+
+Host can provide send indirection table messages anytime after RSS is
+enabled by calling rndis_filter_set_rss_param(). So the host provided
+table values may be overwritten by the initialization in
+rndis_set_subchannel().
+
+To prevent this problem, move the tx_table initialization before calling
+rndis_filter_set_rss_param().
+
+Fixes: a6fb6aa3cfa9 ("hv_netvsc: Set tx_table to equal weight after subchannels open")
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+(backported from commit c39ea5cba5a2e97fc01b78c85208bf31383b399c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   | 10 +++++++---
+ drivers/net/hyperv/netvsc.c       |  2 +-
+ drivers/net/hyperv/netvsc_drv.c   |  2 +-
+ drivers/net/hyperv/rndis_filter.c | 17 +++++++++++------
+ 4 files changed, 20 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 4db8825db5a6..0edcef881be0 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -151,6 +151,8 @@ struct hv_netvsc_packet {
+ 	void (*send_completion)(void *context);
+ };
+ 
++#define NETVSC_HASH_KEYLEN 40
++
+ struct netvsc_device_info {
+ 	unsigned char mac_adr[ETH_ALEN];
+ 	bool link_state;	/* 0 - link up, 1 - link down */
+@@ -159,6 +161,8 @@ struct netvsc_device_info {
+ 	u32  num_chn;
+ 	u32  send_sections;
+ 	u32  recv_sections;
++
++	u8 rss_key[NETVSC_HASH_KEYLEN];
+ };
+ 
+ enum rndis_device_state {
+@@ -168,8 +172,6 @@ enum rndis_device_state {
+ 	RNDIS_DEV_DATAINITIALIZED,
+ };
+ 
+-#define NETVSC_HASH_KEYLEN 40
+-
+ struct rndis_device {
+ 	struct net_device *ndev;
+ 
+@@ -213,7 +215,9 @@ int netvsc_recv_callback(struct net_device *net,
+ void netvsc_channel_cb(void *context);
+ int netvsc_poll(struct napi_struct *napi, int budget);
+ 
+-int rndis_set_subchannel(struct net_device *ndev, struct netvsc_device *nvdev);
++int rndis_set_subchannel(struct net_device *ndev,
++			 struct netvsc_device *nvdev,
++			 struct netvsc_device_info *dev_info);
+ int rndis_filter_open(struct netvsc_device *nvdev);
+ int rndis_filter_close(struct netvsc_device *nvdev);
+ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 781d05e6344c..de6ffe6bd817 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -83,7 +83,7 @@ static void netvsc_subchan_work(struct work_struct *w)
+ 
+ 	rdev = nvdev->extension;
+ 	if (rdev) {
+-		ret = rndis_set_subchannel(rdev->ndev, nvdev);
++		ret = rndis_set_subchannel(rdev->ndev, nvdev, NULL);
+ 		if (ret == 0) {
+ 			netif_device_attach(rdev->ndev);
+ 		} else {
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index eb3ce302cfe4..6cadcbc12e3f 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -912,7 +912,7 @@ static int netvsc_attach(struct net_device *ndev,
+ 		return PTR_ERR(nvdev);
+ 
+ 	if (nvdev->num_chn > 1) {
+-		ret = rndis_set_subchannel(ndev, nvdev);
++		ret = rndis_set_subchannel(ndev, nvdev, dev_info);
+ 
+ 		/* if unavailable, just proceed with one queue */
+ 		if (ret) {
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 5d9e974b6821..5e328b2ffc96 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1076,7 +1076,9 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+  * This breaks overlap of processing the host message for the
+  * new primary channel with the initialization of sub-channels.
+  */
+-int rndis_set_subchannel(struct net_device *ndev, struct netvsc_device *nvdev)
++int rndis_set_subchannel(struct net_device *ndev,
++			 struct netvsc_device *nvdev,
++			 struct netvsc_device_info *dev_info)
+ {
+ 	struct nvsp_message *init_packet = &nvdev->channel_init_pkt;
+ 	struct net_device_context *ndev_ctx = netdev_priv(ndev);
+@@ -1116,15 +1118,18 @@ int rndis_set_subchannel(struct net_device *ndev, struct netvsc_device *nvdev)
+ 	wait_event(nvdev->subchan_open,
+ 		   atomic_read(&nvdev->open_chn) == nvdev->num_chn);
+ 
+-	/* ignore failues from setting rss parameters, still have channels */
+-	rndis_filter_set_rss_param(rdev, netvsc_hash_key);
++	for (i = 0; i < VRSS_SEND_TAB_SIZE; i++)
++		ndev_ctx->tx_table[i] = i % nvdev->num_chn;
++
++	/* ignore failures from setting rss parameters, still have channels */
++	if (dev_info)
++		rndis_filter_set_rss_param(rdev, dev_info->rss_key);
++	else
++		rndis_filter_set_rss_param(rdev, netvsc_hash_key);
+ 
+ 	netif_set_real_num_tx_queues(ndev, nvdev->num_chn);
+ 	netif_set_real_num_rx_queues(ndev, nvdev->num_chn);
+ 
+-	for (i = 0; i < VRSS_SEND_TAB_SIZE; i++)
+-		ndev_ctx->tx_table[i] = i % nvdev->num_chn;
+-
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

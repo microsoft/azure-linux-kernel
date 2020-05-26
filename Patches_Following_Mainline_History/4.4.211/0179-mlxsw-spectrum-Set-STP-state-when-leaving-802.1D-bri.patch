@@ -1,0 +1,53 @@
+From 5ed93ff74ef93f7e9afcc01d259460b0f22a86fa Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Mon, 15 Feb 2016 13:19:54 +0100
+Subject: mlxsw: spectrum: Set STP state when leaving 802.1D bridge
+Reply-To: joseph.salisbury@microsoft.com
+
+When a VLAN device leaves a bridge its STP state is set to DISABLED,
+which causes the hardware to discard any packets coming through the port
+with this VLAN.
+
+Fix that by setting STP state to FORWARDING when the device leaves its
+bridge and allow traffic to be directed to CPU.
+
+Fixes: 26f0e7fb15de ("mlxsw: spectrum: Add support for VLAN devices bridging")
+Reported-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 6a9863a62206dad8ad236bcde489978aedb072fa)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 8fd160bd7291..308a6781b1e8 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2747,6 +2747,13 @@ static int mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
+ 		goto err_vport_flood_set;
+ 	}
+ 
++	err = mlxsw_sp_port_stp_state_set(mlxsw_sp_vport, vid,
++					  MLXSW_REG_SPMS_STATE_FORWARDING);
++	if (err) {
++		netdev_err(dev, "Failed to set STP state\n");
++		goto err_port_stp_state_set;
++	}
++
+ 	if (flush_fdb && mlxsw_sp_vport_fdb_flush(mlxsw_sp_vport))
+ 		netdev_err(dev, "Failed to flush FDB\n");
+ 
+@@ -2764,6 +2771,7 @@ static int mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
+ 
+ 	return 0;
+ 
++err_port_stp_state_set:
+ err_vport_flood_set:
+ err_port_vid_learning_set:
+ err_port_vid_to_fid_validate:
+-- 
+2.17.1
+

@@ -1,0 +1,92 @@
+From 921463acc619c79791c87ac16036702ddb0f0c73 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Fri, 13 May 2016 13:55:21 +0200
+Subject: hv_netvsc: use start_remove flag to protect netvsc_link_change()
+Reply-To: joseph.salisbury@microsoft.com
+
+netvsc_link_change() can race with netvsc_change_mtu() or
+netvsc_set_channels() as these functions destroy struct netvsc_device and
+rndis filter. Use start_remove flag for syncronization. As
+netvsc_change_mtu()/netvsc_set_channels() are called with rtnl lock held
+we need to take it before checking start_remove value in
+netvsc_link_change().
+
+Reported-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 1bdcec8a5f05445752a0639edd603ac09ae6c553)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index dc30732e9b3e..97980bcfbc51 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -835,6 +835,8 @@ static int netvsc_set_channels(struct net_device *net,
+  out:
+ 	netvsc_open(net);
+ 	net_device_ctx->start_remove = false;
++	/* We may have missed link change notifications */
++	schedule_delayed_work(&net_device_ctx->dwork, 0);
+ 
+ 	return ret;
+ 
+@@ -940,6 +942,9 @@ out:
+ 	netvsc_open(ndev);
+ 	ndevctx->start_remove = false;
+ 
++	/* We may have missed link change notifications */
++	schedule_delayed_work(&ndevctx->dwork, 0);
++
+ 	return ret;
+ }
+ 
+@@ -1060,6 +1065,11 @@ static void netvsc_link_change(struct work_struct *w)
+ 	unsigned long flags, next_reconfig, delay;
+ 
+ 	ndev_ctx = container_of(w, struct net_device_context, dwork.work);
++
++	rtnl_lock();
++	if (ndev_ctx->start_remove)
++		goto out_unlock;
++
+ 	net_device = hv_get_drvdata(ndev_ctx->device_ctx);
+ 	rdev = net_device->extension;
+ 	net = net_device->ndev;
+@@ -1073,7 +1083,7 @@ static void netvsc_link_change(struct work_struct *w)
+ 		delay = next_reconfig - jiffies;
+ 		delay = delay < LINKCHANGE_INT ? delay : LINKCHANGE_INT;
+ 		schedule_delayed_work(&ndev_ctx->dwork, delay);
+-		return;
++		goto out_unlock;
+ 	}
+ 	ndev_ctx->last_reconfig = jiffies;
+ 
+@@ -1087,9 +1097,7 @@ static void netvsc_link_change(struct work_struct *w)
+ 	spin_unlock_irqrestore(&ndev_ctx->lock, flags);
+ 
+ 	if (!event)
+-		return;
+-
+-	rtnl_lock();
++		goto out_unlock;
+ 
+ 	switch (event->event) {
+ 		/* Only the following events are possible due to the check in
+@@ -1138,6 +1146,11 @@ static void netvsc_link_change(struct work_struct *w)
+ 	 */
+ 	if (reschedule)
+ 		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
++
++	return;
++
++out_unlock:
++	rtnl_unlock();
+ }
+ 
+ static void netvsc_free_netdev(struct net_device *netdev)
+-- 
+2.17.1
+

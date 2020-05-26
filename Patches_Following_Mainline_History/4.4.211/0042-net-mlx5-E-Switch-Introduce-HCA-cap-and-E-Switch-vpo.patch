@@ -1,0 +1,200 @@
+From 491aa7c0ead199ee23ce765ec22a8a2d13e381c6 Mon Sep 17 00:00:00 2001
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Tue, 1 Dec 2015 18:03:22 +0200
+Subject: net/mlx5: E-Switch, Introduce HCA cap and E-Switch vport context
+Reply-To: joseph.salisbury@microsoft.com
+
+E-Switch vport context is unlike NIC vport context, managed by the
+E-Switch manager or vport_group_manager and not by the NIC(VF) driver.
+
+The E-Switch manager can access (read/modify) any of its vports
+E-Switch context.
+
+Currently E-Switch vport context includes only clietnt and server
+vlan insertion and striping data (for later support of VST mode).
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit d6666753c6e85834f1669c7b831cc2b7fc9e4390)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c | 11 +++
+ include/linux/mlx5/device.h                  |  9 ++
+ include/linux/mlx5/mlx5_ifc.h                | 90 ++++++++++++++++++++
+ 3 files changed, 110 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+index bf6e3dfcef51..1c9f9a54a873 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+@@ -173,6 +173,17 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
+ 			return err;
+ 	}
+ 
++	if (MLX5_CAP_GEN(dev, vport_group_manager)) {
++		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH,
++					 HCA_CAP_OPMOD_GET_CUR);
++		if (err)
++			return err;
++		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH,
++					 HCA_CAP_OPMOD_GET_MAX);
++		if (err)
++			return err;
++	}
++
+ 	return 0;
+ }
+ 
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index a3ddef6dffef..c2722b2addee 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -1162,6 +1162,7 @@ enum mlx5_cap_type {
+ 	MLX5_CAP_EOIB_OFFLOADS,
+ 	MLX5_CAP_FLOW_TABLE,
+ 	MLX5_CAP_ESWITCH_FLOW_TABLE,
++	MLX5_CAP_ESWITCH,
+ 	/* NUM OF CAP Types */
+ 	MLX5_CAP_NUM
+ };
+@@ -1213,6 +1214,14 @@ enum mlx5_cap_type {
+ #define MLX5_CAP_ESW_FLOWTABLE_FDB_MAX(mdev, cap) \
+ 	MLX5_CAP_ESW_FLOWTABLE_MAX(mdev, flow_table_properties_nic_esw_fdb.cap)
+ 
++#define MLX5_CAP_ESW(mdev, cap) \
++	MLX5_GET(e_switch_cap, \
++		 mdev->hca_caps_cur[MLX5_CAP_ESWITCH], cap)
++
++#define MLX5_CAP_ESW_MAX(mdev, cap) \
++	MLX5_GET(e_switch_cap, \
++		 mdev->hca_caps_max[MLX5_CAP_ESWITCH], cap)
++
+ #define MLX5_CAP_ODP(mdev, cap)\
+ 	MLX5_GET(odp_cap, mdev->hca_caps_cur[MLX5_CAP_ODP], cap)
+ 
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index a81b008738fd..f5d94495758a 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -459,6 +459,17 @@ struct mlx5_ifc_flow_table_eswitch_cap_bits {
+ 	u8      reserved_1[0x7800];
+ };
+ 
++struct mlx5_ifc_e_switch_cap_bits {
++	u8         vport_svlan_strip[0x1];
++	u8         vport_cvlan_strip[0x1];
++	u8         vport_svlan_insert[0x1];
++	u8         vport_cvlan_insert_if_not_exist[0x1];
++	u8         vport_cvlan_insert_overwrite[0x1];
++	u8         reserved_0[0x1b];
++
++	u8         reserved_1[0x7e0];
++};
++
+ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
+ 	u8         csum_cap[0x1];
+ 	u8         vlan_cap[0x1];
+@@ -1860,6 +1871,7 @@ union mlx5_ifc_hca_cap_union_bits {
+ 	struct mlx5_ifc_per_protocol_networking_offload_caps_bits per_protocol_networking_offload_caps;
+ 	struct mlx5_ifc_flow_table_nic_cap_bits flow_table_nic_cap;
+ 	struct mlx5_ifc_flow_table_eswitch_cap_bits flow_table_eswitch_cap;
++	struct mlx5_ifc_e_switch_cap_bits e_switch_cap;
+ 	u8         reserved_0[0x8000];
+ };
+ 
+@@ -2305,6 +2317,26 @@ struct mlx5_ifc_hca_vport_context_bits {
+ 	u8         reserved_6[0xca0];
+ };
+ 
++struct mlx5_ifc_esw_vport_context_bits {
++	u8         reserved_0[0x3];
++	u8         vport_svlan_strip[0x1];
++	u8         vport_cvlan_strip[0x1];
++	u8         vport_svlan_insert[0x1];
++	u8         vport_cvlan_insert[0x2];
++	u8         reserved_1[0x18];
++
++	u8         reserved_2[0x20];
++
++	u8         svlan_cfi[0x1];
++	u8         svlan_pcp[0x3];
++	u8         svlan_id[0xc];
++	u8         cvlan_cfi[0x1];
++	u8         cvlan_pcp[0x3];
++	u8         cvlan_id[0xc];
++
++	u8         reserved_3[0x7a0];
++};
++
+ enum {
+ 	MLX5_EQC_STATUS_OK                = 0x0,
+ 	MLX5_EQC_STATUS_EQ_WRITE_FAILURE  = 0xa,
+@@ -3743,6 +3775,64 @@ struct mlx5_ifc_query_flow_group_in_bits {
+ 	u8         reserved_5[0x120];
+ };
+ 
++struct mlx5_ifc_query_esw_vport_context_out_bits {
++	u8         status[0x8];
++	u8         reserved_0[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_1[0x40];
++
++	struct mlx5_ifc_esw_vport_context_bits esw_vport_context;
++};
++
++struct mlx5_ifc_query_esw_vport_context_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_0[0x10];
++
++	u8         reserved_1[0x10];
++	u8         op_mod[0x10];
++
++	u8         other_vport[0x1];
++	u8         reserved_2[0xf];
++	u8         vport_number[0x10];
++
++	u8         reserved_3[0x20];
++};
++
++struct mlx5_ifc_modify_esw_vport_context_out_bits {
++	u8         status[0x8];
++	u8         reserved_0[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_1[0x40];
++};
++
++struct mlx5_ifc_esw_vport_context_fields_select_bits {
++	u8         reserved[0x1c];
++	u8         vport_cvlan_insert[0x1];
++	u8         vport_svlan_insert[0x1];
++	u8         vport_cvlan_strip[0x1];
++	u8         vport_svlan_strip[0x1];
++};
++
++struct mlx5_ifc_modify_esw_vport_context_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_0[0x10];
++
++	u8         reserved_1[0x10];
++	u8         op_mod[0x10];
++
++	u8         other_vport[0x1];
++	u8         reserved_2[0xf];
++	u8         vport_number[0x10];
++
++	struct mlx5_ifc_esw_vport_context_fields_select_bits field_select;
++
++	struct mlx5_ifc_esw_vport_context_bits esw_vport_context;
++};
++
+ struct mlx5_ifc_query_eq_out_bits {
+ 	u8         status[0x8];
+ 	u8         reserved_0[0x18];
+-- 
+2.17.1
+

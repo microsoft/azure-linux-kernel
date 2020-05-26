@@ -1,0 +1,48 @@
+From 89efab220ea128eaf9e28c7cc66f9cbb68e5a1c2 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Tue, 23 Aug 2016 12:17:44 -0700
+Subject: hv_netvsc: fix rtnl locking in callback
+Reply-To: joseph.salisbury@microsoft.com
+
+The function get_netvsc_net_device had conditional locking. This was
+unnecessary, incorrect, but harmless. It was unnecessary since the
+code is only called from netlink netdev event callback where RTNL
+is always acquired before the callbacks are run. It was incorrect
+because of use of trylock and then continuing.
+Fix by replacing with proper assertion.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 8737caafd16790c654f1fb8564abcf6e1f3ffe19)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 5c8ae9a86e78..fb60d8eda75d 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1154,9 +1154,8 @@ static void netvsc_free_netdev(struct net_device *netdev)
+ static struct net_device *get_netvsc_net_device(char *mac)
+ {
+ 	struct net_device *dev, *found = NULL;
+-	int rtnl_locked;
+ 
+-	rtnl_locked = rtnl_trylock();
++	ASSERT_RTNL();
+ 
+ 	for_each_netdev(&init_net, dev) {
+ 		if (memcmp(dev->dev_addr, mac, ETH_ALEN) == 0) {
+@@ -1166,8 +1165,6 @@ static struct net_device *get_netvsc_net_device(char *mac)
+ 			break;
+ 		}
+ 	}
+-	if (rtnl_locked)
+-		rtnl_unlock();
+ 
+ 	return found;
+ }
+-- 
+2.17.1
+

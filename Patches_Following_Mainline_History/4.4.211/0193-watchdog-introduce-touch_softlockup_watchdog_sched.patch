@@ -1,0 +1,137 @@
+From c6124066740c156e85d6ef2a14a3a232bb369f0e Mon Sep 17 00:00:00 2001
+From: Tejun Heo <tj@kernel.org>
+Date: Tue, 8 Dec 2015 11:28:04 -0500
+Subject: watchdog: introduce touch_softlockup_watchdog_sched()
+Reply-To: joseph.salisbury@microsoft.com
+
+touch_softlockup_watchdog() is used to tell watchdog that scheduler
+stall is expected.  One group of usage is from paths where the task
+may not be able to yield for a long time such as performing slow PIO
+to finicky device and coming out of suspend.  The other is to account
+for scheduler and timer going idle.
+
+For scheduler softlockup detection, there's no reason to distinguish
+the two cases; however, workqueue lockup detector is planned and it
+can use the same signals from the former group while the latter would
+spuriously prevent detection.  This patch introduces a new function
+touch_softlockup_watchdog_sched() and convert the latter group to call
+it instead.  For now, it just calls touch_softlockup_watchdog() and
+there's no functional difference.
+
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Cc: Ulrich Obergfell <uobergfe@redhat.com>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+(cherry picked from commit 03e0d4610bf4d4a93bfa16b2474ed4fd5243aa71)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/sched.h    |  4 ++++
+ kernel/sched/clock.c     |  2 +-
+ kernel/time/tick-sched.c |  6 +++---
+ kernel/watchdog.c        | 15 ++++++++++++++-
+ 4 files changed, 22 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 761247c966a5..5056f747469e 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -377,6 +377,7 @@ extern void scheduler_tick(void);
+ extern void sched_show_task(struct task_struct *p);
+ 
+ #ifdef CONFIG_LOCKUP_DETECTOR
++extern void touch_softlockup_watchdog_sched(void);
+ extern void touch_softlockup_watchdog(void);
+ extern void touch_softlockup_watchdog_sync(void);
+ extern void touch_all_softlockup_watchdogs(void);
+@@ -387,6 +388,9 @@ extern unsigned int  softlockup_panic;
+ extern unsigned int  hardlockup_panic;
+ void lockup_detector_init(void);
+ #else
++static inline void touch_softlockup_watchdog_sched(void)
++{
++}
+ static inline void touch_softlockup_watchdog(void)
+ {
+ }
+diff --git a/kernel/sched/clock.c b/kernel/sched/clock.c
+index caf4041f5b0a..bc54e84675da 100644
+--- a/kernel/sched/clock.c
++++ b/kernel/sched/clock.c
+@@ -354,7 +354,7 @@ void sched_clock_idle_wakeup_event(u64 delta_ns)
+ 		return;
+ 
+ 	sched_clock_tick();
+-	touch_softlockup_watchdog();
++	touch_softlockup_watchdog_sched();
+ }
+ EXPORT_SYMBOL_GPL(sched_clock_idle_wakeup_event);
+ 
+diff --git a/kernel/time/tick-sched.c b/kernel/time/tick-sched.c
+index 5ad2e852e9f6..ac619a5f2662 100644
+--- a/kernel/time/tick-sched.c
++++ b/kernel/time/tick-sched.c
+@@ -143,7 +143,7 @@ static void tick_sched_handle(struct tick_sched *ts, struct pt_regs *regs)
+ 	 * when we go busy again does not account too much ticks.
+ 	 */
+ 	if (ts->tick_stopped) {
+-		touch_softlockup_watchdog();
++		touch_softlockup_watchdog_sched();
+ 		if (is_idle_task(current))
+ 			ts->idle_jiffies++;
+ 	}
+@@ -430,7 +430,7 @@ static void tick_nohz_update_jiffies(ktime_t now)
+ 	tick_do_update_jiffies64(now);
+ 	local_irq_restore(flags);
+ 
+-	touch_softlockup_watchdog();
++	touch_softlockup_watchdog_sched();
+ }
+ 
+ /*
+@@ -716,7 +716,7 @@ static void tick_nohz_restart_sched_tick(struct tick_sched *ts, ktime_t now)
+ 	update_cpu_load_nohz();
+ 
+ 	calc_load_exit_idle();
+-	touch_softlockup_watchdog();
++	touch_softlockup_watchdog_sched();
+ 	/*
+ 	 * Cancel the scheduled timer and restore the tick
+ 	 */
+diff --git a/kernel/watchdog.c b/kernel/watchdog.c
+index c1e0b5f429b6..cf3ca3dcc3e5 100644
+--- a/kernel/watchdog.c
++++ b/kernel/watchdog.c
+@@ -225,7 +225,15 @@ static void __touch_watchdog(void)
+ 	__this_cpu_write(watchdog_touch_ts, get_timestamp());
+ }
+ 
+-void touch_softlockup_watchdog(void)
++/**
++ * touch_softlockup_watchdog_sched - touch watchdog on scheduler stalls
++ *
++ * Call when the scheduler may have stalled for legitimate reasons
++ * preventing the watchdog task from executing - e.g. the scheduler
++ * entering idle state.  This should only be used for scheduler events.
++ * Use touch_softlockup_watchdog() for everything else.
++ */
++void touch_softlockup_watchdog_sched(void)
+ {
+ 	/*
+ 	 * Preemption can be enabled.  It doesn't matter which CPU's timestamp
+@@ -233,6 +241,11 @@ void touch_softlockup_watchdog(void)
+ 	 */
+ 	raw_cpu_write(watchdog_touch_ts, 0);
+ }
++
++void touch_softlockup_watchdog(void)
++{
++	touch_softlockup_watchdog_sched();
++}
+ EXPORT_SYMBOL(touch_softlockup_watchdog);
+ 
+ void touch_all_softlockup_watchdogs(void)
+-- 
+2.17.1
+

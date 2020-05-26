@@ -1,0 +1,72 @@
+From 216973a72838141178aa12cd1d692c390ce6ef2a Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Thu, 8 Jun 2017 16:21:23 -0700
+Subject: netvsc: fold in get_outbound_net_device
+Reply-To: joseph.salisbury@microsoft.com
+
+No longer need common code to find get_outbound_net_device.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 592b4fe895c03315d9917bf0227a165be401ec33)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 28 ++++------------------------
+ 1 file changed, 4 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 0b061ef50410..1c78d8e42505 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -98,27 +98,7 @@ static void free_netvsc_device_rcu(struct netvsc_device *nvdev)
+ 	call_rcu(&nvdev->rcu, free_netvsc_device);
+ }
+ 
+-static inline bool netvsc_channel_idle(const struct netvsc_device *net_device,
+-				       u16 q_idx)
+-{
+-	const struct netvsc_channel *nvchan = &net_device->chan_table[q_idx];
+-
+-	return atomic_read(&net_device->num_outstanding_recvs) == 0 &&
+-		atomic_read(&nvchan->queue_sends) == 0;
+-}
+-
+-static struct netvsc_device *get_outbound_net_device(struct hv_device *device)
+-{
+-	struct netvsc_device *net_device = hv_device_to_netvsc_device(device);
+-
+-	if (net_device && net_device->destroy)
+-		net_device = NULL;
+-
+-	return net_device;
+-}
+-
+-
+-static int netvsc_destroy_buf(struct hv_device *device)
++static void netvsc_destroy_buf(struct hv_device *device)
+ {
+ 	struct nvsp_message *revoke_packet;
+ 	int ret = 0;
+@@ -852,7 +832,7 @@ int netvsc_send(struct hv_device *device,
+ 		struct hv_page_buffer **pb,
+ 		struct sk_buff *skb)
+ {
+-	struct netvsc_device *net_device;
++	struct netvsc_device *net_device = hv_device_to_netvsc_device(device);
+ 	int ret = 0;
+ 	struct netvsc_channel *nvchan;
+ 	u32 pktlen = packet->total_data_buflen, msd_len = 0;
+@@ -863,8 +843,8 @@ int netvsc_send(struct hv_device *device,
+ 	bool try_batch;
+ 	bool xmit_more = (skb != NULL) ? skb->xmit_more : false;
+ 
+-	net_device = get_outbound_net_device(device);
+-	if (!net_device)
++	/* If device is rescinded, return error and packet will get dropped. */
++	if (unlikely(net_device->destroy))
+ 		return -ENODEV;
+ 
+ 	/* We may race with netvsc_connect_vsp()/netvsc_init_buf() and get
+-- 
+2.17.1
+

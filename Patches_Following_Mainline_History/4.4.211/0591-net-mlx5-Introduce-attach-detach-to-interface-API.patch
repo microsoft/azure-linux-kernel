@@ -1,0 +1,269 @@
+From 035012e52b659ae31c4695e713207342e0fd341d Mon Sep 17 00:00:00 2001
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
+Date: Fri, 9 Sep 2016 17:35:19 +0300
+Subject: net/mlx5: Introduce attach/detach to interface API
+Reply-To: joseph.salisbury@microsoft.com
+
+Add attach/detach callbacks to interface API.
+This is crucial for implementing seamless reset flow which releases the
+hardware and it's resources upon detach while keeping software
+structures and state (e.g netdev) then reset and reallocate the hardware
+needed resources upon attach.
+
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 737a234bb6384800a5b632be85c6b0ad6221d137)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/main.c    | 149 +++++++++++++++---
+ include/linux/mlx5/driver.h                   |   2 +
+ 2 files changed, 131 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index a9f66a407bea..37c7462e7fb7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -81,6 +81,7 @@ struct mlx5_device_context {
+ 	struct list_head	list;
+ 	struct mlx5_interface  *intf;
+ 	void		       *context;
++	unsigned long		state;
+ };
+ 
+ enum {
+@@ -777,6 +778,11 @@ static int mlx5_core_set_issi(struct mlx5_core_dev *dev)
+ 	return -ENOTSUPP;
+ }
+ 
++enum {
++	MLX5_INTERFACE_ADDED,
++	MLX5_INTERFACE_ATTACHED,
++};
++
+ static void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
+ {
+ 	struct mlx5_device_context *dev_ctx;
+@@ -785,12 +791,15 @@ static void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
+ 	if (!mlx5_lag_intf_add(intf, priv))
+ 		return;
+ 
+-	dev_ctx = kmalloc(sizeof(*dev_ctx), GFP_KERNEL);
++	dev_ctx = kzalloc(sizeof(*dev_ctx), GFP_KERNEL);
+ 	if (!dev_ctx)
+ 		return;
+ 
+-	dev_ctx->intf    = intf;
++	dev_ctx->intf = intf;
+ 	dev_ctx->context = intf->add(dev);
++	set_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
++	if (intf->attach)
++		set_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state);
+ 
+ 	if (dev_ctx->context) {
+ 		spin_lock_irq(&priv->ctx_lock);
+@@ -801,21 +810,114 @@ static void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
+ 	}
+ }
+ 
++static struct mlx5_device_context *mlx5_get_device(struct mlx5_interface *intf,
++						   struct mlx5_priv *priv)
++{
++	struct mlx5_device_context *dev_ctx;
++
++	list_for_each_entry(dev_ctx, &priv->ctx_list, list)
++		if (dev_ctx->intf == intf)
++			return dev_ctx;
++	return NULL;
++}
++
+ static void mlx5_remove_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
+ {
+ 	struct mlx5_device_context *dev_ctx;
+ 	struct mlx5_core_dev *dev = container_of(priv, struct mlx5_core_dev, priv);
+ 
+-	list_for_each_entry(dev_ctx, &priv->ctx_list, list)
+-		if (dev_ctx->intf == intf) {
+-			spin_lock_irq(&priv->ctx_lock);
+-			list_del(&dev_ctx->list);
+-			spin_unlock_irq(&priv->ctx_lock);
++	dev_ctx = mlx5_get_device(intf, priv);
++	if (!dev_ctx)
++		return;
++
++	spin_lock_irq(&priv->ctx_lock);
++	list_del(&dev_ctx->list);
++	spin_unlock_irq(&priv->ctx_lock);
++
++	if (test_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state))
++		intf->remove(dev, dev_ctx->context);
+ 
+-			intf->remove(dev, dev_ctx->context);
+-			kfree(dev_ctx);
++	kfree(dev_ctx);
++}
++
++static void mlx5_attach_interface(struct mlx5_interface *intf, struct mlx5_priv *priv)
++{
++	struct mlx5_device_context *dev_ctx;
++	struct mlx5_core_dev *dev = container_of(priv, struct mlx5_core_dev, priv);
++
++	dev_ctx = mlx5_get_device(intf, priv);
++	if (!dev_ctx)
++		return;
++
++	if (intf->attach) {
++		if (test_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state))
+ 			return;
+-		}
++		intf->attach(dev, dev_ctx->context);
++		set_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state);
++	} else {
++		if (test_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state))
++			return;
++		dev_ctx->context = intf->add(dev);
++		set_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
++	}
++}
++
++static void mlx5_attach_device(struct mlx5_core_dev *dev)
++{
++	struct mlx5_priv *priv = &dev->priv;
++	struct mlx5_interface *intf;
++
++	mutex_lock(&mlx5_intf_mutex);
++	list_for_each_entry(intf, &intf_list, list)
++		mlx5_attach_interface(intf, priv);
++	mutex_unlock(&mlx5_intf_mutex);
++}
++
++static void mlx5_detach_interface(struct mlx5_interface *intf, struct mlx5_priv *priv)
++{
++	struct mlx5_device_context *dev_ctx;
++	struct mlx5_core_dev *dev = container_of(priv, struct mlx5_core_dev, priv);
++
++	dev_ctx = mlx5_get_device(intf, priv);
++	if (!dev_ctx)
++		return;
++
++	if (intf->detach) {
++		if (!test_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state))
++			return;
++		intf->detach(dev, dev_ctx->context);
++		clear_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state);
++	} else {
++		if (!test_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state))
++			return;
++		intf->remove(dev, dev_ctx->context);
++		clear_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
++	}
++}
++
++static void mlx5_detach_device(struct mlx5_core_dev *dev)
++{
++	struct mlx5_priv *priv = &dev->priv;
++	struct mlx5_interface *intf;
++
++	mutex_lock(&mlx5_intf_mutex);
++	list_for_each_entry(intf, &intf_list, list)
++		mlx5_detach_interface(intf, priv);
++	mutex_unlock(&mlx5_intf_mutex);
++}
++
++static bool mlx5_device_registered(struct mlx5_core_dev *dev)
++{
++	struct mlx5_priv *priv;
++	bool found = false;
++
++	mutex_lock(&mlx5_intf_mutex);
++	list_for_each_entry(priv, &mlx5_dev_list, dev_list)
++		if (priv == &dev->priv)
++			found = true;
++	mutex_unlock(&mlx5_intf_mutex);
++
++	return found;
+ }
+ 
+ static int mlx5_register_device(struct mlx5_core_dev *dev)
+@@ -1170,16 +1272,16 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 		goto err_sriov;
+ 	}
+ 
+-	err = mlx5_register_device(dev);
+-	if (err) {
+-		dev_err(&pdev->dev, "mlx5_register_device failed %d\n", err);
+-		goto err_reg_dev;
++	if (mlx5_device_registered(dev)) {
++		mlx5_attach_device(dev);
++	} else {
++		err = mlx5_register_device(dev);
++		if (err) {
++			dev_err(&pdev->dev, "mlx5_register_device failed %d\n", err);
++			goto err_reg_dev;
++		}
+ 	}
+ 
+-	err = request_module_nowait(MLX5_IB_MOD);
+-	if (err)
+-		pr_info("failed request module on %s\n", MLX5_IB_MOD);
+-
+ 	clear_bit(MLX5_INTERFACE_STATE_DOWN, &dev->intf_state);
+ 	set_bit(MLX5_INTERFACE_STATE_UP, &dev->intf_state);
+ out:
+@@ -1255,12 +1357,13 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 		goto out;
+ 	}
+ 
++	if (mlx5_device_registered(dev))
++		mlx5_detach_device(dev);
++
+ 	mlx5_sriov_cleanup(dev);
+-	mlx5_unregister_device(dev);
+ #ifdef CONFIG_MLX5_CORE_EN
+ 	mlx5_eswitch_cleanup(dev->priv.eswitch);
+ #endif
+-
+ 	mlx5_cleanup_rl_table(dev);
+ 	mlx5_cleanup_fs(dev);
+ 	mlx5_cleanup_mkey_table(dev);
+@@ -1372,6 +1475,9 @@ static int init_one(struct pci_dev *pdev,
+ 		dev_err(&pdev->dev, "mlx5_load_one failed with error code %d\n", err);
+ 		goto clean_health;
+ 	}
++	err = request_module_nowait(MLX5_IB_MOD);
++	if (err)
++		pr_info("failed request module on %s\n", MLX5_IB_MOD);
+ 
+ 	err = devlink_register(devlink, &pdev->dev);
+ 	if (err)
+@@ -1399,11 +1505,14 @@ static void remove_one(struct pci_dev *pdev)
+ 	struct mlx5_priv *priv = &dev->priv;
+ 
+ 	devlink_unregister(devlink);
++	mlx5_unregister_device(dev);
++
+ 	if (mlx5_unload_one(dev, priv)) {
+ 		dev_err(&dev->pdev->dev, "mlx5_unload_one failed\n");
+ 		mlx5_health_cleanup(dev);
+ 		return;
+ 	}
++
+ 	mlx5_health_cleanup(dev);
+ 	mlx5_pci_close(dev, priv);
+ 	pci_set_drvdata(pdev, NULL);
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 8653c43e4385..98acbc808ff7 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -915,6 +915,8 @@ enum {
+ struct mlx5_interface {
+ 	void *			(*add)(struct mlx5_core_dev *dev);
+ 	void			(*remove)(struct mlx5_core_dev *dev, void *context);
++	int			(*attach)(struct mlx5_core_dev *dev, void *context);
++	void			(*detach)(struct mlx5_core_dev *dev, void *context);
+ 	void			(*event)(struct mlx5_core_dev *dev, void *context,
+ 					 enum mlx5_dev_event event, unsigned long param);
+ 	void *                  (*get_dev)(void *context);
+-- 
+2.17.1
+

@@ -1,0 +1,93 @@
+From 32b9f75bda9a932004e41b45ca5cf639774cf08e Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Mon, 21 Dec 2015 15:12:20 -0800
+Subject: Drivers: hv: vmbus: Cleanup vmbus_set_event()
+Reply-To: joseph.salisbury@microsoft.com
+
+Cleanup vmbus_set_event() by inlining the hypercall to post
+the event and since the return value of vmbus_set_event() is not checked,
+make it void. As part of this cleanup, get rid of the function
+hv_signal_event() as it is only callled from vmbus_set_event().
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 1b807e1011af46a595ba46c75ad5e20ad7177af7)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/connection.c   |  4 ++--
+ drivers/hv/hv.c           | 16 ----------------
+ drivers/hv/hyperv_vmbus.h |  4 +---
+ 3 files changed, 3 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
+index c0c0aaf88228..12183b1467d1 100644
+--- a/drivers/hv/connection.c
++++ b/drivers/hv/connection.c
+@@ -471,7 +471,7 @@ int vmbus_post_msg(void *buffer, size_t buflen)
+ /*
+  * vmbus_set_event - Send an event notification to the parent
+  */
+-int vmbus_set_event(struct vmbus_channel *channel)
++void vmbus_set_event(struct vmbus_channel *channel)
+ {
+ 	u32 child_relid = channel->offermsg.child_relid;
+ 
+@@ -482,5 +482,5 @@ int vmbus_set_event(struct vmbus_channel *channel)
+ 			(child_relid >> 5));
+ 	}
+ 
+-	return hv_signal_event(channel->sig_event);
++	hv_do_hypercall(HVCALL_SIGNAL_EVENT, channel->sig_event, NULL);
+ }
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index 965921660a69..1133532c990b 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -349,22 +349,6 @@ int hv_post_message(union hv_connection_id connection_id,
+ 	return status & 0xFFFF;
+ }
+ 
+-
+-/*
+- * hv_signal_event -
+- * Signal an event on the specified connection using the hypervisor event IPC.
+- *
+- * This involves a hypercall.
+- */
+-int hv_signal_event(void *con_id)
+-{
+-	u64 status;
+-
+-	status = hv_do_hypercall(HVCALL_SIGNAL_EVENT, con_id, NULL);
+-
+-	return status & 0xFFFF;
+-}
+-
+ static int hv_ce_set_next_event(unsigned long delta,
+ 				struct clock_event_device *evt)
+ {
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 569699b25f95..30f709337bcd 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -515,8 +515,6 @@ extern int hv_post_message(union hv_connection_id connection_id,
+ 			 enum hv_message_type message_type,
+ 			 void *payload, size_t payload_size);
+ 
+-extern int hv_signal_event(void *con_id);
+-
+ extern int hv_synic_alloc(void);
+ 
+ extern void hv_synic_free(void);
+@@ -664,7 +662,7 @@ void vmbus_disconnect(void);
+ 
+ int vmbus_post_msg(void *buffer, size_t buflen);
+ 
+-int vmbus_set_event(struct vmbus_channel *channel);
++void vmbus_set_event(struct vmbus_channel *channel);
+ 
+ void vmbus_on_event(unsigned long data);
+ 
+-- 
+2.17.1
+

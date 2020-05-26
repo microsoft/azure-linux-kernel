@@ -1,0 +1,71 @@
+From 7605a1c85952e206fe666901ab3c9b2ddeffcee4 Mon Sep 17 00:00:00 2001
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Sun, 6 Dec 2015 18:07:38 +0200
+Subject: net/mlx4_core: Use both physical ports to set the VF link state
+Reply-To: joseph.salisbury@microsoft.com
+
+In HA mode, the link state for VFs for which the policy is "auto"
+(i.e. follow the physical link state) should be ORed from both ports.
+
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit e34305c85f86112838cb332696513bed8e04a211)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/fw.c | 12 +++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/fw.h |  1 +
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 033f99d2f15c..88d3e35653b0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -1104,6 +1104,7 @@ int mlx4_QUERY_PORT(struct mlx4_dev *dev, int port, struct mlx4_port_cap *port_c
+ 			goto out;
+ 
+ 		MLX4_GET(field, outbox, QUERY_PORT_SUPPORTED_TYPE_OFFSET);
++		port_cap->link_state = (field & 0x80) >> 7;
+ 		port_cap->supported_port_types = field & 3;
+ 		port_cap->suggested_type = (field >> 3) & 1;
+ 		port_cap->default_sense = (field >> 4) & 1;
+@@ -1310,6 +1311,15 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 			port_type |= MLX4_PORT_LINK_UP_MASK;
+ 		else if (IFLA_VF_LINK_STATE_DISABLE == admin_link_state)
+ 			port_type &= ~MLX4_PORT_LINK_UP_MASK;
++		else if (IFLA_VF_LINK_STATE_AUTO == admin_link_state && mlx4_is_bonded(dev)) {
++			int other_port = (port == 1) ? 2 : 1;
++			struct mlx4_port_cap port_cap;
++
++			err = mlx4_QUERY_PORT(dev, other_port, &port_cap);
++			if (err)
++				goto out;
++			port_type |= (port_cap.link_state << 7);
++		}
+ 
+ 		MLX4_PUT(outbox->buf, port_type,
+ 			 QUERY_PORT_SUPPORTED_TYPE_OFFSET);
+@@ -1325,7 +1335,7 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 		MLX4_PUT(outbox->buf, short_field,
+ 			 QUERY_PORT_CUR_MAX_PKEY_OFFSET);
+ 	}
+-
++out:
+ 	return err;
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
+index 08de5555c2f4..7ea258af636a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.h
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
+@@ -44,6 +44,7 @@ struct mlx4_mod_stat_cfg {
+ };
+ 
+ struct mlx4_port_cap {
++	u8  link_state;
+ 	u8  supported_port_types;
+ 	u8  suggested_type;
+ 	u8  default_sense;
+-- 
+2.17.1
+

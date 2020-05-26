@@ -1,0 +1,226 @@
+From 44d22013c27ddaba73116207bbf55c0fee9c749f Mon Sep 17 00:00:00 2001
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Date: Sun, 24 Jul 2016 16:12:40 +0300
+Subject: net/mlx5e: Query minimum required header copy during xmit
+Reply-To: joseph.salisbury@microsoft.com
+
+Add support for query the minimum inline mode from the Firmware.
+It is required for correct TX steering according to L3/L4 packet
+headers.
+
+Each send queue (SQ) has inline mode that defines the minimal required
+headers that needs to be copied into the SQ WQE.
+The driver asks the Firmware for the wqe_inline_mode device capability
+value.  In case the device capability defined as "vport context" the
+driver must check the reported min inline mode from the vport context
+before creating its SQs.
+
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit cff92d7c7ebd7ceddd4def6b39e0302585b1eb14)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h  |  8 +++++++
+ .../net/ethernet/mellanox/mlx5/core/en_main.c | 24 +++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/vport.c   | 12 ++++++++++
+ include/linux/mlx5/device.h                   |  7 ++++++
+ include/linux/mlx5/mlx5_ifc.h                 | 10 +++++---
+ include/linux/mlx5/vport.h                    |  2 ++
+ 6 files changed, 60 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index e4d6488c5797..262f2f2a6f45 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -129,6 +129,12 @@ static inline int mlx5_max_log_rq_size(int wq_type)
+ 	}
+ }
+ 
++enum {
++	MLX5E_INLINE_MODE_L2,
++	MLX5E_INLINE_MODE_VPORT_CONTEXT,
++	MLX5_INLINE_MODE_NOT_REQUIRED,
++};
++
+ struct mlx5e_tx_wqe {
+ 	struct mlx5_wqe_ctrl_seg ctrl;
+ 	struct mlx5_wqe_eth_seg  eth;
+@@ -189,6 +195,7 @@ struct mlx5e_params {
+ 	bool lro_en;
+ 	u32 lro_wqe_sz;
+ 	u16 tx_max_inline;
++	u8  tx_min_inline_mode;
+ 	u8  rss_hfunc;
+ 	u8  toeplitz_hash_key[40];
+ 	u32 indirection_rqt[MLX5E_INDIR_RQT_SIZE];
+@@ -394,6 +401,7 @@ struct mlx5e_sq {
+ 	u32                        sqn;
+ 	u16                        bf_buf_size;
+ 	u16                        max_inline;
++	u8                         min_inline_mode;
+ 	u16                        edge;
+ 	struct device             *pdev;
+ 	struct mlx5e_tstamp       *tstamp;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index a3dccee738b2..d3207390c192 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -49,6 +49,7 @@ struct mlx5e_sq_param {
+ 	u32                        sqc[MLX5_ST_SZ_DW(sqc)];
+ 	struct mlx5_wq_param       wq;
+ 	u16                        max_inline;
++	u8                         min_inline_mode;
+ 	bool                       icosq;
+ };
+ 
+@@ -613,6 +614,9 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
+ 	}
+ 	sq->bf_buf_size = (1 << MLX5_CAP_GEN(mdev, log_bf_reg_size)) / 2;
+ 	sq->max_inline  = param->max_inline;
++	sq->min_inline_mode =
++		MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5E_INLINE_MODE_VPORT_CONTEXT ?
++		param->min_inline_mode : 0;
+ 
+ 	err = mlx5e_alloc_sq_db(sq, cpu_to_node(c->cpu));
+ 	if (err)
+@@ -695,6 +699,7 @@ static int mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
+ 
+ 	MLX5_SET(sqc,  sqc, tis_num_0, param->icosq ? 0 : priv->tisn[sq->tc]);
+ 	MLX5_SET(sqc,  sqc, cqn,		sq->cq.mcq.cqn);
++	MLX5_SET(sqc,  sqc, min_wqe_inline_mode, sq->min_inline_mode);
+ 	MLX5_SET(sqc,  sqc, state,		MLX5_SQC_STATE_RST);
+ 	MLX5_SET(sqc,  sqc, tis_lst_sz,		param->icosq ? 0 : 1);
+ 	MLX5_SET(sqc,  sqc, flush_in_error_en,	1);
+@@ -1296,6 +1301,7 @@ static void mlx5e_build_sq_param(struct mlx5e_priv *priv,
+ 	MLX5_SET(wq, wq, log_wq_sz,     priv->params.log_sq_size);
+ 
+ 	param->max_inline = priv->params.tx_max_inline;
++	param->min_inline_mode = priv->params.tx_min_inline_mode;
+ }
+ 
+ static void mlx5e_build_common_cq_param(struct mlx5e_priv *priv,
+@@ -2882,6 +2888,23 @@ void mlx5e_set_rx_cq_mode_params(struct mlx5e_params *params, u8 cq_period_mode)
+ 			MLX5E_PARAMS_DEFAULT_RX_CQ_MODERATION_USEC_FROM_CQE;
+ }
+ 
++static void mlx5e_query_min_inline(struct mlx5_core_dev *mdev,
++				   u8 *min_inline_mode)
++{
++	switch (MLX5_CAP_ETH(mdev, wqe_inline_mode)) {
++	case MLX5E_INLINE_MODE_L2:
++		*min_inline_mode = MLX5_INLINE_MODE_L2;
++		break;
++	case MLX5E_INLINE_MODE_VPORT_CONTEXT:
++		mlx5_query_nic_vport_min_inline(mdev,
++						min_inline_mode);
++		break;
++	case MLX5_INLINE_MODE_NOT_REQUIRED:
++		*min_inline_mode = MLX5_INLINE_MODE_NONE;
++		break;
++	}
++}
++
+ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 					struct net_device *netdev,
+ 					const struct mlx5e_profile *profile,
+@@ -2947,6 +2970,7 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 	priv->params.tx_cq_moderation.pkts =
+ 		MLX5E_PARAMS_DEFAULT_TX_CQ_MODERATION_PKTS;
+ 	priv->params.tx_max_inline         = mlx5e_get_max_inline_cap(mdev);
++	mlx5e_query_min_inline(mdev, &priv->params.tx_min_inline_mode);
+ 	priv->params.num_tc                = 1;
+ 	priv->params.rss_hfunc             = ETH_RSS_HASH_XOR;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 4baf60654da6..be9cac0d0d94 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -131,6 +131,18 @@ static int mlx5_modify_nic_vport_context(struct mlx5_core_dev *mdev, void *in,
+ 	return mlx5_cmd_exec_check_status(mdev, in, inlen, out, sizeof(out));
+ }
+ 
++void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
++				     u8 *min_inline_mode)
++{
++	u32 out[MLX5_ST_SZ_DW(query_nic_vport_context_out)] = {0};
++
++	mlx5_query_nic_vport_context(mdev, 0, out, sizeof(out));
++
++	*min_inline_mode = MLX5_GET(query_nic_vport_context_out, out,
++				    nic_vport_context.min_wqe_inline_mode);
++}
++EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_min_inline);
++
+ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 				     u16 vport, u8 *addr)
+ {
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 0f909c131e95..8f0554738895 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -129,6 +129,13 @@ __mlx5_mask(typ, fld))
+ 		tmp;							  \
+ 		})
+ 
++enum mlx5_inline_modes {
++	MLX5_INLINE_MODE_NONE,
++	MLX5_INLINE_MODE_L2,
++	MLX5_INLINE_MODE_IP,
++	MLX5_INLINE_MODE_TCP_UDP,
++};
++
+ enum {
+ 	MLX5_MAX_COMMANDS		= 32,
+ 	MLX5_CMD_DATA_BLOCK_SIZE	= 512,
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index caf0fa764e48..1f15cb1d6d7f 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -536,7 +536,8 @@ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
+ 	u8         self_lb_en_modifiable[0x1];
+ 	u8         reserved_at_9[0x2];
+ 	u8         max_lso_cap[0x5];
+-	u8         reserved_at_10[0x4];
++	u8         reserved_at_10[0x2];
++	u8	   wqe_inline_mode[0x2];
+ 	u8         rss_ind_tbl_cap[0x4];
+ 	u8         reg_umr_sq[0x1];
+ 	u8         scatter_fcs[0x1];
+@@ -2269,7 +2270,8 @@ struct mlx5_ifc_sqc_bits {
+ 	u8         cd_master[0x1];
+ 	u8         fre[0x1];
+ 	u8         flush_in_error_en[0x1];
+-	u8         reserved_at_4[0x4];
++	u8         reserved_at_4[0x1];
++	u8	   min_wqe_inline_mode[0x3];
+ 	u8         state[0x4];
+ 	u8         reg_umr[0x1];
+ 	u8         reserved_at_d[0x13];
+@@ -2366,7 +2368,9 @@ struct mlx5_ifc_rmpc_bits {
+ };
+ 
+ struct mlx5_ifc_nic_vport_context_bits {
+-	u8         reserved_at_0[0x1f];
++	u8         reserved_at_0[0x5];
++	u8         min_wqe_inline_mode[0x3];
++	u8         reserved_at_8[0x17];
+ 	u8         roce_en[0x1];
+ 
+ 	u8         arm_change_event[0x1];
+diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
+index 6c16c198f680..e087b7d047ac 100644
+--- a/include/linux/mlx5/vport.h
++++ b/include/linux/mlx5/vport.h
+@@ -43,6 +43,8 @@ int mlx5_modify_vport_admin_state(struct mlx5_core_dev *mdev, u8 opmod,
+ 				  u16 vport, u8 state);
+ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 				     u16 vport, u8 *addr);
++void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
++				     u8 *min_inline);
+ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *dev,
+ 				      u16 vport, u8 *addr);
+ int mlx5_query_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 *mtu);
+-- 
+2.17.1
+

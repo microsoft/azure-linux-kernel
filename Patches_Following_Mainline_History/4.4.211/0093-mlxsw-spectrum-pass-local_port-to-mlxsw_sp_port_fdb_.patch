@@ -1,0 +1,78 @@
+From bd02a8c6ab7b8ea4e8421f7bb5ca466cc4fae3c8 Mon Sep 17 00:00:00 2001
+From: Jiri Pirko <jiri@mellanox.com>
+Date: Thu, 7 Jan 2016 11:50:29 +0100
+Subject: mlxsw: spectrum: pass local_port to mlxsw_sp_port_fdb_uc_op
+Reply-To: joseph.salisbury@microsoft.com
+
+Do not pass struct mlxsw_sp_port to mlxsw_sp_port_fdb_uc_op and rather
+just pass local_port. This is needed in case this is called from SFN
+process function and mlxsw_sp_port is not existent for particular
+local_port.
+
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 2fa9d45e16089b499909d807025f0d66b2442d57)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c    | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index ce2a7e88b0f9..28e84ad648ae 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -600,11 +600,10 @@ static enum mlxsw_reg_sfd_op mlxsw_sp_sfd_op(bool adding)
+ 			MLXSW_REG_SFD_OP_WRITE_REMOVE;
+ }
+ 
+-static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp_port *mlxsw_sp_port,
++static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 				   const char *mac, u16 fid, bool adding,
+ 				   bool dynamic)
+ {
+-	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	char *sfd_pl;
+ 	int err;
+ 
+@@ -615,7 +614,7 @@ static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	mlxsw_reg_sfd_pack(sfd_pl, mlxsw_sp_sfd_op(adding), 0);
+ 	mlxsw_reg_sfd_uc_pack(sfd_pl, 0, mlxsw_sp_sfd_rec_policy(dynamic),
+ 			      mac, fid, MLXSW_REG_SFD_REC_ACTION_NOP,
+-			      mlxsw_sp_port->local_port);
++			      local_port);
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
+ 	kfree(sfd_pl);
+ 
+@@ -665,7 +664,8 @@ mlxsw_sp_port_fdb_static_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		fid = mlxsw_sp_port->pvid;
+ 
+ 	if (!mlxsw_sp_port->lagged)
+-		return mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port,
++		return mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port->mlxsw_sp,
++					       mlxsw_sp_port->local_port,
+ 					       fdb->addr, fid, true, false);
+ 	else
+ 		return mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp_port->mlxsw_sp,
+@@ -804,7 +804,8 @@ mlxsw_sp_port_fdb_static_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	}
+ 
+ 	if (!mlxsw_sp_port->lagged)
+-		return mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port,
++		return mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port->mlxsw_sp,
++					       mlxsw_sp_port->local_port,
+ 					       fdb->addr, fid,
+ 					       false, false);
+ 	else
+@@ -1062,7 +1063,7 @@ static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
+ 		vid = fid;
+ 	}
+ 
+-	err = mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port, mac, fid,
++	err = mlxsw_sp_port_fdb_uc_op(mlxsw_sp, local_port, mac, fid,
+ 				      adding && mlxsw_sp_port->learning, true);
+ 	if (err) {
+ 		if (net_ratelimit())
+-- 
+2.17.1
+

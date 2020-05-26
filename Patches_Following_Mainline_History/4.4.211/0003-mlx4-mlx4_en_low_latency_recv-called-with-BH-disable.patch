@@ -1,0 +1,67 @@
+From 51e711f475da7eb3c1b7568da3241ff6f3662c93 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Wed, 18 Nov 2015 06:30:51 -0800
+Subject: mlx4: mlx4_en_low_latency_recv() called with BH disabled
+Reply-To: joseph.salisbury@microsoft.com
+
+mlx4_en_low_latency_recv() is called with BH disabled,
+as other ndo_busy_poll() methods.
+
+No need for spin_lock_bh()/spin_unlock_bh()
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 5865316c9db31e863d4baef04dc86957d7fdae7f)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 607daaffae98..a25054e2c34e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -662,11 +662,12 @@ static inline bool mlx4_en_cq_unlock_napi(struct mlx4_en_cq *cq)
+ 	return rc;
+ }
+ 
+-/* called from mlx4_en_low_latency_poll() */
++/* called from mlx4_en_low_latency_recv(), BH are disabled */
+ static inline bool mlx4_en_cq_lock_poll(struct mlx4_en_cq *cq)
+ {
+ 	int rc = true;
+-	spin_lock_bh(&cq->poll_lock);
++
++	spin_lock(&cq->poll_lock);
+ 	if ((cq->state & MLX4_CQ_LOCKED)) {
+ 		struct net_device *dev = cq->dev;
+ 		struct mlx4_en_priv *priv = netdev_priv(dev);
+@@ -678,7 +679,7 @@ static inline bool mlx4_en_cq_lock_poll(struct mlx4_en_cq *cq)
+ 	} else
+ 		/* preserve yield marks */
+ 		cq->state |= MLX4_EN_CQ_STATE_POLL;
+-	spin_unlock_bh(&cq->poll_lock);
++	spin_unlock(&cq->poll_lock);
+ 	return rc;
+ }
+ 
+@@ -686,13 +687,14 @@ static inline bool mlx4_en_cq_lock_poll(struct mlx4_en_cq *cq)
+ static inline bool mlx4_en_cq_unlock_poll(struct mlx4_en_cq *cq)
+ {
+ 	int rc = false;
+-	spin_lock_bh(&cq->poll_lock);
++
++	spin_lock(&cq->poll_lock);
+ 	WARN_ON(cq->state & (MLX4_EN_CQ_STATE_NAPI));
+ 
+ 	if (cq->state & MLX4_EN_CQ_STATE_POLL_YIELD)
+ 		rc = true;
+ 	cq->state = MLX4_EN_CQ_STATE_IDLE;
+-	spin_unlock_bh(&cq->poll_lock);
++	spin_unlock(&cq->poll_lock);
+ 	return rc;
+ }
+ 
+-- 
+2.17.1
+

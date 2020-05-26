@@ -1,0 +1,124 @@
+From 4717d71020d89f51acb9d0b4ac3ab7f2828a0389 Mon Sep 17 00:00:00 2001
+From: Eran Ben Elisha <eranbe@mellanox.com>
+Date: Tue, 29 Dec 2015 14:58:30 +0200
+Subject: net/mlx5_core: Introduce access function to read internal timer
+Reply-To: joseph.salisbury@microsoft.com
+
+A preparation step which adds support for reading the hardware
+internal timer and the hardware timestamping from the CQE.
+In addition, advertize device_frequency_khz HCA capability.
+
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit b0844444590e18704644f707ea88bff1b976b0e7)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/main.c    | 13 ++++++++++++
+ .../ethernet/mellanox/mlx5/core/mlx5_core.h   |  1 +
+ include/linux/mlx5/device.h                   | 20 ++++++++++++++++---
+ include/linux/mlx5/mlx5_ifc.h                 |  6 +++---
+ 4 files changed, 34 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 9df98b9a64a3..0cc0b2660c72 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -512,6 +512,19 @@ int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id)
+ 	return mlx5_cmd_status_to_err_v2(out);
+ }
+ 
++cycle_t mlx5_read_internal_timer(struct mlx5_core_dev *dev)
++{
++	u32 timer_h, timer_h1, timer_l;
++
++	timer_h = ioread32be(&dev->iseg->internal_timer_h);
++	timer_l = ioread32be(&dev->iseg->internal_timer_l);
++	timer_h1 = ioread32be(&dev->iseg->internal_timer_h);
++	if (timer_h != timer_h1) /* wrap around */
++		timer_l = ioread32be(&dev->iseg->internal_timer_l);
++
++	return (cycle_t)timer_l | (cycle_t)timer_h1 << 32;
++}
++
+ static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
+ {
+ 	struct mlx5_priv *priv  = &mdev->priv;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index ea6a137fd76c..0336847ec9a1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -98,6 +98,7 @@ int mlx5_core_sriov_configure(struct pci_dev *dev, int num_vfs);
+ int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_wait_for_vf_pages(struct mlx5_core_dev *dev);
++cycle_t mlx5_read_internal_timer(struct mlx5_core_dev *dev);
+ 
+ void mlx5e_init(void);
+ void mlx5e_cleanup(void);
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index c2722b2addee..91e0dcba2e8b 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -454,9 +454,12 @@ struct mlx5_init_seg {
+ 	__be32			rsvd1[120];
+ 	__be32			initializing;
+ 	struct health_buffer	health;
+-	__be32			rsvd2[884];
++	__be32			rsvd2[880];
++	__be32			internal_timer_h;
++	__be32			internal_timer_l;
++	__be32			rsrv3[2];
+ 	__be32			health_counter;
+-	__be32			rsvd3[1019];
++	__be32			rsvd4[1019];
+ 	__be64			ieee1588_clk;
+ 	__be32			ieee1588_clk_type;
+ 	__be32			clr_intx;
+@@ -612,7 +615,8 @@ struct mlx5_cqe64 {
+ 	__be32		imm_inval_pkey;
+ 	u8		rsvd40[4];
+ 	__be32		byte_cnt;
+-	__be64		timestamp;
++	__be32		timestamp_h;
++	__be32		timestamp_l;
+ 	__be32		sop_drop_qpn;
+ 	__be16		wqe_counter;
+ 	u8		signature;
+@@ -634,6 +638,16 @@ static inline int cqe_has_vlan(struct mlx5_cqe64 *cqe)
+ 	return !!(cqe->l4_hdr_type_etc & 0x1);
+ }
+ 
++static inline u64 get_cqe_ts(struct mlx5_cqe64 *cqe)
++{
++	u32 hi, lo;
++
++	hi = be32_to_cpu(cqe->timestamp_h);
++	lo = be32_to_cpu(cqe->timestamp_l);
++
++	return (u64)lo | ((u64)hi << 32);
++}
++
+ enum {
+ 	CQE_L4_HDR_TYPE_NONE			= 0x0,
+ 	CQE_L4_HDR_TYPE_TCP_NO_ACK		= 0x1,
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 131a2737cfa3..1780a85a8797 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -829,9 +829,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         reserved_66[0x8];
+ 	u8         log_uar_page_sz[0x10];
+ 
+-	u8         reserved_67[0xe0];
+-
+-	u8         reserved_68[0x1f];
++	u8         reserved_67[0x40];
++	u8         device_frequency_khz[0x20];
++	u8         reserved_68[0x5f];
+ 	u8         cqe_zip[0x1];
+ 
+ 	u8         cqe_zip_timeout[0x10];
+-- 
+2.17.1
+

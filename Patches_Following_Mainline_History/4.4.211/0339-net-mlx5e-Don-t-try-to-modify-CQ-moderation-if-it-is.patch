@@ -1,0 +1,37 @@
+From 20948ca65009e0f2295ae6cd6710f6b8b52aef62 Mon Sep 17 00:00:00 2001
+From: Gal Pressman <galp@mellanox.com>
+Date: Wed, 2 Mar 2016 00:13:37 +0200
+Subject: net/mlx5e: Don't try to modify CQ moderation if it is not supported
+Reply-To: joseph.salisbury@microsoft.com
+
+If CQ moderation is not supported by the device, print a warning on
+netdevice load, and return error when trying to modify/query cq
+moderation via ethtool.
+
+Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support ConnectX-4
+Ethernet functionality')
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 7524a5d88b94afef8397a79f1e664af5b7052c22)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 52eb1b0ca7c8..c48a5463b9f0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -426,7 +426,6 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
+ 	if (!MLX5_CAP_GEN(mdev, cq_moderation))
+ 		return -ENOTSUPP;
+ 
+-	mutex_lock(&priv->state_lock);
+ 	priv->params.tx_cq_moderation_usec = coal->tx_coalesce_usecs;
+ 	priv->params.tx_cq_moderation_pkts = coal->tx_max_coalesced_frames;
+ 	priv->params.rx_cq_moderation_usec = coal->rx_coalesce_usecs;
+-- 
+2.17.1
+

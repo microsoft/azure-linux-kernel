@@ -1,0 +1,37 @@
+From 2fb6af219c9da8ef27b0d1ee7db32c6cabc0b580 Mon Sep 17 00:00:00 2001
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 6 Jan 2016 12:56:30 +0300
+Subject: mlxsw: core: remove an unnecessary condition
+Reply-To: joseph.salisbury@microsoft.com
+
+We checked "err" on the lines before so we know it's zero here.
+
+These cause a static checker warning because checking known things can
+indicate a bug.  Maybe there is a missing assignment or we are checking
+the wrong variable.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 719255d0e29463ddba2d01a72c1e74092793103a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
+index 5b9364f4837d..1ac8bf187168 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
+@@ -130,7 +130,7 @@ static ssize_t mlxsw_hwmon_temp_rst_store(struct device *dev,
+ 		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to reset temp sensor history\n");
+ 		return err;
+ 	}
+-	return err ? err : len;
++	return len;
+ }
+ 
+ static ssize_t mlxsw_hwmon_fan_rpm_show(struct device *dev,
+-- 
+2.17.1
+

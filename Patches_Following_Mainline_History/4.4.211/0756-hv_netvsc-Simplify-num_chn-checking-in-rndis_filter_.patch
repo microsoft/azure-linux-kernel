@@ -1,0 +1,44 @@
+From f712b08cc5ac9648d0dc358c9ed9075717f659b0 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 1 Sep 2017 14:30:05 -0700
+Subject: hv_netvsc: Simplify num_chn checking in rndis_filter_device_add()
+Reply-To: joseph.salisbury@microsoft.com
+
+The minus one and assignment to a local variable is not necessary.
+This patch simplifies it.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 5c4217d05d3258fa9999ad959c9b6da791b70bfa)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/rndis_filter.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index a9d8d03c384d..430e36bf3198 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1070,7 +1070,7 @@ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
+ 	struct ndis_recv_scale_cap rsscap;
+ 	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);
+ 	unsigned int gso_max_size = GSO_MAX_SIZE;
+-	u32 mtu, size, num_rss_qs;
++	u32 mtu, size;
+ 	const struct cpumask *node_cpu_mask;
+ 	u32 num_possible_rss_qs;
+ 	int i, ret;
+@@ -1220,8 +1220,8 @@ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
+ 							net_device->num_chn);
+ 
+ 	atomic_set(&net_device->open_chn, 1);
+-	num_rss_qs = net_device->num_chn - 1;
+-	if (num_rss_qs == 0)
++
++	if (net_device->num_chn == 1)
+ 		return net_device;
+ 
+ 	for (i = 1; i < net_device->num_chn; i++) {
+-- 
+2.17.1
+

@@ -1,0 +1,81 @@
+From 9ad5d7997d3a0d127796b4987446bf1e3540d5f8 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Tue, 1 Dec 2015 16:43:12 -0800
+Subject: hv_netvsc: remove locking in netvsc_send()
+Reply-To: joseph.salisbury@microsoft.com
+
+Packet scheduler guarantees there won't be multiple senders for the same
+queue and as we use q_idx for multi_send_data the spinlock is redundant.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 2a04ae8acb144996eba6e3d69ab2a7156c775416)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h | 1 -
+ drivers/net/hyperv/netvsc.c     | 8 --------
+ 2 files changed, 9 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index c4bfada6b6f9..d91d2f84c559 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -635,7 +635,6 @@ struct nvsp_message {
+ #define RNDIS_PKT_ALIGN_DEFAULT 8
+ 
+ struct multi_send_data {
+-	spinlock_t lock; /* protect struct multi_send_data */
+ 	struct hv_netvsc_packet *pkt; /* netvsc pkt pending */
+ 	u32 count; /* counter of batched packets */
+ };
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index e4e514311b89..dd1e74f40dea 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -38,7 +38,6 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
+ {
+ 	struct netvsc_device *net_device;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+-	int i;
+ 
+ 	net_device = kzalloc(sizeof(struct netvsc_device), GFP_KERNEL);
+ 	if (!net_device)
+@@ -58,9 +57,6 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
+ 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
+ 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
+ 
+-	for (i = 0; i < num_online_cpus(); i++)
+-		spin_lock_init(&net_device->msd[i].lock);
+-
+ 	hv_set_drvdata(device, net_device);
+ 	return net_device;
+ }
+@@ -851,7 +847,6 @@ int netvsc_send(struct hv_device *device,
+ 	u16 q_idx = packet->q_idx;
+ 	u32 pktlen = packet->total_data_buflen, msd_len = 0;
+ 	unsigned int section_index = NETVSC_INVALID_INDEX;
+-	unsigned long flag;
+ 	struct multi_send_data *msdp;
+ 	struct hv_netvsc_packet *msd_send = NULL, *cur_send = NULL;
+ 	bool try_batch;
+@@ -868,7 +863,6 @@ int netvsc_send(struct hv_device *device,
+ 	msdp = &net_device->msd[q_idx];
+ 
+ 	/* batch packets in send buffer if possible */
+-	spin_lock_irqsave(&msdp->lock, flag);
+ 	if (msdp->pkt)
+ 		msd_len = msdp->pkt->total_data_buflen;
+ 
+@@ -928,8 +922,6 @@ int netvsc_send(struct hv_device *device,
+ 		cur_send = packet;
+ 	}
+ 
+-	spin_unlock_irqrestore(&msdp->lock, flag);
+-
+ 	if (msd_send) {
+ 		m_ret = netvsc_send_pkt(msd_send, net_device);
+ 
+-- 
+2.17.1
+

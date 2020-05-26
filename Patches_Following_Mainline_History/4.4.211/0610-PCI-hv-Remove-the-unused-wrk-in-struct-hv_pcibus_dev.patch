@@ -1,0 +1,35 @@
+From 89c20e04ce80eba062bd3ec069dcad215982f2b2 Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Tue, 23 Aug 2016 04:47:23 +0000
+Subject: PCI: hv: Remove the unused 'wrk' in struct hv_pcibus_device
+Reply-To: joseph.salisbury@microsoft.com
+
+Remove the unused 'wrk' member in struct hv_pcibus_device.
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Acked-by: KY Srinivasan <kys@microsoft.com>
+CC: Jake Oshins <jakeo@microsoft.com>
+CC: Haiyang Zhang <haiyangz@microsoft.com>
+CC: Vitaly Kuznetsov <vkuznets@redhat.com>
+(cherry picked from commit 617ceb62eaa1a180e8af1be9903d960c3a0b2ebc)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/pci/host/pci-hyperv.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/pci/host/pci-hyperv.c b/drivers/pci/host/pci-hyperv.c
+index 7745b63c8f69..26c426e62a63 100644
+--- a/drivers/pci/host/pci-hyperv.c
++++ b/drivers/pci/host/pci-hyperv.c
+@@ -374,7 +374,6 @@ struct hv_pcibus_device {
+ 
+ 	struct list_head children;
+ 	struct list_head dr_list;
+-	struct work_struct wrk;
+ 
+ 	struct msi_domain_info msi_info;
+ 	struct msi_controller msi_chip;
+-- 
+2.17.1
+

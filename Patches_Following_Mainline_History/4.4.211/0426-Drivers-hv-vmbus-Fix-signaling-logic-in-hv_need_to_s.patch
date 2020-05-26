@@ -1,0 +1,92 @@
+From 4ac10c4550808fcd37ebd20ead9fee432ca732a0 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Sat, 2 Apr 2016 16:17:38 -0700
+Subject: Drivers: hv: vmbus: Fix signaling logic in
+ hv_need_to_signal_on_read()
+Reply-To: joseph.salisbury@microsoft.com
+
+On the consumer side, we have interrupt driven flow management of the
+producer. It is sufficient to base the signaling decision on the
+amount of space that is available to write after the read is complete.
+The current code samples the previous available space and uses this
+in making the signaling decision. This state can be stale and is
+unnecessary. Since the state can be stale, we end up not signaling
+the host (when we should) and this can result in a hang. Fix this
+problem by removing the unnecessary check. I would like to thank
+Arseney Romanenko <arseneyr@microsoft.com> for pointing out this issue.
+
+Also, issue a full memory barrier before making the signaling descision
+to correctly deal with potential reordering of the write (read index)
+followed by the read of pending_sz.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Tested-by: Dexuan Cui <decui@microsoft.com>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit a389fcfd2cb57793931a9fb98fed076aae50bb6c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/ring_buffer.c | 26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
+index 5bc4ed7e68fe..231ab95ac701 100644
+--- a/drivers/hv/ring_buffer.c
++++ b/drivers/hv/ring_buffer.c
+@@ -103,18 +103,30 @@ static bool hv_need_to_signal(u32 old_write, struct hv_ring_buffer_info *rbi)
+  *    there is room for the producer to send the pending packet.
+  */
+ 
+-static bool hv_need_to_signal_on_read(u32 prev_write_sz,
+-				      struct hv_ring_buffer_info *rbi)
++static bool hv_need_to_signal_on_read(struct hv_ring_buffer_info *rbi)
+ {
+ 	u32 cur_write_sz;
+ 	u32 r_size;
+-	u32 write_loc = rbi->ring_buffer->write_index;
++	u32 write_loc;
+ 	u32 read_loc = rbi->ring_buffer->read_index;
+-	u32 pending_sz = rbi->ring_buffer->pending_send_sz;
++	u32 pending_sz;
+ 
+ 	/*
+-	 * If the other end is not blocked on write don't bother.
++	 * Issue a full memory barrier before making the signaling decision.
++	 * Here is the reason for having this barrier:
++	 * If the reading of the pend_sz (in this function)
++	 * were to be reordered and read before we commit the new read
++	 * index (in the calling function)  we could
++	 * have a problem. If the host were to set the pending_sz after we
++	 * have sampled pending_sz and go to sleep before we commit the
++	 * read index, we could miss sending the interrupt. Issue a full
++	 * memory barrier to address this.
+ 	 */
++	mb();
++
++	pending_sz = rbi->ring_buffer->pending_send_sz;
++	write_loc = rbi->ring_buffer->write_index;
++	/* If the other end is not blocked on write don't bother. */
+ 	if (pending_sz == 0)
+ 		return false;
+ 
+@@ -122,7 +134,7 @@ static bool hv_need_to_signal_on_read(u32 prev_write_sz,
+ 	cur_write_sz = write_loc >= read_loc ? r_size - (write_loc - read_loc) :
+ 			read_loc - write_loc;
+ 
+-	if ((prev_write_sz < pending_sz) && (cur_write_sz >= pending_sz))
++	if (cur_write_sz >= pending_sz)
+ 		return true;
+ 
+ 	return false;
+@@ -526,7 +538,7 @@ int hv_ringbuffer_read(struct hv_ring_buffer_info *inring_info,
+ 	/* Update the read index */
+ 	hv_set_next_read_location(inring_info, next_read_location);
+ 
+-	*signal = hv_need_to_signal_on_read(bytes_avail_towrite, inring_info);
++	*signal = hv_need_to_signal_on_read(inring_info);
+ 
+ 	return ret;
+ }
+-- 
+2.17.1
+

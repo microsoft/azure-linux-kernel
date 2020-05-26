@@ -1,0 +1,231 @@
+From af12f9277783c6ddf3d50c887ba9ff5da0c61b3b Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Thu, 19 Jan 2017 11:51:47 -0700
+Subject: Drivers: hv: vmbus: Move the extracting of Hypervisor version
+ information
+Reply-To: joseph.salisbury@microsoft.com
+
+As part of the effort to separate out architecture specific code,
+extract hypervisor version information in an architecture specific
+file.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 8de8af7e0873c4fdac2205327dff922819e16657)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/include/asm/mshyperv.h | 19 +++++++++++++
+ arch/x86/kernel/cpu/mshyperv.c  | 20 ++++++++++++++
+ drivers/hv/connection.c         |  7 ++---
+ drivers/hv/hv.c                 | 49 ---------------------------------
+ drivers/hv/hyperv_vmbus.h       | 27 ------------------
+ 5 files changed, 41 insertions(+), 81 deletions(-)
+
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index adfe8cc9f7e3..54729e3cba47 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -5,6 +5,25 @@
+ #include <linux/interrupt.h>
+ #include <asm/hyperv.h>
+ 
++/*
++ * The below CPUID leaves are present if VersionAndFeatures.HypervisorPresent
++ * is set by CPUID(HVCPUID_VERSION_FEATURES).
++ */
++enum hv_cpuid_function {
++	HVCPUID_VERSION_FEATURES		= 0x00000001,
++	HVCPUID_VENDOR_MAXFUNCTION		= 0x40000000,
++	HVCPUID_INTERFACE			= 0x40000001,
++
++	/*
++	 * The remaining functions depend on the value of
++	 * HVCPUID_INTERFACE
++	 */
++	HVCPUID_VERSION				= 0x40000002,
++	HVCPUID_FEATURES			= 0x40000003,
++	HVCPUID_ENLIGHTENMENT_INFO		= 0x40000004,
++	HVCPUID_IMPLEMENTATION_LIMITS		= 0x40000005,
++};
++
+ struct ms_hyperv_info {
+ 	u32 features;
+ 	u32 misc_features;
+diff --git a/arch/x86/kernel/cpu/mshyperv.c b/arch/x86/kernel/cpu/mshyperv.c
+index bceb62ecb1c0..6587a7eae3b3 100644
+--- a/arch/x86/kernel/cpu/mshyperv.c
++++ b/arch/x86/kernel/cpu/mshyperv.c
+@@ -160,6 +160,11 @@ static int hv_nmi_unknown(unsigned int val, struct pt_regs *regs)
+ 
+ static void __init ms_hyperv_init_platform(void)
+ {
++	int hv_host_info_eax;
++	int hv_host_info_ebx;
++	int hv_host_info_ecx;
++	int hv_host_info_edx;
++
+ 	/*
+ 	 * Extract the features and hints
+ 	 */
+@@ -170,6 +175,21 @@ static void __init ms_hyperv_init_platform(void)
+ 	printk(KERN_INFO "HyperV: features 0x%x, hints 0x%x\n",
+ 	       ms_hyperv.features, ms_hyperv.hints);
+ 
++	/*
++	 * Extract host information.
++	 */
++	if (cpuid_eax(HVCPUID_VENDOR_MAXFUNCTION) >= HVCPUID_VERSION) {
++		hv_host_info_eax = cpuid_eax(HVCPUID_VERSION);
++		hv_host_info_ebx = cpuid_ebx(HVCPUID_VERSION);
++		hv_host_info_ecx = cpuid_ecx(HVCPUID_VERSION);
++		hv_host_info_edx = cpuid_edx(HVCPUID_VERSION);
++
++		pr_info("Hyper-V Host Build:%d-%d.%d-%d-%d.%d\n",
++			hv_host_info_eax, hv_host_info_ebx >> 16,
++			hv_host_info_ebx & 0xFFFF, hv_host_info_ecx,
++			hv_host_info_edx >> 24, hv_host_info_edx & 0xFFFFFF);
++	}
++
+ #ifdef CONFIG_X86_LOCAL_APIC
+ 	if (ms_hyperv.features & HV_X64_MSR_APIC_FREQUENCY_AVAILABLE) {
+ 		/*
+diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
+index 50c77d9d6bd2..2ace6b053b38 100644
+--- a/drivers/hv/connection.c
++++ b/drivers/hv/connection.c
+@@ -209,11 +209,8 @@ int vmbus_connect(void)
+ 		goto cleanup;
+ 
+ 	vmbus_proto_version = version;
+-	pr_info("Hyper-V Host Build:%d-%d.%d-%d-%d.%d; Vmbus version:%d.%d\n",
+-		    host_info_eax, host_info_ebx >> 16,
+-		    host_info_ebx & 0xFFFF, host_info_ecx,
+-		    host_info_edx >> 24, host_info_edx & 0xFFFFFF,
+-		    version >> 16, version & 0xFFFF);
++	pr_info("Vmbus version:%d.%d\n",
++		version >> 16, version & 0xFFFF);
+ 
+ 	kfree(msginfo);
+ 	return 0;
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index 116697642c65..d30168a998d2 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -43,51 +43,6 @@ struct hv_context hv_context = {
+ #define HV_MAX_MAX_DELTA_TICKS 0xffffffff
+ #define HV_MIN_DELTA_TICKS 1
+ 
+-/*
+- * query_hypervisor_info - Get version info of the windows hypervisor
+- */
+-unsigned int host_info_eax;
+-unsigned int host_info_ebx;
+-unsigned int host_info_ecx;
+-unsigned int host_info_edx;
+-
+-static int query_hypervisor_info(void)
+-{
+-	unsigned int eax;
+-	unsigned int ebx;
+-	unsigned int ecx;
+-	unsigned int edx;
+-	unsigned int max_leaf;
+-	unsigned int op;
+-
+-	/*
+-	* Its assumed that this is called after confirming that Viridian
+-	* is present. Query id and revision.
+-	*/
+-	eax = 0;
+-	ebx = 0;
+-	ecx = 0;
+-	edx = 0;
+-	op = HVCPUID_VENDOR_MAXFUNCTION;
+-	cpuid(op, &eax, &ebx, &ecx, &edx);
+-
+-	max_leaf = eax;
+-
+-	if (max_leaf >= HVCPUID_VERSION) {
+-		eax = 0;
+-		ebx = 0;
+-		ecx = 0;
+-		edx = 0;
+-		op = HVCPUID_VERSION;
+-		cpuid(op, &eax, &ebx, &ecx, &edx);
+-		host_info_eax = eax;
+-		host_info_ebx = ebx;
+-		host_info_ecx = ecx;
+-		host_info_edx = edx;
+-	}
+-	return max_leaf;
+-}
+-
+ /*
+  * hv_init - Main initialization routine.
+  *
+@@ -95,7 +50,6 @@ static int query_hypervisor_info(void)
+  */
+ int hv_init(void)
+ {
+-	int max_leaf;
+ 	union hv_x64_msr_hypercall_contents hypercall_msr;
+ 
+ 	memset(hv_context.synic_event_page, 0, sizeof(void *) * NR_CPUS);
+@@ -112,9 +66,6 @@ int hv_init(void)
+ 	memset(hv_context.clk_evt, 0,
+ 	       sizeof(void *) * NR_CPUS);
+ 
+-	max_leaf = query_hypervisor_info();
+-
+-
+ 	/* See if the hypercall page is already set */
+ 	hypercall_msr.as_uint64 = 0;
+ 	rdmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 1493c332139c..76f94797b50c 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -40,25 +40,6 @@
+  */
+ #define HV_UTIL_NEGO_TIMEOUT 60
+ 
+-/*
+- * The below CPUID leaves are present if VersionAndFeatures.HypervisorPresent
+- * is set by CPUID(HVCPUID_VERSION_FEATURES).
+- */
+-enum hv_cpuid_function {
+-	HVCPUID_VERSION_FEATURES		= 0x00000001,
+-	HVCPUID_VENDOR_MAXFUNCTION		= 0x40000000,
+-	HVCPUID_INTERFACE			= 0x40000001,
+-
+-	/*
+-	 * The remaining functions depend on the value of
+-	 * HVCPUID_INTERFACE
+-	 */
+-	HVCPUID_VERSION			= 0x40000002,
+-	HVCPUID_FEATURES			= 0x40000003,
+-	HVCPUID_ENLIGHTENMENT_INFO	= 0x40000004,
+-	HVCPUID_IMPLEMENTATION_LIMITS		= 0x40000005,
+-};
+-
+ #define  HV_FEATURE_GUEST_CRASH_MSR_AVAILABLE   0x400
+ 
+ #define HV_X64_MSR_CRASH_P0   0x40000100
+@@ -459,14 +440,6 @@ extern int hv_synic_cleanup(unsigned int cpu);
+ 
+ extern void hv_synic_clockevents_cleanup(void);
+ 
+-/*
+- * Host version information.
+- */
+-extern unsigned int host_info_eax;
+-extern unsigned int host_info_ebx;
+-extern unsigned int host_info_ecx;
+-extern unsigned int host_info_edx;
+-
+ /* Interface */
+ 
+ 
+-- 
+2.17.1
+

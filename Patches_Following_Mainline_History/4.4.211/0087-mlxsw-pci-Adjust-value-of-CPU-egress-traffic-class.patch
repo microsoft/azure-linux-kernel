@@ -1,0 +1,46 @@
+From 5902c85948ee9c4883e583dd4c8fd9aea74388bf Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Tue, 5 Jan 2016 11:36:40 +0100
+Subject: mlxsw: pci: Adjust value of CPU egress traffic class
+Reply-To: joseph.salisbury@microsoft.com
+
+During initialization, when creating the send descriptor queues (SDQs),
+we specify the CPU egress traffic class of each SDQ. The maximum number
+of classes of this type is different in the two ASICs supported by this
+PCI driver.
+
+New firmware versions check this value is set correctly, which causes
+errors on the Spectrum ASIC, as its max exposed egress traffic class is
+lower than 7.
+
+Solve this by setting this field to 3, which is an acceptable value for
+both ASICs.
+
+Note that we currently do not expose the QoS capabilities of the ASICs,
+so setting this to an hardcoded value is OK for now.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit f0138e2596f2994129451ee320ff8692cb7bc86b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/pci.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+index d2102e572b1d..c071077aafbd 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+@@ -384,7 +384,7 @@ static int mlxsw_pci_sdq_init(struct mlxsw_pci *mlxsw_pci, char *mbox,
+ 
+ 	/* Set CQ of same number of this SDQ. */
+ 	mlxsw_cmd_mbox_sw2hw_dq_cq_set(mbox, q->num);
+-	mlxsw_cmd_mbox_sw2hw_dq_sdq_tclass_set(mbox, 7);
++	mlxsw_cmd_mbox_sw2hw_dq_sdq_tclass_set(mbox, 3);
+ 	mlxsw_cmd_mbox_sw2hw_dq_log2_dq_sz_set(mbox, 3); /* 8 pages */
+ 	for (i = 0; i < MLXSW_PCI_AQ_PAGES; i++) {
+ 		dma_addr_t mapaddr = __mlxsw_pci_queue_page_get(q, i);
+-- 
+2.17.1
+

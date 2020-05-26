@@ -1,0 +1,109 @@
+From d802981e53f8142ea1af1e85fb79b48f19cdbd72 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Wed, 27 Jan 2016 15:20:22 +0100
+Subject: mlxsw: spectrum: Don't report VLAN for 802.1D FDB entries
+Reply-To: joseph.salisbury@microsoft.com
+
+When dumping the hardware FDB we should report entries pointing to VLAN
+devices with VLAN 0, as packets coming into the bridge are untagged.
+Likewise, pass FDB_{ADD,DEL} notifications with VLAN 0 for these
+devices.
+
+Fixes: 54a732018d8e ("mlxsw: spectrum: Adjust switchdev ops for VLAN devices")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(bacported from commit 004f85ea8258a2ffecdeecd154bdbe08409c13a4)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../mellanox/mlxsw/spectrum_switchdev.c       | 37 ++++++++++++-------
+ 1 file changed, 23 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 7a2afbd2b5f7..4f8cbe7fa1e1 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1057,7 +1057,7 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				  switchdev_obj_dump_cb_t *cb)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+-	u16 vport_vid = 0, vport_fid = 0;
++	u16 vport_fid = 0;
+ 	char *sfd_pl;
+ 	char mac[ETH_ALEN];
+ 	u16 fid;
+@@ -1073,6 +1073,13 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		return -ENOMEM;
+ 
+ 	mutex_lock(&mlxsw_sp_port->mlxsw_sp->fdb_lock);
++	if (mlxsw_sp_port_is_vport(mlxsw_sp_port)) {
++		u16 tmp;
++
++		tmp = mlxsw_sp_vport_vfid_get(mlxsw_sp_port);
++		vport_fid = mlxsw_sp_vfid_to_fid(tmp);
++	}
++
+ 	mlxsw_reg_sfd_pack(sfd_pl, MLXSW_REG_SFD_OP_QUERY_DUMP, 0);
+ 	do {
+ 		mlxsw_reg_sfd_num_rec_set(sfd_pl, MLXSW_REG_SFD_REC_MAX_COUNT);
+@@ -1094,12 +1101,13 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				mlxsw_reg_sfd_uc_unpack(sfd_pl, i, mac, &fid,
+ 							&local_port);
+ 				if (local_port == mlxsw_sp_port->local_port) {
+-					if (vport_fid && vport_fid != fid)
+-						continue;
+-					else if (vport_fid)
+-						fdb->vid = vport_vid;
+-					else
++					if (vport_fid && vport_fid == fid)
++						fdb->vid = 0;
++					else if (!vport_fid &&
++						 !mlxsw_sp_fid_is_vfid(fid))
+ 						fdb->vid = fid;
++					else
++						continue;
+ 					ether_addr_copy(fdb->addr, mac);
+ 					fdb->ndm_state = NUD_REACHABLE;
+ 					err = cb(&fdb->obj);
+@@ -1112,12 +1120,13 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 							    mac, &fid, &lag_id);
+ 				if (mlxsw_sp_port ==
+ 				    mlxsw_sp_lag_rep_port(mlxsw_sp, lag_id)) {
+-					if (vport_fid && vport_fid != fid)
+-						continue;
+-					else if (vport_fid)
+-						fdb->vid = vport_vid;
+-					else
++					if (vport_fid && vport_fid == fid)
++						fdb->vid = 0;
++					else if (!vport_fid &&
++						 !mlxsw_sp_fid_is_vfid(fid))
+ 						fdb->vid = fid;
++					else
++						continue;
+ 					ether_addr_copy(fdb->addr, mac);
+ 					fdb->ndm_state = NUD_REACHABLE;
+ 					err = cb(&fdb->obj);
+@@ -1243,7 +1252,7 @@ static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
+ 			netdev_err(mlxsw_sp_port->dev, "Failed to find a matching vPort following FDB notification\n");
+ 			goto just_remove;
+ 		}
+-		vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
++		vid = 0;
+ 		/* Override the physical port with the vPort. */
+ 		mlxsw_sp_port = mlxsw_sp_vport;
+ 	} else {
+@@ -1303,8 +1312,8 @@ static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
+ 			goto just_remove;
+ 		}
+ 
+-		vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
+-		lag_vid = vid;
++		lag_vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
++		vid = 0;
+ 		/* Override the physical port with the vPort. */
+ 		mlxsw_sp_port = mlxsw_sp_vport;
+ 	} else {
+-- 
+2.17.1
+

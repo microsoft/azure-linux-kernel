@@ -1,0 +1,86 @@
+From ac69891b2cd8d9c3328bdc62735973b0ddbd945e Mon Sep 17 00:00:00 2001
+From: Mike Galbraith <umgwanakikbuti@gmail.com>
+Date: Tue, 9 Feb 2016 17:59:38 -0500
+Subject: workqueue: schedule WORK_CPU_UNBOUND work on wq_unbound_cpumask CPUs
+Reply-To: joseph.salisbury@microsoft.com
+
+WORK_CPU_UNBOUND work items queued to a bound workqueue always run
+locally.  This is a good thing normally, but not when the user has
+asked us to keep unbound work away from certain CPUs.  Round robin
+these to wq_unbound_cpumask CPUs instead, as perturbation avoidance
+trumps performance.
+
+tj: Cosmetic and comment changes.  WARN_ON_ONCE() dropped from empty
+    (wq_unbound_cpumask AND cpu_online_mask).  If we want that, it
+    should be done when config changes.
+
+Signed-off-by: Mike Galbraith <umgwanakikbuti@gmail.com>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+(cherry picked from commit ef557180447fa9a7a0affd3abb21ecceb4b5e125)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ kernel/workqueue.c | 34 ++++++++++++++++++++++++++++++++--
+ 1 file changed, 32 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+index fcdc8984394f..d0edd0207673 100644
+--- a/kernel/workqueue.c
++++ b/kernel/workqueue.c
+@@ -302,7 +302,11 @@ static DECLARE_WAIT_QUEUE_HEAD(wq_manager_wait); /* wait for manager to go away
+ static LIST_HEAD(workqueues);		/* PR: list of all workqueues */
+ static bool workqueue_freezing;		/* PL: have wqs started freezing? */
+ 
+-static cpumask_var_t wq_unbound_cpumask; /* PL: low level cpumask for all unbound wqs */
++/* PL: allowable cpus for unbound wqs and work items */
++static cpumask_var_t wq_unbound_cpumask;
++
++/* CPU where unbound work was last round robin scheduled from this CPU */
++static DEFINE_PER_CPU(int, wq_rr_cpu_last);
+ 
+ /* the per-cpu worker pools */
+ static DEFINE_PER_CPU_SHARED_ALIGNED(struct worker_pool [NR_STD_WORKER_POOLS],
+@@ -1338,6 +1342,32 @@ static bool is_chained_work(struct workqueue_struct *wq)
+ 	return worker && worker->current_pwq->wq == wq;
+ }
+ 
++/*
++ * When queueing an unbound work item to a wq, prefer local CPU if allowed
++ * by wq_unbound_cpumask.  Otherwise, round robin among the allowed ones to
++ * avoid perturbing sensitive tasks.
++ */
++static int wq_select_unbound_cpu(int cpu)
++{
++	int new_cpu;
++
++	if (cpumask_test_cpu(cpu, wq_unbound_cpumask))
++		return cpu;
++	if (cpumask_empty(wq_unbound_cpumask))
++		return cpu;
++
++	new_cpu = __this_cpu_read(wq_rr_cpu_last);
++	new_cpu = cpumask_next_and(new_cpu, wq_unbound_cpumask, cpu_online_mask);
++	if (unlikely(new_cpu >= nr_cpu_ids)) {
++		new_cpu = cpumask_first_and(wq_unbound_cpumask, cpu_online_mask);
++		if (unlikely(new_cpu >= nr_cpu_ids))
++			return cpu;
++	}
++	__this_cpu_write(wq_rr_cpu_last, new_cpu);
++
++	return new_cpu;
++}
++
+ static void __queue_work(int cpu, struct workqueue_struct *wq,
+ 			 struct work_struct *work)
+ {
+@@ -1363,7 +1393,7 @@ static void __queue_work(int cpu, struct workqueue_struct *wq,
+ 		return;
+ retry:
+ 	if (req_cpu == WORK_CPU_UNBOUND)
+-		cpu = raw_smp_processor_id();
++		cpu = wq_select_unbound_cpu(raw_smp_processor_id());
+ 
+ 	/* pwq which will be used unless @work is executing elsewhere */
+ 	if (!(wq->flags & WQ_UNBOUND))
+-- 
+2.17.1
+

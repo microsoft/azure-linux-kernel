@@ -1,0 +1,212 @@
+From d749abaa028579be086ad3f97e88e20de86ee449 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Fri, 26 Feb 2016 18:43:36 +0000
+Subject: cpu/hotplug: Unpark smpboot threads from the state machine
+Reply-To: joseph.salisbury@microsoft.com
+
+Handle the smpboot threads in the state machine.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-arch@vger.kernel.org
+Cc: Rik van Riel <riel@redhat.com>
+Cc: Rafael Wysocki <rafael.j.wysocki@intel.com>
+Cc: "Srivatsa S. Bhat" <srivatsa@mit.edu>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Arjan van de Ven <arjan@linux.intel.com>
+Cc: Sebastian Siewior <bigeasy@linutronix.de>
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Oleg Nesterov <oleg@redhat.com>
+Cc: Tejun Heo <tj@kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Paul McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Paul Turner <pjt@google.com>
+Link: http://lkml.kernel.org/r/20160226182341.295777684@linutronix.de
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+(cherry picked from commit 931ef163309ee955611f287dc65248b39a65fc9d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/cpu.h        |  7 +------
+ include/linux/cpuhotplug.h |  1 +
+ init/main.c                |  1 -
+ kernel/cpu.c               | 39 +++++---------------------------------
+ kernel/smpboot.c           |  6 ++++--
+ kernel/smpboot.h           |  4 ++--
+ 6 files changed, 13 insertions(+), 45 deletions(-)
+
+diff --git a/include/linux/cpu.h b/include/linux/cpu.h
+index b1f19ffb578a..5963e0614a6a 100644
+--- a/include/linux/cpu.h
++++ b/include/linux/cpu.h
+@@ -96,7 +96,7 @@ enum {
+ 	/* migration should happen before other stuff but after perf */
+ 	CPU_PRI_PERF		= 20,
+ 	CPU_PRI_MIGRATION	= 10,
+-	CPU_PRI_SMPBOOT		= 9,
++
+ 	/* bring up workqueues before normal notifiers and down after */
+ 	CPU_PRI_WORKQUEUE_UP	= 5,
+ 	CPU_PRI_WORKQUEUE_DOWN	= -5,
+@@ -183,7 +183,6 @@ static inline void __unregister_cpu_notifier(struct notifier_block *nb)
+ }
+ #endif
+ 
+-void smpboot_thread_init(void);
+ int cpu_up(unsigned int cpu);
+ void notify_cpu_starting(unsigned int cpu);
+ extern void cpu_maps_update_begin(void);
+@@ -232,10 +231,6 @@ static inline void cpu_notifier_register_done(void)
+ {
+ }
+ 
+-static inline void smpboot_thread_init(void)
+-{
+-}
+-
+ #endif /* CONFIG_SMP */
+ extern struct bus_type cpu_subsys;
+ 
+diff --git a/include/linux/cpuhotplug.h b/include/linux/cpuhotplug.h
+index 2f2e5d9711c4..38679106fddd 100644
+--- a/include/linux/cpuhotplug.h
++++ b/include/linux/cpuhotplug.h
+@@ -11,6 +11,7 @@ enum cpuhp_state {
+ 	CPUHP_AP_ONLINE,
+ 	CPUHP_TEARDOWN_CPU,
+ 	CPUHP_CPU_SET_ACTIVE,
++	CPUHP_SMPBOOT_THREADS,
+ 	CPUHP_NOTIFY_ONLINE,
+ 	CPUHP_ONLINE_DYN,
+ 	CPUHP_ONLINE_DYN_END		= CPUHP_ONLINE_DYN + 30,
+diff --git a/init/main.c b/init/main.c
+index a6405bdbbca4..1d8da19f6626 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -389,7 +389,6 @@ static noinline void __init_refok rest_init(void)
+ 	int pid;
+ 
+ 	rcu_scheduler_starting();
+-	smpboot_thread_init();
+ 	/*
+ 	 * We need to spawn init first so that it obtains pid 1, however
+ 	 * the init task will end up wanting to create kthreads, which, if
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index 0ce1b26c3d4a..7c9ea0d13b01 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -501,8 +501,6 @@ static int takedown_cpu(unsigned int cpu)
+ 	else
+ 		synchronize_rcu();
+ 
+-	smpboot_park_threads(cpu);
+-
+ 	/*
+ 	 * Prevent irq alloc/free while the dying cpu reorganizes the
+ 	 * interrupt affinities.
+@@ -632,38 +630,6 @@ int cpu_down(unsigned int cpu)
+ EXPORT_SYMBOL(cpu_down);
+ #endif /*CONFIG_HOTPLUG_CPU*/
+ 
+-/*
+- * Unpark per-CPU smpboot kthreads at CPU-online time.
+- */
+-static int smpboot_thread_call(struct notifier_block *nfb,
+-			       unsigned long action, void *hcpu)
+-{
+-	int cpu = (long)hcpu;
+-
+-	switch (action & ~CPU_TASKS_FROZEN) {
+-
+-	case CPU_DOWN_FAILED:
+-	case CPU_ONLINE:
+-		smpboot_unpark_threads(cpu);
+-		break;
+-
+-	default:
+-		break;
+-	}
+-
+-	return NOTIFY_OK;
+-}
+-
+-static struct notifier_block smpboot_thread_notifier = {
+-	.notifier_call = smpboot_thread_call,
+-	.priority = CPU_PRI_SMPBOOT,
+-};
+-
+-void smpboot_thread_init(void)
+-{
+-	register_cpu_notifier(&smpboot_thread_notifier);
+-}
+-
+ /**
+  * notify_cpu_starting(cpu) - call the CPU_STARTING notifiers
+  * @cpu: cpu that just started
+@@ -979,6 +945,11 @@ static struct cpuhp_step cpuhp_bp_states[] = {
+ 		.startup		= cpuhp_set_cpu_active,
+ 		.teardown		= NULL,
+ 	},
++	[CPUHP_SMPBOOT_THREADS] = {
++		.name			= "smpboot:threads",
++		.startup		= smpboot_unpark_threads,
++		.teardown		= smpboot_park_threads,
++	},
+ 	[CPUHP_NOTIFY_ONLINE] = {
+ 		.name			= "notify:online",
+ 		.startup		= notify_online,
+diff --git a/kernel/smpboot.c b/kernel/smpboot.c
+index d264f59bff56..13bc43d1fb22 100644
+--- a/kernel/smpboot.c
++++ b/kernel/smpboot.c
+@@ -226,7 +226,7 @@ static void smpboot_unpark_thread(struct smp_hotplug_thread *ht, unsigned int cp
+ 		kthread_unpark(tsk);
+ }
+ 
+-void smpboot_unpark_threads(unsigned int cpu)
++int smpboot_unpark_threads(unsigned int cpu)
+ {
+ 	struct smp_hotplug_thread *cur;
+ 
+@@ -235,6 +235,7 @@ void smpboot_unpark_threads(unsigned int cpu)
+ 		if (cpumask_test_cpu(cpu, cur->cpumask))
+ 			smpboot_unpark_thread(cur, cpu);
+ 	mutex_unlock(&smpboot_threads_lock);
++	return 0;
+ }
+ 
+ static void smpboot_park_thread(struct smp_hotplug_thread *ht, unsigned int cpu)
+@@ -245,7 +246,7 @@ static void smpboot_park_thread(struct smp_hotplug_thread *ht, unsigned int cpu)
+ 		kthread_park(tsk);
+ }
+ 
+-void smpboot_park_threads(unsigned int cpu)
++int smpboot_park_threads(unsigned int cpu)
+ {
+ 	struct smp_hotplug_thread *cur;
+ 
+@@ -253,6 +254,7 @@ void smpboot_park_threads(unsigned int cpu)
+ 	list_for_each_entry_reverse(cur, &hotplug_threads, list)
+ 		smpboot_park_thread(cur, cpu);
+ 	mutex_unlock(&smpboot_threads_lock);
++	return 0;
+ }
+ 
+ static void smpboot_destroy_threads(struct smp_hotplug_thread *ht)
+diff --git a/kernel/smpboot.h b/kernel/smpboot.h
+index 72415a0eb955..6b5f02017be3 100644
+--- a/kernel/smpboot.h
++++ b/kernel/smpboot.h
+@@ -14,7 +14,7 @@ static inline void idle_threads_init(void) { }
+ #endif
+ 
+ int smpboot_create_threads(unsigned int cpu);
+-void smpboot_park_threads(unsigned int cpu);
+-void smpboot_unpark_threads(unsigned int cpu);
++int smpboot_park_threads(unsigned int cpu);
++int smpboot_unpark_threads(unsigned int cpu);
+ 
+ #endif
+-- 
+2.17.1
+

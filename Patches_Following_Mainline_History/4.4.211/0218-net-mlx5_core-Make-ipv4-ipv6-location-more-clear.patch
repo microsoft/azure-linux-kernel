@@ -1,0 +1,62 @@
+From 30738f9ca18741ef09eb9c931b62ccbd5eb30e19 Mon Sep 17 00:00:00 2001
+From: Maor Gottlieb <maorg@mellanox.com>
+Date: Mon, 11 Jan 2016 10:26:05 +0200
+Subject: net/mlx5_core: Make ipv4/ipv6 location more clear
+Reply-To: joseph.salisbury@microsoft.com
+
+Change the mlx5 firmware interface header to make it
+more clear which bytes should be used by IPv4 or
+IPv6 addresses.
+
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit b4d1f032d75b2efb73304e8c12faa7149ad700c7)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 88dc464494c3..cf1d8c0e111c 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -300,6 +300,22 @@ struct mlx5_ifc_odp_per_transport_service_cap_bits {
+ 	u8         reserved_1[0x1a];
+ };
+ 
++struct mlx5_ifc_ipv4_layout_bits {
++	u8         reserved_0[0x60];
++
++	u8         ipv4[0x20];
++};
++
++struct mlx5_ifc_ipv6_layout_bits {
++	u8         ipv6[16][0x8];
++};
++
++union mlx5_ifc_ipv6_layout_ipv4_layout_auto_bits {
++	struct mlx5_ifc_ipv6_layout_bits ipv6_layout;
++	struct mlx5_ifc_ipv4_layout_bits ipv4_layout;
++	u8         reserved_0[0x80];
++};
++
+ struct mlx5_ifc_fte_match_set_lyr_2_4_bits {
+ 	u8         smac_47_16[0x20];
+ 
+@@ -330,9 +346,9 @@ struct mlx5_ifc_fte_match_set_lyr_2_4_bits {
+ 	u8         udp_sport[0x10];
+ 	u8         udp_dport[0x10];
+ 
+-	u8         src_ip[4][0x20];
++	union mlx5_ifc_ipv6_layout_ipv4_layout_auto_bits src_ipv4_src_ipv6;
+ 
+-	u8         dst_ip[4][0x20];
++	union mlx5_ifc_ipv6_layout_ipv4_layout_auto_bits dst_ipv4_dst_ipv6;
+ };
+ 
+ struct mlx5_ifc_fte_match_set_misc_bits {
+-- 
+2.17.1
+

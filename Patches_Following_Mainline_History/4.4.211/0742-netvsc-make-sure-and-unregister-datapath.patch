@@ -1,0 +1,177 @@
+From ffa9557689ed2c4d43ce3c27b827139ce4f2e194 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Mon, 7 Aug 2017 11:30:00 -0700
+Subject: netvsc: make sure and unregister datapath
+Reply-To: joseph.salisbury@microsoft.com
+
+Go back to switching datapath directly in the notifier callback.
+Otherwise datapath might not get switched on unregister.
+
+No need for calling the NOTIFY_PEERS notifier since that is only for
+a gratitious ARP/ND packet; but that is not required with Hyper-V
+because both VF and synthetic NIC have the same MAC address.
+
+Reported-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Fixes: 0c195567a8f6 ("netvsc: transparent VF management")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 7b83f52047e8a3d551a9495b0267df5d0754c5bf)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  3 --
+ drivers/net/hyperv/netvsc.c     |  2 -
+ drivers/net/hyperv/netvsc_drv.c | 67 ++++++++++++++-------------------
+ 3 files changed, 28 insertions(+), 44 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 5eb3b6090ca6..6d0b2f8ebf23 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -731,14 +731,11 @@ struct net_device_context {
+ 	struct net_device __rcu *vf_netdev;
+ 	struct netvsc_vf_pcpu_stats __percpu *vf_stats;
+ 	struct work_struct vf_takeover;
+-	struct work_struct vf_notify;
+ 
+ 	/* 1: allocated, serial number is valid. 0: not allocated */
+ 	u32 vf_alloc;
+ 	/* Serial number of the VF to team with */
+ 	u32 vf_serial;
+-
+-	bool datapath;	/* 0 - synthetic, 1 - VF nic */
+ };
+ 
+ /* Per channel data */
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 7b734cac9ce9..14cbe5a81359 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -59,8 +59,6 @@ void netvsc_switch_datapath(struct net_device *ndev, bool vf)
+ 			       sizeof(struct nvsp_message),
+ 			       (unsigned long)init_pkt,
+ 			       VM_PKT_DATA_INBAND, 0);
+-
+-	net_device_ctx->datapath = vf;
+ }
+ 
+ 
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 5d357f41d750..7d1fe09f1c4b 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1595,51 +1595,35 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
+ 	return NOTIFY_OK;
+ }
+ 
+-/* Change datapath */
+-static void netvsc_vf_update(struct work_struct *w)
++static int netvsc_vf_up(struct net_device *vf_netdev)
+ {
+-	struct net_device_context *ndev_ctx
+-		= container_of(w, struct net_device_context, vf_notify);
+-	struct net_device *ndev = hv_get_drvdata(ndev_ctx->device_ctx);
++	struct net_device_context *net_device_ctx;
+ 	struct netvsc_device *netvsc_dev;
+-	struct net_device *vf_netdev;
+-	bool vf_is_up;
++	struct net_device *ndev;
+ 
+-	rtnl_lock();
+-	vf_netdev = rtnl_dereference(ndev_ctx->vf_netdev);
+-	if (!vf_netdev)
+-		goto unlock;
++	ndev = get_netvsc_byref(vf_netdev);
++	if (!ndev)
++		return NOTIFY_DONE;
+ 
+-	netvsc_dev = rtnl_dereference(ndev_ctx->nvdev);
++	net_device_ctx = netdev_priv(ndev);
++	netvsc_dev = rtnl_dereference(net_device_ctx->nvdev);
+ 	if (!netvsc_dev)
+-		goto unlock;
+-
+-	vf_is_up = netif_running(vf_netdev);
+-	if (vf_is_up != ndev_ctx->datapath) {
+-		if (vf_is_up) {
+-			netdev_info(ndev, "VF up: %s\n", vf_netdev->name);
+-			rndis_filter_open(netvsc_dev);
+-			netvsc_switch_datapath(ndev, true);
+-			netdev_info(ndev, "Data path switched to VF: %s\n",
+-				    vf_netdev->name);
+-		} else {
+-			netdev_info(ndev, "VF down: %s\n", vf_netdev->name);
+-			netvsc_switch_datapath(ndev, false);
+-			rndis_filter_close(netvsc_dev);
+-			netdev_info(ndev, "Data path switched from VF: %s\n",
+-				vf_netdev->name);
+-		}
++		return NOTIFY_DONE;
+ 
+-		/* Now notify peers through VF device. */
+-		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, ndev);
+-	}
+-unlock:
+-	rtnl_unlock();
++	/* Bump refcount when datapath is acvive - Why? */
++	rndis_filter_open(netvsc_dev);
++
++	/* notify the host to switch the data path. */
++	netvsc_switch_datapath(ndev, true);
++	netdev_info(ndev, "Data path switched to VF: %s\n", vf_netdev->name);
++
++	return NOTIFY_OK;
+ }
+ 
+-static int netvsc_vf_notify(struct net_device *vf_netdev)
++static int netvsc_vf_down(struct net_device *vf_netdev)
+ {
+ 	struct net_device_context *net_device_ctx;
++	struct netvsc_device *netvsc_dev;
+ 	struct net_device *ndev;
+ 
+ 	ndev = get_netvsc_byref(vf_netdev);
+@@ -1647,7 +1631,13 @@ static int netvsc_vf_notify(struct net_device *vf_netdev)
+ 		return NOTIFY_DONE;
+ 
+ 	net_device_ctx = netdev_priv(ndev);
+-	schedule_work(&net_device_ctx->vf_notify);
++	netvsc_dev = rtnl_dereference(net_device_ctx->nvdev);
++	if (!netvsc_dev)
++		return NOTIFY_DONE;
++
++	netvsc_switch_datapath(ndev, false);
++	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
++	rndis_filter_close(netvsc_dev);
+ 
+ 	return NOTIFY_OK;
+ }
+@@ -1665,7 +1655,6 @@ static int netvsc_unregister_vf(struct net_device *vf_netdev)
+ 	net_device_ctx = netdev_priv(ndev);
+ 
+ 	cancel_work_sync(&net_device_ctx->vf_takeover);
+-	cancel_work_sync(&net_device_ctx->vf_notify);
+ 
+ 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
+ 
+@@ -1708,7 +1697,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 	spin_lock_init(&net_device_ctx->lock);
+ 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
+ 	INIT_WORK(&net_device_ctx->vf_takeover, netvsc_vf_setup);
+-	INIT_WORK(&net_device_ctx->vf_notify, netvsc_vf_update);
+ 
+ 	net_device_ctx->vf_stats
+ 		= netdev_alloc_pcpu_stats(struct netvsc_vf_pcpu_stats);
+@@ -1859,8 +1847,9 @@ static int netvsc_netdev_event(struct notifier_block *this,
+ 	case NETDEV_UNREGISTER:
+ 		return netvsc_unregister_vf(event_dev);
+ 	case NETDEV_UP:
++		return netvsc_vf_up(event_dev);
+ 	case NETDEV_DOWN:
+-		return netvsc_vf_notify(event_dev);
++		return netvsc_vf_down(event_dev);
+ 	default:
+ 		return NOTIFY_DONE;
+ 	}
+-- 
+2.17.1
+

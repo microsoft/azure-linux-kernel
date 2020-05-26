@@ -1,0 +1,99 @@
+From c6d69ad10c17d3d2885405acb93d3e33a0fce741 Mon Sep 17 00:00:00 2001
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Wed, 20 Apr 2016 22:02:11 +0300
+Subject: net/mlx5e: Use only close NUMA node for default RSS
+Reply-To: joseph.salisbury@microsoft.com
+
+Distribute default RSS table uniformly over the rings of the
+close NUMA node, instead of all available channels.
+This way we enforce the preference of close rings over far ones.
+
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit d8c9660dac6287490ef450bc892593f05d364531)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../ethernet/mellanox/mlx5/core/en_ethtool.c  |  2 +-
+ .../net/ethernet/mellanox/mlx5/core/en_main.c | 38 +++++++++----------
+ 2 files changed, 20 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index f2fc7b8f6b24..1caf728a9ce9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -398,7 +398,7 @@ static int mlx5e_set_channels(struct net_device *dev,
+ 		mlx5e_close_locked(dev);
+ 
+ 	priv->params.num_channels = count;
+-	mlx5e_build_default_indir_rqt(priv->params.indirection_rqt,
++	mlx5e_build_default_indir_rqt(priv->mdev, priv->params.indirection_rqt,
+ 				      MLX5E_INDIR_RQT_SIZE, count);
+ 
+ 	if (was_opened)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index f70ea5360f77..90f18554c899 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2281,6 +2281,24 @@ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev)
+ 	       2 /*sizeof(mlx5e_tx_wqe.inline_hdr_start)*/;
+ }
+ 
++#ifdef CONFIG_MLX5_CORE_EN_DCB
++static void mlx5e_ets_init(struct mlx5e_priv *priv)
++{
++	int i;
++
++	priv->params.ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
++	for (i = 0; i < priv->params.ets.ets_cap; i++) {
++		priv->params.ets.tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
++		priv->params.ets.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
++		priv->params.ets.prio_tc[i] = i;
++	}
++
++	/* tclass[prio=0]=1, tclass[prio=1]=0, tclass[prio=i]=i (for i>1) */
++	priv->params.ets.prio_tc[0] = 1;
++	priv->params.ets.prio_tc[1] = 0;
++}
++#endif
++
+ void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
+ 				   u32 *indirection_rqt, int len,
+ 				   int num_channels)
+@@ -2301,24 +2319,6 @@ void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
+ 		indirection_rqt[i] = i % num_channels;
+ }
+ 
+-#ifdef CONFIG_MLX5_CORE_EN_DCB
+-static void mlx5e_ets_init(struct mlx5e_priv *priv)
+-{
+-	int i;
+-
+-	priv->params.ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
+-	for (i = 0; i < priv->params.ets.ets_cap; i++) {
+-		priv->params.ets.tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
+-		priv->params.ets.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
+-		priv->params.ets.prio_tc[i] = i;
+-	}
+-
+-	/* tclass[prio=0]=1, tclass[prio=1]=0, tclass[prio=i]=i (for i>1) */
+-	priv->params.ets.prio_tc[0] = 1;
+-	priv->params.ets.prio_tc[1] = 0;
+-}
+-#endif
+-
+ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
+ 				    struct net_device *netdev,
+ 				    int num_channels)
+@@ -2346,7 +2346,7 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
+ 	netdev_rss_key_fill(priv->params.toeplitz_hash_key,
+ 			    sizeof(priv->params.toeplitz_hash_key));
+ 
+-	mlx5e_build_default_indir_rqt(priv->params.indirection_rqt,
++	mlx5e_build_default_indir_rqt(mdev, priv->params.indirection_rqt,
+ 				      MLX5E_INDIR_RQT_SIZE, num_channels);
+ 
+ 	priv->params.lro_wqe_sz            =
+-- 
+2.17.1
+

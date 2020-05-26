@@ -1,0 +1,162 @@
+From ca3103f2e81b8c6b11aa352b40a617b95c7fb71a Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Fri, 26 Feb 2016 18:43:25 +0000
+Subject: cpu/hotplug: Split out cpu down functions
+Reply-To: joseph.salisbury@microsoft.com
+
+Split cpu_down in separate functions in preparation for state machine
+conversion.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-arch@vger.kernel.org
+Cc: Rik van Riel <riel@redhat.com>
+Cc: Rafael Wysocki <rafael.j.wysocki@intel.com>
+Cc: "Srivatsa S. Bhat" <srivatsa@mit.edu>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Arjan van de Ven <arjan@linux.intel.com>
+Cc: Sebastian Siewior <bigeasy@linutronix.de>
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Oleg Nesterov <oleg@redhat.com>
+Cc: Tejun Heo <tj@kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Paul McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Paul Turner <pjt@google.com>
+Link: http://lkml.kernel.org/r/20160226182340.511796562@linutronix.de
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+(cherry picked from commit 984581728eb4b2e10baed3d606f85a119795b207)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ kernel/cpu.c | 83 +++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 53 insertions(+), 30 deletions(-)
+
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index 52200ff75b70..c3e40fdd696d 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -280,11 +280,6 @@ static int bringup_cpu(unsigned int cpu)
+ }
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+-
+-static void cpu_notify_nofail(unsigned long val, unsigned int cpu)
+-{
+-	BUG_ON(cpu_notify(val, cpu));
+-}
+ EXPORT_SYMBOL(register_cpu_notifier);
+ EXPORT_SYMBOL(__register_cpu_notifier);
+ 
+@@ -373,6 +368,25 @@ static inline void check_for_tasks(int dead_cpu)
+ 	read_unlock(&tasklist_lock);
+ }
+ 
++static void cpu_notify_nofail(unsigned long val, unsigned int cpu)
++{
++	BUG_ON(cpu_notify(val, cpu));
++}
++
++static int notify_down_prepare(unsigned int cpu)
++{
++	int err, nr_calls = 0;
++
++	err = __cpu_notify(CPU_DOWN_PREPARE, cpu, -1, &nr_calls);
++	if (err) {
++		nr_calls--;
++		__cpu_notify(CPU_DOWN_FAILED, cpu, nr_calls, NULL);
++		pr_warn("%s: attempt to take down CPU %u failed\n",
++				__func__, cpu);
++	}
++	return err;
++}
++
+ /* Take this CPU down. */
+ static int take_cpu_down(void *_param)
+ {
+@@ -391,29 +405,9 @@ static int take_cpu_down(void *_param)
+ 	return 0;
+ }
+ 
+-/* Requires cpu_add_remove_lock to be held */
+-static int _cpu_down(unsigned int cpu, int tasks_frozen)
++static int takedown_cpu(unsigned int cpu)
+ {
+-	int err, nr_calls = 0;
+-
+-	if (num_online_cpus() == 1)
+-		return -EBUSY;
+-
+-	if (!cpu_online(cpu))
+-		return -EINVAL;
+-
+-	cpu_hotplug_begin();
+-
+-	cpuhp_tasks_frozen = tasks_frozen;
+-
+-	err = __cpu_notify(CPU_DOWN_PREPARE, cpu, -1, &nr_calls);
+-	if (err) {
+-		nr_calls--;
+-		__cpu_notify(CPU_DOWN_FAILED, cpu, nr_calls, NULL);
+-		pr_warn("%s: attempt to take down CPU %u failed\n",
+-			__func__, cpu);
+-		goto out_release;
+-	}
++	int err;
+ 
+ 	/*
+ 	 * By now we've cleared cpu_active_mask, wait for all preempt-disabled
+@@ -446,7 +440,7 @@ static int _cpu_down(unsigned int cpu, int tasks_frozen)
+ 		/* CPU didn't die: tell everyone.  Can't complain. */
+ 		cpu_notify_nofail(CPU_DOWN_FAILED, cpu);
+ 		irq_unlock_sparse();
+-		goto out_release;
++		return err;
+ 	}
+ 	BUG_ON(cpu_online(cpu));
+ 
+@@ -469,11 +463,40 @@ static int _cpu_down(unsigned int cpu, int tasks_frozen)
+ 	/* This actually kills the CPU. */
+ 	__cpu_die(cpu);
+ 
+-	/* CPU is completely dead: tell everyone.  Too late to complain. */
+ 	tick_cleanup_dead_cpu(cpu);
+-	cpu_notify_nofail(CPU_DEAD, cpu);
++	return 0;
++}
+ 
++static int notify_dead(unsigned int cpu)
++{
++	cpu_notify_nofail(CPU_DEAD, cpu);
+ 	check_for_tasks(cpu);
++	return 0;
++}
++
++/* Requires cpu_add_remove_lock to be held */
++static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
++{
++	int err;
++
++	if (num_online_cpus() == 1)
++		return -EBUSY;
++
++	if (!cpu_online(cpu))
++		return -EINVAL;
++
++	cpu_hotplug_begin();
++
++	cpuhp_tasks_frozen = tasks_frozen;
++
++	err = notify_down_prepare(cpu);
++	if (err)
++		goto out_release;
++	err = takedown_cpu(cpu);
++	if (err)
++		goto out_release;
++
++	notify_dead(cpu);
+ 
+ out_release:
+ 	cpu_hotplug_done();
+-- 
+2.17.1
+

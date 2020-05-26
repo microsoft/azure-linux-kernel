@@ -1,0 +1,109 @@
+From c6791d92521edb3bd65490ebce6e8d76e20aa548 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 2 Aug 2017 18:09:16 +0200
+Subject: hyper-v: Use fast hypercall for HVCALL_SIGNAL_EVENT
+Reply-To: joseph.salisbury@microsoft.com
+
+We need to pass only 8 bytes of input for HvSignalEvent which makes it a
+perfect fit for fast hypercall. hv_input_signal_event_buffer is not needed
+any more and hv_input_signal_event is converted to union for convenience.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Jork Loeser <Jork.Loeser@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Simon Xiao <sixiao@microsoft.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: devel@linuxdriverproject.org
+Link: http://lkml.kernel.org/r/20170802160921.21791-5-vkuznets@redhat.com
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+(cherry picked from commit 057841713cfff62b4485cdd2b245f05b7ea3ba16)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel_mgmt.c | 13 ++-----------
+ drivers/hv/connection.c   |  2 +-
+ include/linux/hyperv.h    | 15 +--------------
+ 3 files changed, 4 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index f1a19afd30e4..e4d26a819b88 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -811,21 +811,12 @@ static void vmbus_onoffer(struct vmbus_channel_message_header *hdr)
+ 	/*
+ 	 * Setup state for signalling the host.
+ 	 */
+-	newchannel->sig_event = (struct hv_input_signal_event *)
+-				(ALIGN((unsigned long)
+-				&newchannel->sig_buf,
+-				HV_HYPERCALL_PARAM_ALIGN));
+-
+-	newchannel->sig_event->connectionid.asu32 = 0;
+-	newchannel->sig_event->connectionid.u.id = VMBUS_EVENT_CONNECTION_ID;
+-	newchannel->sig_event->flag_number = 0;
+-	newchannel->sig_event->rsvdz = 0;
++	newchannel->sig_event = VMBUS_EVENT_CONNECTION_ID;
+ 
+ 	if (vmbus_proto_version != VERSION_WS2008) {
+ 		newchannel->is_dedicated_interrupt =
+ 				(offer->is_dedicated_interrupt != 0);
+-		newchannel->sig_event->connectionid.u.id =
+-				offer->connection_id;
++		newchannel->sig_event = offer->connection_id;
+ 	}
+ 
+ 	memcpy(&newchannel->offermsg, offer,
+diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
+index 17795a09377d..2816264527e2 100644
+--- a/drivers/hv/connection.c
++++ b/drivers/hv/connection.c
+@@ -407,6 +407,6 @@ void vmbus_set_event(struct vmbus_channel *channel)
+ 	if (!channel->is_dedicated_interrupt)
+ 		vmbus_send_interrupt(child_relid);
+ 
+-	hv_do_hypercall(HVCALL_SIGNAL_EVENT, channel->sig_event, NULL);
++	hv_do_fast_hypercall8(HVCALL_SIGNAL_EVENT, channel->sig_event);
+ }
+ EXPORT_SYMBOL_GPL(vmbus_set_event);
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index bc6b16879958..534fddd0250c 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -674,18 +674,6 @@ union hv_connection_id {
+ 	} u;
+ };
+ 
+-/* Definition of the hv_signal_event hypercall input structure. */
+-struct hv_input_signal_event {
+-	union hv_connection_id connectionid;
+-	u16 flag_number;
+-	u16 rsvdz;
+-};
+-
+-struct hv_input_signal_event_buffer {
+-	u64 align8;
+-	struct hv_input_signal_event event;
+-};
+-
+ enum hv_numa_policy {
+ 	HV_BALANCED = 0,
+ 	HV_LOCALIZED,
+@@ -771,8 +759,7 @@ struct vmbus_channel {
+ 	} callback_mode;
+ 
+ 	bool is_dedicated_interrupt;
+-	struct hv_input_signal_event_buffer sig_buf;
+-	struct hv_input_signal_event *sig_event;
++	u64 sig_event;
+ 
+ 	/*
+ 	 * Starting with win8, this field will be used to specify
+-- 
+2.17.1
+

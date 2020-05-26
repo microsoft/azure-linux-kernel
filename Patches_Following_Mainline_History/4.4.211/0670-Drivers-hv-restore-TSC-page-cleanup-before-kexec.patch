@@ -1,0 +1,37 @@
+From 412317017b46909459e8d86e1b53c10f6b203c1c Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Sat, 28 Jan 2017 12:37:15 -0700
+Subject: Drivers: hv: restore TSC page cleanup before kexec
+Reply-To: joseph.salisbury@microsoft.com
+
+We need to cleanup the TSC page before doing kexec/kdump or the new kernel
+may crash if it tries to use it.
+
+Fixes: 63ed4e0c67df ("Drivers: hv: vmbus: Consolidate all Hyper-V specific clocksource code")
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 5647dbf8f0807a35421bd0232247b02413ef2cab)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index d6b018b86c42..b371d0e984a9 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -178,6 +178,10 @@ void hyperv_cleanup(void)
+ 	/* Reset the hypercall page */
+ 	hypercall_msr.as_uint64 = 0;
+ 	wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
++
++	/* Reset the TSC page */
++	hypercall_msr.as_uint64 = 0;
++	wrmsrl(HV_X64_MSR_REFERENCE_TSC, hypercall_msr.as_uint64);
+ }
+ EXPORT_SYMBOL_GPL(hyperv_cleanup);
+ 
+-- 
+2.17.1
+

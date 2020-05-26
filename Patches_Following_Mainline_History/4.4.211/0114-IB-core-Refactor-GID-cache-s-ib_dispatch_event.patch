@@ -1,0 +1,63 @@
+From 46235ed684732de6d7536e1a1a6bbee059538b2b Mon Sep 17 00:00:00 2001
+From: Matan Barak <matanb@mellanox.com>
+Date: Wed, 28 Oct 2015 16:52:39 +0200
+Subject: IB/core: Refactor GID cache's ib_dispatch_event
+Reply-To: joseph.salisbury@microsoft.com
+
+Refactor ib_dispatch_event into a new function in order to avoid
+duplicating code in the next patch.
+
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Reviewed-by: Haggai Eran <haggaie@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit f3906bd36087dd3440ecaf6e044690374d01f927)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/core/cache.c | 23 +++++++++++++++--------
+ 1 file changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/infiniband/core/cache.c b/drivers/infiniband/core/cache.c
+index 89bebeada38b..f0703d22ff98 100644
+--- a/drivers/infiniband/core/cache.c
++++ b/drivers/infiniband/core/cache.c
+@@ -112,6 +112,19 @@ struct ib_gid_table {
+ 	struct ib_gid_table_entry *data_vec;
+ };
+ 
++static void dispatch_gid_change_event(struct ib_device *ib_dev, u8 port)
++{
++	if (rdma_cap_roce_gid_table(ib_dev, port)) {
++		struct ib_event event;
++
++		event.device		= ib_dev;
++		event.element.port_num	= port;
++		event.event		= IB_EVENT_GID_CHANGE;
++
++		ib_dispatch_event(&event);
++	}
++}
++
+ static int write_gid(struct ib_device *ib_dev, u8 port,
+ 		     struct ib_gid_table *table, int ix,
+ 		     const union ib_gid *gid,
+@@ -164,15 +177,9 @@ static int write_gid(struct ib_device *ib_dev, u8 port,
+ 
+ 	write_unlock_irqrestore(&table->data_vec[ix].lock, flags);
+ 
+-	if (!ret && rdma_cap_roce_gid_table(ib_dev, port)) {
+-		struct ib_event event;
++	if (!ret)
++		dispatch_gid_change_event(ib_dev, port);
+ 
+-		event.device		= ib_dev;
+-		event.element.port_num	= port;
+-		event.event		= IB_EVENT_GID_CHANGE;
+-
+-		ib_dispatch_event(&event);
+-	}
+ 	return ret;
+ }
+ 
+-- 
+2.17.1
+

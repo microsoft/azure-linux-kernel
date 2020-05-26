@@ -1,0 +1,121 @@
+From 262f03578df53270c47f7f62aa4a722346cf5294 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 16 Aug 2017 08:56:26 -0700
+Subject: vmbus: remove unused vmbus_sendpacket_ctl
+Reply-To: joseph.salisbury@microsoft.com
+
+The only usage of vmbus_sendpacket_ctl was by vmbus_sendpacket.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 5dd0fb9b9ffc0ef9b312d05604f4ad0fffc50505)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel.c        | 41 +++++++++++++++----------------------
+ drivers/net/hyperv/netvsc.c | 10 ++++-----
+ include/linux/hyperv.h      |  8 --------
+ 3 files changed, 20 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index f6af4d10ca76..bac0b0136940 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -666,9 +666,23 @@ void vmbus_close(struct vmbus_channel *channel)
+ }
+ EXPORT_SYMBOL_GPL(vmbus_close);
+ 
+-int vmbus_sendpacket_ctl(struct vmbus_channel *channel, void *buffer,
++/**
++ * vmbus_sendpacket() - Send the specified buffer on the given channel
++ * @channel: Pointer to vmbus_channel structure.
++ * @buffer: Pointer to the buffer you want to receive the data into.
++ * @bufferlen: Maximum size of what the the buffer will hold
++ * @requestid: Identifier of the request
++ * @type: Type of packet that is being send e.g. negotiate, time
++ * packet etc.
++ *
++ * Sends data in @buffer directly to hyper-v via the vmbus
++ * This will send the data unparsed to hyper-v.
++ *
++ * Mainly used by Hyper-V drivers.
++ */
++int vmbus_sendpacket(struct vmbus_channel *channel, void *buffer,
+ 			   u32 bufferlen, u64 requestid,
+-			   enum vmbus_packet_type type, u32 flags, bool kick_q)
++			   enum vmbus_packet_type type, u32 flags)
+ {
+ 	struct vmpacket_descriptor desc;
+ 	u32 packetlen = sizeof(struct vmpacket_descriptor) + bufferlen;
+@@ -695,29 +709,6 @@ int vmbus_sendpacket_ctl(struct vmbus_channel *channel, void *buffer,
+ 
+ 	return hv_ringbuffer_write(channel, bufferlist, num_vecs);
+ }
+-EXPORT_SYMBOL(vmbus_sendpacket_ctl);
+-
+-/**
+- * vmbus_sendpacket() - Send the specified buffer on the given channel
+- * @channel: Pointer to vmbus_channel structure.
+- * @buffer: Pointer to the buffer you want to receive the data into.
+- * @bufferlen: Maximum size of what the the buffer will hold
+- * @requestid: Identifier of the request
+- * @type: Type of packet that is being send e.g. negotiate, time
+- * packet etc.
+- *
+- * Sends data in @buffer directly to hyper-v via the vmbus
+- * This will send the data unparsed to hyper-v.
+- *
+- * Mainly used by Hyper-V drivers.
+- */
+-int vmbus_sendpacket(struct vmbus_channel *channel, void *buffer,
+-			   u32 bufferlen, u64 requestid,
+-			   enum vmbus_packet_type type, u32 flags)
+-{
+-	return vmbus_sendpacket_ctl(channel, buffer, bufferlen, requestid,
+-				    type, flags, true);
+-}
+ EXPORT_SYMBOL(vmbus_sendpacket);
+ 
+ /*
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 585d0db8dcf8..142385c31e47 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -786,12 +786,10 @@ static inline int netvsc_send_pkt(
+ 						      VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED,
+ 						      !xmit_more);
+ 	} else {
+-		ret = vmbus_sendpacket_ctl(out_channel, &nvmsg,
+-					   sizeof(struct nvsp_message),
+-					   req_id,
+-					   VM_PKT_DATA_INBAND,
+-					   VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED,
+-					   !xmit_more);
++		ret = vmbus_sendpacket(out_channel,
++				       &nvmsg, sizeof(nvmsg),
++				       req_id, VM_PKT_DATA_INBAND,
++				       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
+ 	}
+ 
+ 	if (ret == 0) {
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 629bb284f078..ccb4e782868a 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1023,14 +1023,6 @@ extern int vmbus_sendpacket(struct vmbus_channel *channel,
+ 				  enum vmbus_packet_type type,
+ 				  u32 flags);
+ 
+-extern int vmbus_sendpacket_ctl(struct vmbus_channel *channel,
+-				  void *buffer,
+-				  u32 bufferLen,
+-				  u64 requestid,
+-				  enum vmbus_packet_type type,
+-				  u32 flags,
+-				  bool kick_q);
+-
+ extern int vmbus_sendpacket_pagebuffer(struct vmbus_channel *channel,
+ 					    struct hv_page_buffer pagebuffers[],
+ 					    u32 pagecount,
+-- 
+2.17.1
+

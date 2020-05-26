@@ -1,0 +1,42 @@
+From d13f2713b6d7ddf8ef5e6f7b66e7152ed943790d Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Mon, 7 Mar 2016 15:15:29 +0100
+Subject: mlxsw: spectrum: Always decrement bridge's ref count
+Reply-To: joseph.salisbury@microsoft.com
+
+Since we only support one VLAN filtering bridge we need to associate a
+reference count with it, so that when the last port netdev leaves it, we
+would know that a different bridge can be offloaded to hardware.
+
+When a LAG device is memeber in a bridge and port netdevs are leaving
+the LAG, we should always decrement the bridge's reference count, as it's
+incremented for any port in the LAG.
+
+Fixes: 4dc236c31733 ("mlxsw: spectrum: Handle port leaving LAG while bridged")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 912b1c89c5043e163f8cfa568512a131976121b2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index f4e5b568914b..b68daeffdfa3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2359,9 +2359,7 @@ static int mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	if (mlxsw_sp_port->bridged) {
+ 		mlxsw_sp_port_active_vlans_del(mlxsw_sp_port);
+ 		mlxsw_sp_port_bridge_leave(mlxsw_sp_port, false);
+-
+-		if (lag->ref_count == 1)
+-			mlxsw_sp_master_bridge_dec(mlxsw_sp, NULL);
++		mlxsw_sp_master_bridge_dec(mlxsw_sp, NULL);
+ 	}
+ 
+ 	if (lag->ref_count == 1) {
+-- 
+2.17.1
+

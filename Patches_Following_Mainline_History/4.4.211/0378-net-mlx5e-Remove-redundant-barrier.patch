@@ -1,0 +1,33 @@
+From 489e6f8f5824cdd637d4f623ac43a8b3c5256aba Mon Sep 17 00:00:00 2001
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Wed, 20 Apr 2016 22:02:17 +0300
+Subject: net/mlx5e: Remove redundant barrier
+Reply-To: joseph.salisbury@microsoft.com
+
+The bit-op operation one line before is an explicit barrier
+by itself.
+
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 1bfec31627bf9b351b93b8cef4520b90f48ca276)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index a3fd0f55ce2e..c38781fa567d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -147,7 +147,6 @@ void mlx5e_completion_event(struct mlx5_core_cq *mcq)
+ 	struct mlx5e_cq *cq = container_of(mcq, struct mlx5e_cq, mcq);
+ 
+ 	set_bit(MLX5E_CHANNEL_NAPI_SCHED, &cq->channel->flags);
+-	barrier();
+ 	napi_schedule(cq->napi);
+ }
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,73 @@
+From 9f3dce077aec65a685653dff296d765ba564375c Mon Sep 17 00:00:00 2001
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 2 Mar 2016 10:40:54 +0100
+Subject: net: mellanox: add DEVLINK dependencies
+Reply-To: joseph.salisbury@microsoft.com
+
+The new NET_DEVLINK infrastructure can be a loadable module, but the drivers
+using it might be built-in, which causes link errors like:
+
+drivers/net/built-in.o: In function `mlx4_load_one':
+:(.text+0x2fbfda): undefined reference to `devlink_port_register'
+:(.text+0x2fc084): undefined reference to `devlink_port_unregister'
+drivers/net/built-in.o: In function `mlxsw_sx_port_remove':
+:(.text+0x33a03a): undefined reference to `devlink_port_type_clear'
+:(.text+0x33a04e): undefined reference to `devlink_port_unregister'
+
+There are multiple ways to avoid this:
+
+a) add 'depends on NET_DEVLINK || !NET_DEVLINK' dependencies
+   for each user
+b) use 'select NET_DEVLINK' from each driver that uses it
+   and hide the symbol in Kconfig.
+c) make NET_DEVLINK a 'bool' option so we don't have to
+   list it as a dependency, and rely on the APIs to be
+   stubbed out when it is disabled
+d) use IS_REACHABLE() rather than IS_ENABLED() to check for
+   NET_DEVLINK in include/net/devlink.h
+
+This implements a variation of approach a) by adding an
+intermediate symbol that drivers can depend on, and changes
+the three drivers using it.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 09d4d087cd48 ("mlx4: Implement devlink interface")
+Fixes: c4745500e988 ("mlxsw: Implement devlink interface")
+Acked-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 3d1cbe839ac3aa7b23a274b691092c90f9bf1b8e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ net/Kconfig | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/net/Kconfig b/net/Kconfig
+index 129b9fcbf1d0..1898c338246e 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -387,6 +387,22 @@ config DST_CACHE
+ 	bool
+ 	default n
+ 
++config NET_DEVLINK
++	tristate "Network physical/parent device Netlink interface"
++	help
++	  Network physical/parent device Netlink interface provides
++	  infrastructure to support access to physical chip-wide config and
++	  monitoring.
++
++config MAY_USE_DEVLINK
++	tristate
++	default m if NET_DEVLINK=m
++	default y if NET_DEVLINK=y || NET_DEVLINK=n
++	help
++	  Drivers using the devlink infrastructure should have a dependency
++	  on MAY_USE_DEVLINK to ensure they do not cause link errors when
++	  devlink is a loadable module and the driver using it is built-in.
++
+ endif   # if NET
+ 
+ # Used by archs to tell that they support BPF_JIT
+-- 
+2.17.1
+

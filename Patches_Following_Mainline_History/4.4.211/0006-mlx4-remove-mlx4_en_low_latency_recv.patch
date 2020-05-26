@@ -1,0 +1,365 @@
+From 5a6acd92574645427e5a89baf546ef87487f3e0f Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Wed, 18 Nov 2015 06:30:58 -0800
+Subject: mlx4: remove mlx4_en_low_latency_recv()
+Reply-To: joseph.salisbury@microsoft.com
+
+Busy polling can now be handled in generic NAPI poll infrastructure.
+This removes complexity and fast path overhead :
+
+mlx4 used two spin_lock()/spin_unlock() pair per napi->poll() call
+in mlx4_en_cq_lock_napi()/mlx4_en_cq_unlock_napi()
+
+Tested:
+
+Without busy polling :
+
+lpaa23:~# echo 0 >/proc/sys/net/core/busy_read
+lpaa24:~# echo 0 >/proc/sys/net/core/busy_read
+lpaa23:~# ./netperf -H lpaa24 -t TCP_RR
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpaa24.prod.google.com () port 0 AF_INET : first burst 0
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
+
+16384  87380  1        1       10.00    47330.78
+
+With busy polling :
+
+lpaa23:~# echo 70 >/proc/sys/net/core/busy_read
+lpaa24:~# echo 70 >/proc/sys/net/core/busy_read
+lpaa23:~# ./netperf -H lpaa24 -t TCP_RR
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpaa24.prod.google.com () port 0 AF_INET : first burst 0
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
+
+16384  87380  1        1       10.00    97643.55
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 868fdb06063d92f4373be4974d1b651a32bb9442)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx4/en_ethtool.c   |  17 ---
+ .../net/ethernet/mellanox/mlx4/en_netdev.c    |  40 ------
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c    |  15 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h  | 128 ------------------
+ 4 files changed, 2 insertions(+), 198 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index b52491f09a4d..87e4e902358c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -337,11 +337,7 @@ static int mlx4_en_get_sset_count(struct net_device *dev, int sset)
+ 	case ETH_SS_STATS:
+ 		return bitmap_iterator_count(&it) +
+ 			(priv->tx_ring_num * 2) +
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-			(priv->rx_ring_num * 5);
+-#else
+ 			(priv->rx_ring_num * 2);
+-#endif
+ 	case ETH_SS_TEST:
+ 		return MLX4_EN_NUM_SELF_TEST - !(priv->mdev->dev->caps.flags
+ 					& MLX4_DEV_CAP_FLAG_UC_LOOPBACK) * 2;
+@@ -408,11 +404,6 @@ static void mlx4_en_get_ethtool_stats(struct net_device *dev,
+ 	for (i = 0; i < priv->rx_ring_num; i++) {
+ 		data[index++] = priv->rx_ring[i]->packets;
+ 		data[index++] = priv->rx_ring[i]->bytes;
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-		data[index++] = priv->rx_ring[i]->yields;
+-		data[index++] = priv->rx_ring[i]->misses;
+-		data[index++] = priv->rx_ring[i]->cleaned;
+-#endif
+ 	}
+ 	spin_unlock_bh(&priv->stats_lock);
+ 
+@@ -486,14 +477,6 @@ static void mlx4_en_get_strings(struct net_device *dev,
+ 				"rx%d_packets", i);
+ 			sprintf(data + (index++) * ETH_GSTRING_LEN,
+ 				"rx%d_bytes", i);
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-			sprintf(data + (index++) * ETH_GSTRING_LEN,
+-				"rx%d_napi_yield", i);
+-			sprintf(data + (index++) * ETH_GSTRING_LEN,
+-				"rx%d_misses", i);
+-			sprintf(data + (index++) * ETH_GSTRING_LEN,
+-				"rx%d_cleaned", i);
+-#endif
+ 		}
+ 		break;
+ 	case ETH_SS_PRIV_FLAGS:
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 232191417b93..21e2c0960271 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -69,34 +69,6 @@ int mlx4_en_setup_tc(struct net_device *dev, u8 up)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-/* must be called with local_bh_disable()d */
+-static int mlx4_en_low_latency_recv(struct napi_struct *napi)
+-{
+-	struct mlx4_en_cq *cq = container_of(napi, struct mlx4_en_cq, napi);
+-	struct net_device *dev = cq->dev;
+-	struct mlx4_en_priv *priv = netdev_priv(dev);
+-	struct mlx4_en_rx_ring *rx_ring = priv->rx_ring[cq->ring];
+-	int done;
+-
+-	if (!priv->port_up)
+-		return LL_FLUSH_FAILED;
+-
+-	if (!mlx4_en_cq_lock_poll(cq))
+-		return LL_FLUSH_BUSY;
+-
+-	done = mlx4_en_process_rx_cq(dev, cq, 4);
+-	if (likely(done))
+-		rx_ring->cleaned += done;
+-	else
+-		rx_ring->misses++;
+-
+-	mlx4_en_cq_unlock_poll(cq);
+-
+-	return done;
+-}
+-#endif	/* CONFIG_NET_RX_BUSY_POLL */
+-
+ #ifdef CONFIG_RFS_ACCEL
+ 
+ struct mlx4_en_filter {
+@@ -1561,8 +1533,6 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	for (i = 0; i < priv->rx_ring_num; i++) {
+ 		cq = priv->rx_cq[i];
+ 
+-		mlx4_en_cq_init_lock(cq);
+-
+ 		err = mlx4_en_init_affinity_hint(priv, i);
+ 		if (err) {
+ 			en_err(priv, "Failed preparing IRQ affinity hint\n");
+@@ -1859,13 +1829,6 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
+ 	for (i = 0; i < priv->rx_ring_num; i++) {
+ 		struct mlx4_en_cq *cq = priv->rx_cq[i];
+ 
+-		local_bh_disable();
+-		while (!mlx4_en_cq_lock_napi(cq)) {
+-			pr_info("CQ %d locked\n", i);
+-			mdelay(1);
+-		}
+-		local_bh_enable();
+-
+ 		napi_synchronize(&cq->napi);
+ 		mlx4_en_deactivate_rx_ring(priv, priv->rx_ring[i]);
+ 		mlx4_en_deactivate_cq(priv, cq);
+@@ -2502,9 +2465,6 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_setup_tc		= mlx4_en_setup_tc,
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
+-#endif
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-	.ndo_busy_poll		= mlx4_en_low_latency_recv,
+ #endif
+ 	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
+ #ifdef CONFIG_MLX4_EN_VXLAN
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index ac7c64bae2a5..2d60912672b7 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -901,10 +901,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		 * - TCP/IP (v4)
+ 		 * - without IP options
+ 		 * - not an IP fragment
+-		 * - no LLS polling in progress
+ 		 */
+-		if (!mlx4_en_cq_busy_polling(cq) &&
+-		    (dev->features & NETIF_F_GRO)) {
++		if (dev->features & NETIF_F_GRO) {
+ 			struct sk_buff *gro_skb = napi_get_frags(&cq->napi);
+ 			if (!gro_skb)
+ 				goto next;
+@@ -1020,11 +1018,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 
+ 		skb_mark_napi_id(skb, &cq->napi);
+ 
+-		if (!mlx4_en_cq_busy_polling(cq))
+-			napi_gro_receive(&cq->napi, skb);
+-		else
+-			netif_receive_skb(skb);
+-
++		napi_gro_receive(&cq->napi, skb);
+ next:
+ 		for (nr = 0; nr < priv->num_frags; nr++)
+ 			mlx4_en_free_frag(priv, frags, nr);
+@@ -1066,13 +1060,8 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	int done;
+ 
+-	if (!mlx4_en_cq_lock_napi(cq))
+-		return budget;
+-
+ 	done = mlx4_en_process_rx_cq(dev, cq, budget);
+ 
+-	mlx4_en_cq_unlock_napi(cq);
+-
+ 	/* If we used up all the quota - we're probably not done yet... */
+ 	if (done == budget) {
+ 		const struct cpumask *aff;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index a25054e2c34e..919906665b00 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -323,11 +323,6 @@ struct mlx4_en_rx_ring {
+ 	void *rx_info;
+ 	unsigned long bytes;
+ 	unsigned long packets;
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-	unsigned long yields;
+-	unsigned long misses;
+-	unsigned long cleaned;
+-#endif
+ 	unsigned long csum_ok;
+ 	unsigned long csum_none;
+ 	unsigned long csum_complete;
+@@ -350,18 +345,6 @@ struct mlx4_en_cq {
+ 	struct mlx4_cqe *buf;
+ #define MLX4_EN_OPCODE_ERROR	0x1e
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-	unsigned int state;
+-#define MLX4_EN_CQ_STATE_IDLE        0
+-#define MLX4_EN_CQ_STATE_NAPI     1    /* NAPI owns this CQ */
+-#define MLX4_EN_CQ_STATE_POLL     2    /* poll owns this CQ */
+-#define MLX4_CQ_LOCKED (MLX4_EN_CQ_STATE_NAPI | MLX4_EN_CQ_STATE_POLL)
+-#define MLX4_EN_CQ_STATE_NAPI_YIELD  4    /* NAPI yielded this CQ */
+-#define MLX4_EN_CQ_STATE_POLL_YIELD  8    /* poll yielded this CQ */
+-#define CQ_YIELD (MLX4_EN_CQ_STATE_NAPI_YIELD | MLX4_EN_CQ_STATE_POLL_YIELD)
+-#define CQ_USER_PEND (MLX4_EN_CQ_STATE_POLL | MLX4_EN_CQ_STATE_POLL_YIELD)
+-	spinlock_t poll_lock; /* protects from LLS/napi conflicts */
+-#endif  /* CONFIG_NET_RX_BUSY_POLL */
+ 	struct irq_desc *irq_desc;
+ };
+ 
+@@ -624,117 +607,6 @@ static inline struct mlx4_cqe *mlx4_en_get_cqe(void *buf, int idx, int cqe_sz)
+ 	return buf + idx * cqe_sz;
+ }
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-static inline void mlx4_en_cq_init_lock(struct mlx4_en_cq *cq)
+-{
+-	spin_lock_init(&cq->poll_lock);
+-	cq->state = MLX4_EN_CQ_STATE_IDLE;
+-}
+-
+-/* called from the device poll rutine to get ownership of a cq */
+-static inline bool mlx4_en_cq_lock_napi(struct mlx4_en_cq *cq)
+-{
+-	int rc = true;
+-	spin_lock(&cq->poll_lock);
+-	if (cq->state & MLX4_CQ_LOCKED) {
+-		WARN_ON(cq->state & MLX4_EN_CQ_STATE_NAPI);
+-		cq->state |= MLX4_EN_CQ_STATE_NAPI_YIELD;
+-		rc = false;
+-	} else
+-		/* we don't care if someone yielded */
+-		cq->state = MLX4_EN_CQ_STATE_NAPI;
+-	spin_unlock(&cq->poll_lock);
+-	return rc;
+-}
+-
+-/* returns true is someone tried to get the cq while napi had it */
+-static inline bool mlx4_en_cq_unlock_napi(struct mlx4_en_cq *cq)
+-{
+-	int rc = false;
+-	spin_lock(&cq->poll_lock);
+-	WARN_ON(cq->state & (MLX4_EN_CQ_STATE_POLL |
+-			       MLX4_EN_CQ_STATE_NAPI_YIELD));
+-
+-	if (cq->state & MLX4_EN_CQ_STATE_POLL_YIELD)
+-		rc = true;
+-	cq->state = MLX4_EN_CQ_STATE_IDLE;
+-	spin_unlock(&cq->poll_lock);
+-	return rc;
+-}
+-
+-/* called from mlx4_en_low_latency_recv(), BH are disabled */
+-static inline bool mlx4_en_cq_lock_poll(struct mlx4_en_cq *cq)
+-{
+-	int rc = true;
+-
+-	spin_lock(&cq->poll_lock);
+-	if ((cq->state & MLX4_CQ_LOCKED)) {
+-		struct net_device *dev = cq->dev;
+-		struct mlx4_en_priv *priv = netdev_priv(dev);
+-		struct mlx4_en_rx_ring *rx_ring = priv->rx_ring[cq->ring];
+-
+-		cq->state |= MLX4_EN_CQ_STATE_POLL_YIELD;
+-		rc = false;
+-		rx_ring->yields++;
+-	} else
+-		/* preserve yield marks */
+-		cq->state |= MLX4_EN_CQ_STATE_POLL;
+-	spin_unlock(&cq->poll_lock);
+-	return rc;
+-}
+-
+-/* returns true if someone tried to get the cq while it was locked */
+-static inline bool mlx4_en_cq_unlock_poll(struct mlx4_en_cq *cq)
+-{
+-	int rc = false;
+-
+-	spin_lock(&cq->poll_lock);
+-	WARN_ON(cq->state & (MLX4_EN_CQ_STATE_NAPI));
+-
+-	if (cq->state & MLX4_EN_CQ_STATE_POLL_YIELD)
+-		rc = true;
+-	cq->state = MLX4_EN_CQ_STATE_IDLE;
+-	spin_unlock(&cq->poll_lock);
+-	return rc;
+-}
+-
+-/* true if a socket is polling, even if it did not get the lock */
+-static inline bool mlx4_en_cq_busy_polling(struct mlx4_en_cq *cq)
+-{
+-	WARN_ON(!(cq->state & MLX4_CQ_LOCKED));
+-	return cq->state & CQ_USER_PEND;
+-}
+-#else
+-static inline void mlx4_en_cq_init_lock(struct mlx4_en_cq *cq)
+-{
+-}
+-
+-static inline bool mlx4_en_cq_lock_napi(struct mlx4_en_cq *cq)
+-{
+-	return true;
+-}
+-
+-static inline bool mlx4_en_cq_unlock_napi(struct mlx4_en_cq *cq)
+-{
+-	return false;
+-}
+-
+-static inline bool mlx4_en_cq_lock_poll(struct mlx4_en_cq *cq)
+-{
+-	return false;
+-}
+-
+-static inline bool mlx4_en_cq_unlock_poll(struct mlx4_en_cq *cq)
+-{
+-	return false;
+-}
+-
+-static inline bool mlx4_en_cq_busy_polling(struct mlx4_en_cq *cq)
+-{
+-	return false;
+-}
+-#endif /* CONFIG_NET_RX_BUSY_POLL */
+-
+ #define MLX4_EN_WOL_DO_MODIFY (1ULL << 63)
+ 
+ void mlx4_en_update_loopback_state(struct net_device *dev,
+-- 
+2.17.1
+

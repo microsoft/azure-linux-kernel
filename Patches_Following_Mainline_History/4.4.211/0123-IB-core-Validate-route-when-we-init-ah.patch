@@ -1,0 +1,649 @@
+From 1bed4890f1ceba75159c069526179e6ecdcc7054 Mon Sep 17 00:00:00 2001
+From: Matan Barak <matanb@mellanox.com>
+Date: Wed, 23 Dec 2015 14:56:53 +0200
+Subject: IB/core: Validate route when we init ah
+Reply-To: joseph.salisbury@microsoft.com
+
+In order to make sure API users don't try to use SGIDs which don't
+conform to the routing table, validate the route before searching
+the RoCE GID table.
+
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit 200298326b276d8dbeff204f7d407432100d9963)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/core/addr.c           | 175 ++++++++++++++++-------
+ drivers/infiniband/core/cm.c             |  10 +-
+ drivers/infiniband/core/cma.c            |  30 +++-
+ drivers/infiniband/core/sa_query.c       |  75 ++++++++--
+ drivers/infiniband/core/verbs.c          |  48 +++++--
+ drivers/infiniband/hw/ocrdma/ocrdma_ah.c |   2 +-
+ include/rdma/ib_addr.h                   |  10 +-
+ 7 files changed, 270 insertions(+), 80 deletions(-)
+
+diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
+index c452a32bdba8..ad6753647882 100644
+--- a/drivers/infiniband/core/addr.c
++++ b/drivers/infiniband/core/addr.c
+@@ -137,7 +137,8 @@ int rdma_copy_addr(struct rdma_dev_addr *dev_addr, struct net_device *dev,
+ }
+ EXPORT_SYMBOL(rdma_copy_addr);
+ 
+-int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
++int rdma_translate_ip(const struct sockaddr *addr,
++		      struct rdma_dev_addr *dev_addr,
+ 		      u16 *vlan_id)
+ {
+ 	struct net_device *dev;
+@@ -155,7 +156,7 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
+ 	switch (addr->sa_family) {
+ 	case AF_INET:
+ 		dev = ip_dev_find(dev_addr->net,
+-			((struct sockaddr_in *) addr)->sin_addr.s_addr);
++			((const struct sockaddr_in *)addr)->sin_addr.s_addr);
+ 
+ 		if (!dev)
+ 			return ret;
+@@ -170,7 +171,7 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
+ 		rcu_read_lock();
+ 		for_each_netdev_rcu(dev_addr->net, dev) {
+ 			if (ipv6_chk_addr(dev_addr->net,
+-					  &((struct sockaddr_in6 *) addr)->sin6_addr,
++					  &((const struct sockaddr_in6 *)addr)->sin6_addr,
+ 					  dev, 1)) {
+ 				ret = rdma_copy_addr(dev_addr, dev, NULL);
+ 				if (vlan_id)
+@@ -214,7 +215,8 @@ static void queue_req(struct addr_req *req)
+ 	mutex_unlock(&lock);
+ }
+ 
+-static int dst_fetch_ha(struct dst_entry *dst, struct rdma_dev_addr *dev_addr, void *daddr)
++static int dst_fetch_ha(struct dst_entry *dst, struct rdma_dev_addr *dev_addr,
++			const void *daddr)
+ {
+ 	struct neighbour *n;
+ 	int ret;
+@@ -238,8 +240,9 @@ static int dst_fetch_ha(struct dst_entry *dst, struct rdma_dev_addr *dev_addr, v
+ }
+ 
+ static int addr4_resolve(struct sockaddr_in *src_in,
+-			 struct sockaddr_in *dst_in,
+-			 struct rdma_dev_addr *addr)
++			 const struct sockaddr_in *dst_in,
++			 struct rdma_dev_addr *addr,
++			 struct rtable **prt)
+ {
+ 	__be32 src_ip = src_in->sin_addr.s_addr;
+ 	__be32 dst_ip = dst_in->sin_addr.s_addr;
+@@ -259,36 +262,23 @@ static int addr4_resolve(struct sockaddr_in *src_in,
+ 	src_in->sin_family = AF_INET;
+ 	src_in->sin_addr.s_addr = fl4.saddr;
+ 
+-	if (rt->dst.dev->flags & IFF_LOOPBACK) {
+-		ret = rdma_translate_ip((struct sockaddr *)dst_in, addr, NULL);
+-		if (!ret)
+-			memcpy(addr->dst_dev_addr, addr->src_dev_addr, MAX_ADDR_LEN);
+-		goto put;
+-	}
+-
+-	/* If the device does ARP internally, return 'done' */
+-	if (rt->dst.dev->flags & IFF_NOARP) {
+-		ret = rdma_copy_addr(addr, rt->dst.dev, NULL);
+-		goto put;
+-	}
+-
+ 	/* If there's a gateway, we're definitely in RoCE v2 (as RoCE v1 isn't
+ 	 * routable) and we could set the network type accordingly.
+ 	 */
+ 	if (rt->rt_uses_gateway)
+ 		addr->network = RDMA_NETWORK_IPV4;
+ 
+-	ret = dst_fetch_ha(&rt->dst, addr, &fl4.daddr);
+-put:
+-	ip_rt_put(rt);
++	*prt = rt;
++	return 0;
+ out:
+ 	return ret;
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ static int addr6_resolve(struct sockaddr_in6 *src_in,
+-			 struct sockaddr_in6 *dst_in,
+-			 struct rdma_dev_addr *addr)
++			 const struct sockaddr_in6 *dst_in,
++			 struct rdma_dev_addr *addr,
++			 struct dst_entry **pdst)
+ {
+ 	struct flowi6 fl6;
+ 	struct dst_entry *dst;
+@@ -315,49 +305,109 @@ static int addr6_resolve(struct sockaddr_in6 *src_in,
+ 		src_in->sin6_addr = fl6.saddr;
+ 	}
+ 
+-	if (dst->dev->flags & IFF_LOOPBACK) {
+-		ret = rdma_translate_ip((struct sockaddr *)dst_in, addr, NULL);
+-		if (!ret)
+-			memcpy(addr->dst_dev_addr, addr->src_dev_addr, MAX_ADDR_LEN);
+-		goto put;
+-	}
+-
+-	/* If the device does ARP internally, return 'done' */
+-	if (dst->dev->flags & IFF_NOARP) {
+-		ret = rdma_copy_addr(addr, dst->dev, NULL);
+-		goto put;
+-	}
+-
+ 	/* If there's a gateway, we're definitely in RoCE v2 (as RoCE v1 isn't
+ 	 * routable) and we could set the network type accordingly.
+ 	 */
+ 	if (rt->rt6i_flags & RTF_GATEWAY)
+ 		addr->network = RDMA_NETWORK_IPV6;
+ 
+-	ret = dst_fetch_ha(dst, addr, &fl6.daddr);
++	*pdst = dst;
++	return 0;
+ put:
+ 	dst_release(dst);
+ 	return ret;
+ }
+ #else
+ static int addr6_resolve(struct sockaddr_in6 *src_in,
+-			 struct sockaddr_in6 *dst_in,
+-			 struct rdma_dev_addr *addr)
++			 const struct sockaddr_in6 *dst_in,
++			 struct rdma_dev_addr *addr,
++			 struct dst_entry **pdst)
+ {
+ 	return -EADDRNOTAVAIL;
+ }
+ #endif
+ 
++static int addr_resolve_neigh(struct dst_entry *dst,
++			      const struct sockaddr *dst_in,
++			      struct rdma_dev_addr *addr)
++{
++	if (dst->dev->flags & IFF_LOOPBACK) {
++		int ret;
++
++		ret = rdma_translate_ip(dst_in, addr, NULL);
++		if (!ret)
++			memcpy(addr->dst_dev_addr, addr->src_dev_addr,
++			       MAX_ADDR_LEN);
++
++		return ret;
++	}
++
++	/* If the device doesn't do ARP internally */
++	if (!(dst->dev->flags & IFF_NOARP)) {
++		const struct sockaddr_in *dst_in4 =
++			(const struct sockaddr_in *)dst_in;
++		const struct sockaddr_in6 *dst_in6 =
++			(const struct sockaddr_in6 *)dst_in;
++
++		return dst_fetch_ha(dst, addr,
++				    dst_in->sa_family == AF_INET ?
++				    (const void *)&dst_in4->sin_addr.s_addr :
++				    (const void *)&dst_in6->sin6_addr);
++	}
++
++	return rdma_copy_addr(addr, dst->dev, NULL);
++}
++
+ static int addr_resolve(struct sockaddr *src_in,
+-			struct sockaddr *dst_in,
+-			struct rdma_dev_addr *addr)
++			const struct sockaddr *dst_in,
++			struct rdma_dev_addr *addr,
++			bool resolve_neigh)
+ {
++	struct net_device *ndev;
++	struct dst_entry *dst;
++	int ret;
++
+ 	if (src_in->sa_family == AF_INET) {
+-		return addr4_resolve((struct sockaddr_in *) src_in,
+-			(struct sockaddr_in *) dst_in, addr);
+-	} else
+-		return addr6_resolve((struct sockaddr_in6 *) src_in,
+-			(struct sockaddr_in6 *) dst_in, addr);
++		struct rtable *rt = NULL;
++		const struct sockaddr_in *dst_in4 =
++			(const struct sockaddr_in *)dst_in;
++
++		ret = addr4_resolve((struct sockaddr_in *)src_in,
++				    dst_in4, addr, &rt);
++		if (ret)
++			return ret;
++
++		if (resolve_neigh)
++			ret = addr_resolve_neigh(&rt->dst, dst_in, addr);
++
++		ndev = rt->dst.dev;
++		dev_hold(ndev);
++
++		ip_rt_put(rt);
++	} else {
++		const struct sockaddr_in6 *dst_in6 =
++			(const struct sockaddr_in6 *)dst_in;
++
++		ret = addr6_resolve((struct sockaddr_in6 *)src_in,
++				    dst_in6, addr,
++				    &dst);
++		if (ret)
++			return ret;
++
++		if (resolve_neigh)
++			ret = addr_resolve_neigh(dst, dst_in, addr);
++
++		ndev = dst->dev;
++		dev_hold(ndev);
++
++		dst_release(dst);
++	}
++
++	addr->bound_dev_if = ndev->ifindex;
++	addr->net = dev_net(ndev);
++	dev_put(ndev);
++
++	return ret;
+ }
+ 
+ static void process_req(struct work_struct *work)
+@@ -373,7 +423,8 @@ static void process_req(struct work_struct *work)
+ 		if (req->status == -ENODATA) {
+ 			src_in = (struct sockaddr *) &req->src_addr;
+ 			dst_in = (struct sockaddr *) &req->dst_addr;
+-			req->status = addr_resolve(src_in, dst_in, req->addr);
++			req->status = addr_resolve(src_in, dst_in, req->addr,
++						   true);
+ 			if (req->status && time_after_eq(jiffies, req->timeout))
+ 				req->status = -ETIMEDOUT;
+ 			else if (req->status == -ENODATA)
+@@ -433,7 +484,7 @@ int rdma_resolve_ip(struct rdma_addr_client *client,
+ 	req->client = client;
+ 	atomic_inc(&client->refcount);
+ 
+-	req->status = addr_resolve(src_in, dst_in, addr);
++	req->status = addr_resolve(src_in, dst_in, addr, true);
+ 	switch (req->status) {
+ 	case 0:
+ 		req->timeout = jiffies;
+@@ -455,6 +506,25 @@ err:
+ }
+ EXPORT_SYMBOL(rdma_resolve_ip);
+ 
++int rdma_resolve_ip_route(struct sockaddr *src_addr,
++			  const struct sockaddr *dst_addr,
++			  struct rdma_dev_addr *addr)
++{
++	struct sockaddr_storage ssrc_addr = {};
++	struct sockaddr *src_in = (struct sockaddr *)&ssrc_addr;
++
++	if (src_addr->sa_family != dst_addr->sa_family)
++		return -EINVAL;
++
++	if (src_addr)
++		memcpy(src_in, src_addr, rdma_addr_size(src_addr));
++	else
++		src_in->sa_family = dst_addr->sa_family;
++
++	return addr_resolve(src_in, dst_addr, addr, false);
++}
++EXPORT_SYMBOL(rdma_resolve_ip_route);
++
+ void rdma_addr_cancel(struct rdma_dev_addr *addr)
+ {
+ 	struct addr_req *req, *temp_req;
+@@ -487,7 +557,7 @@ static void resolve_cb(int status, struct sockaddr *src_addr,
+ }
+ 
+ int rdma_addr_find_dmac_by_grh(const union ib_gid *sgid, const union ib_gid *dgid,
+-			       u8 *dmac, u16 *vlan_id, int if_index)
++			       u8 *dmac, u16 *vlan_id, int *if_index)
+ {
+ 	int ret = 0;
+ 	struct rdma_dev_addr dev_addr;
+@@ -504,7 +574,8 @@ int rdma_addr_find_dmac_by_grh(const union ib_gid *sgid, const union ib_gid *dgi
+ 	rdma_gid2ip((struct sockaddr *)&dgid_addr, dgid);
+ 
+ 	memset(&dev_addr, 0, sizeof(dev_addr));
+-	dev_addr.bound_dev_if = if_index;
++	if (if_index)
++		dev_addr.bound_dev_if = *if_index;
+ 	dev_addr.net = &init_net;
+ 
+ 	ctx.addr = &dev_addr;
+@@ -521,6 +592,8 @@ int rdma_addr_find_dmac_by_grh(const union ib_gid *sgid, const union ib_gid *dgi
+ 	dev = dev_get_by_index(&init_net, dev_addr.bound_dev_if);
+ 	if (!dev)
+ 		return -ENODEV;
++	if (if_index)
++		*if_index = dev_addr.bound_dev_if;
+ 	if (vlan_id)
+ 		*vlan_id = rdma_vlan_dev_vlan_id(dev);
+ 	dev_put(dev);
+diff --git a/drivers/infiniband/core/cm.c b/drivers/infiniband/core/cm.c
+index addf91da47e5..de06c2205fda 100644
+--- a/drivers/infiniband/core/cm.c
++++ b/drivers/infiniband/core/cm.c
+@@ -1709,8 +1709,11 @@ static int cm_req_handler(struct cm_work *work)
+ 				cm_id_priv->av.ah_attr.grh.sgid_index,
+ 				&gid, &gid_attr);
+ 	if (!ret) {
+-		if (gid_attr.ndev)
++		if (gid_attr.ndev) {
++			work->path[0].ifindex = gid_attr.ndev->ifindex;
++			work->path[0].net = dev_net(gid_attr.ndev);
+ 			dev_put(gid_attr.ndev);
++		}
+ 		work->path[0].gid_type = gid_attr.gid_type;
+ 		ret = cm_init_av_by_path(&work->path[0], &cm_id_priv->av,
+ 					 cm_id_priv);
+@@ -1720,8 +1723,11 @@ static int cm_req_handler(struct cm_work *work)
+ 					    work->port->port_num, 0,
+ 					    &work->path[0].sgid,
+ 					    &gid_attr);
+-		if (!err && gid_attr.ndev)
++		if (!err && gid_attr.ndev) {
++			work->path[0].ifindex = gid_attr.ndev->ifindex;
++			work->path[0].net = dev_net(gid_attr.ndev);
+ 			dev_put(gid_attr.ndev);
++		}
+ 		work->path[0].gid_type = gid_attr.gid_type;
+ 		ib_send_cm_rej(cm_id, IB_CM_REJ_INVALID_GID,
+ 			       &work->path[0].sgid, sizeof work->path[0].sgid,
+diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+index 35e95d97e9f9..e797769a4f76 100644
+--- a/drivers/infiniband/core/cma.c
++++ b/drivers/infiniband/core/cma.c
+@@ -454,8 +454,20 @@ static inline int cma_validate_port(struct ib_device *device, u8 port,
+ 	if ((dev_type != ARPHRD_INFINIBAND) && rdma_protocol_ib(device, port))
+ 		return ret;
+ 
+-	if (dev_type == ARPHRD_ETHER && rdma_protocol_roce(device, port))
++	if (dev_type == ARPHRD_ETHER) {
+ 		ndev = dev_get_by_index(&init_net, bound_if_index);
++		if (ndev && ndev->flags & IFF_LOOPBACK) {
++			pr_info("detected loopback device\n");
++			dev_put(ndev);
++
++			if (!device->get_netdev)
++				return -EOPNOTSUPP;
++
++			ndev = device->get_netdev(device, port);
++			if (!ndev)
++				return -ENODEV;
++		}
++	}
+ 
+ 	ret = ib_find_cached_gid_by_port(device, gid, IB_GID_TYPE_IB, port,
+ 					 ndev, NULL);
+@@ -2338,8 +2350,22 @@ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
+ 
+ 	if (addr->dev_addr.bound_dev_if) {
+ 		ndev = dev_get_by_index(&init_net, addr->dev_addr.bound_dev_if);
++		if (!ndev)
++			return -ENODEV;
++
++		if (ndev->flags & IFF_LOOPBACK) {
++			dev_put(ndev);
++			if (!id_priv->id.device->get_netdev)
++				return -EOPNOTSUPP;
++
++			ndev = id_priv->id.device->get_netdev(id_priv->id.device,
++							      id_priv->id.port_num);
++			if (!ndev)
++				return -ENODEV;
++		}
++
+ 		route->path_rec->net = &init_net;
+-		route->path_rec->ifindex = addr->dev_addr.bound_dev_if;
++		route->path_rec->ifindex = ndev->ifindex;
+ 		route->path_rec->gid_type = id_priv->gid_type;
+ 	}
+ 	if (!ndev) {
+diff --git a/drivers/infiniband/core/sa_query.c b/drivers/infiniband/core/sa_query.c
+index 3b2c09d19dd1..d6eb286035ff 100644
+--- a/drivers/infiniband/core/sa_query.c
++++ b/drivers/infiniband/core/sa_query.c
+@@ -49,7 +49,9 @@
+ #include <net/netlink.h>
+ #include <uapi/rdma/ib_user_sa.h>
+ #include <rdma/ib_marshall.h>
++#include <rdma/ib_addr.h>
+ #include "sa.h"
++#include "core_priv.h"
+ 
+ MODULE_AUTHOR("Roland Dreier");
+ MODULE_DESCRIPTION("InfiniBand subnet administration query support");
+@@ -996,7 +998,8 @@ int ib_init_ah_from_path(struct ib_device *device, u8 port_num,
+ {
+ 	int ret;
+ 	u16 gid_index;
+-	int force_grh;
++	int use_roce;
++	struct net_device *ndev = NULL;
+ 
+ 	memset(ah_attr, 0, sizeof *ah_attr);
+ 	ah_attr->dlid = be16_to_cpu(rec->dlid);
+@@ -1006,16 +1009,71 @@ int ib_init_ah_from_path(struct ib_device *device, u8 port_num,
+ 	ah_attr->port_num = port_num;
+ 	ah_attr->static_rate = rec->rate;
+ 
+-	force_grh = rdma_cap_eth_ah(device, port_num);
++	use_roce = rdma_cap_eth_ah(device, port_num);
++
++	if (use_roce) {
++		struct net_device *idev;
++		struct net_device *resolved_dev;
++		struct rdma_dev_addr dev_addr = {.bound_dev_if = rec->ifindex,
++						 .net = rec->net ? rec->net :
++							 &init_net};
++		union {
++			struct sockaddr     _sockaddr;
++			struct sockaddr_in  _sockaddr_in;
++			struct sockaddr_in6 _sockaddr_in6;
++		} sgid_addr, dgid_addr;
++
++		if (!device->get_netdev)
++			return -EOPNOTSUPP;
++
++		rdma_gid2ip(&sgid_addr._sockaddr, &rec->sgid);
++		rdma_gid2ip(&dgid_addr._sockaddr, &rec->dgid);
++
++		/* validate the route */
++		ret = rdma_resolve_ip_route(&sgid_addr._sockaddr,
++					    &dgid_addr._sockaddr, &dev_addr);
++		if (ret)
++			return ret;
+ 
+-	if (rec->hop_limit > 1 || force_grh) {
+-		struct net_device *ndev = ib_get_ndev_from_path(rec);
++		if ((dev_addr.network == RDMA_NETWORK_IPV4 ||
++		     dev_addr.network == RDMA_NETWORK_IPV6) &&
++		    rec->gid_type != IB_GID_TYPE_ROCE_UDP_ENCAP)
++			return -EINVAL;
++
++		idev = device->get_netdev(device, port_num);
++		if (!idev)
++			return -ENODEV;
++
++		resolved_dev = dev_get_by_index(dev_addr.net,
++						dev_addr.bound_dev_if);
++		if (resolved_dev->flags & IFF_LOOPBACK) {
++			dev_put(resolved_dev);
++			resolved_dev = idev;
++			dev_hold(resolved_dev);
++		}
++		ndev = ib_get_ndev_from_path(rec);
++		rcu_read_lock();
++		if ((ndev && ndev != resolved_dev) ||
++		    (resolved_dev != idev &&
++		     !rdma_is_upper_dev_rcu(idev, resolved_dev)))
++			ret = -EHOSTUNREACH;
++		rcu_read_unlock();
++		dev_put(idev);
++		dev_put(resolved_dev);
++		if (ret) {
++			if (ndev)
++				dev_put(ndev);
++			return ret;
++		}
++	}
+ 
++	if (rec->hop_limit > 1 || use_roce) {
+ 		ah_attr->ah_flags = IB_AH_GRH;
+ 		ah_attr->grh.dgid = rec->dgid;
+ 
+-		ret = ib_find_cached_gid(device, &rec->sgid, rec->gid_type, ndev,
+-					 &port_num, &gid_index);
++		ret = ib_find_cached_gid_by_port(device, &rec->sgid,
++						 rec->gid_type, port_num, ndev,
++						 &gid_index);
+ 		if (ret) {
+ 			if (ndev)
+ 				dev_put(ndev);
+@@ -1029,9 +1087,10 @@ int ib_init_ah_from_path(struct ib_device *device, u8 port_num,
+ 		if (ndev)
+ 			dev_put(ndev);
+ 	}
+-	if (force_grh) {
++
++	if (use_roce)
+ 		memcpy(ah_attr->dmac, rec->dmac, ETH_ALEN);
+-	}
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL(ib_init_ah_from_path);
+diff --git a/drivers/infiniband/core/verbs.c b/drivers/infiniband/core/verbs.c
+index b8f7ec380965..e93160d8951a 100644
+--- a/drivers/infiniband/core/verbs.c
++++ b/drivers/infiniband/core/verbs.c
+@@ -457,30 +457,52 @@ int ib_init_ah_from_wc(struct ib_device *device, u8 port_num,
+ 		return ret;
+ 
+ 	if (rdma_protocol_roce(device, port_num)) {
++		int if_index = 0;
+ 		u16 vlan_id = wc->wc_flags & IB_WC_WITH_VLAN ?
+ 				wc->vlan_id : 0xffff;
++		struct net_device *idev;
++		struct net_device *resolved_dev;
+ 
+ 		if (!(wc->wc_flags & IB_WC_GRH))
+ 			return -EPROTOTYPE;
+ 
+-		if (!(wc->wc_flags & IB_WC_WITH_SMAC) ||
+-		    !(wc->wc_flags & IB_WC_WITH_VLAN)) {
+-			ret = rdma_addr_find_dmac_by_grh(&dgid, &sgid,
+-							 ah_attr->dmac,
+-							 wc->wc_flags & IB_WC_WITH_VLAN ?
+-							 NULL : &vlan_id,
+-							 0);
+-			if (ret)
+-				return ret;
++		if (!device->get_netdev)
++			return -EOPNOTSUPP;
++
++		idev = device->get_netdev(device, port_num);
++		if (!idev)
++			return -ENODEV;
++
++		ret = rdma_addr_find_dmac_by_grh(&dgid, &sgid,
++						 ah_attr->dmac,
++						 wc->wc_flags & IB_WC_WITH_VLAN ?
++						 NULL : &vlan_id,
++						 &if_index);
++		if (ret) {
++			dev_put(idev);
++			return ret;
+ 		}
+ 
++		resolved_dev = dev_get_by_index(&init_net, if_index);
++		if (resolved_dev->flags & IFF_LOOPBACK) {
++			dev_put(resolved_dev);
++			resolved_dev = idev;
++			dev_hold(resolved_dev);
++		}
++		rcu_read_lock();
++		if (resolved_dev != idev && !rdma_is_upper_dev_rcu(idev,
++								   resolved_dev))
++			ret = -EHOSTUNREACH;
++		rcu_read_unlock();
++		dev_put(idev);
++		dev_put(resolved_dev);
++		if (ret)
++			return ret;
++
+ 		ret = get_sgid_index_from_eth(device, port_num, vlan_id,
+ 					      &dgid, gid_type, &gid_index);
+ 		if (ret)
+ 			return ret;
+-
+-		if (wc->wc_flags & IB_WC_WITH_SMAC)
+-			memcpy(ah_attr->dmac, wc->smac, ETH_ALEN);
+ 	}
+ 
+ 	ah_attr->dlid = wc->slid;
+@@ -1145,7 +1167,7 @@ int ib_resolve_eth_dmac(struct ib_qp *qp,
+ 			ret = rdma_addr_find_dmac_by_grh(&sgid,
+ 							 &qp_attr->ah_attr.grh.dgid,
+ 							 qp_attr->ah_attr.dmac,
+-							 NULL, ifindex);
++							 NULL, &ifindex);
+ 
+ 			dev_put(sgid_attr.ndev);
+ 		}
+diff --git a/drivers/infiniband/hw/ocrdma/ocrdma_ah.c b/drivers/infiniband/hw/ocrdma/ocrdma_ah.c
+index 9820074be59d..a343e0377bf6 100644
+--- a/drivers/infiniband/hw/ocrdma/ocrdma_ah.c
++++ b/drivers/infiniband/hw/ocrdma/ocrdma_ah.c
+@@ -154,7 +154,7 @@ struct ib_ah *ocrdma_create_ah(struct ib_pd *ibpd, struct ib_ah_attr *attr)
+ 	    (!rdma_link_local_addr((struct in6_addr *)attr->grh.dgid.raw))) {
+ 		status = rdma_addr_find_dmac_by_grh(&sgid, &attr->grh.dgid,
+ 						    attr->dmac, &vlan_tag,
+-						    sgid_attr.ndev->ifindex);
++						    &sgid_attr.ndev->ifindex);
+ 		if (status) {
+ 			pr_err("%s(): Failed to resolve dmac from gid." 
+ 				"status = %d\n", __func__, status);
+diff --git a/include/rdma/ib_addr.h b/include/rdma/ib_addr.h
+index 0747ff2f7065..af254c1d6506 100644
+--- a/include/rdma/ib_addr.h
++++ b/include/rdma/ib_addr.h
+@@ -92,8 +92,8 @@ struct rdma_dev_addr {
+  *
+  * The dev_addr->net field must be initialized.
+  */
+-int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
+-		      u16 *vlan_id);
++int rdma_translate_ip(const struct sockaddr *addr,
++		      struct rdma_dev_addr *dev_addr, u16 *vlan_id);
+ 
+ /**
+  * rdma_resolve_ip - Resolve source and destination IP addresses to
+@@ -118,6 +118,10 @@ int rdma_resolve_ip(struct rdma_addr_client *client,
+ 				     struct rdma_dev_addr *addr, void *context),
+ 		    void *context);
+ 
++int rdma_resolve_ip_route(struct sockaddr *src_addr,
++			  const struct sockaddr *dst_addr,
++			  struct rdma_dev_addr *addr);
++
+ void rdma_addr_cancel(struct rdma_dev_addr *addr);
+ 
+ int rdma_copy_addr(struct rdma_dev_addr *dev_addr, struct net_device *dev,
+@@ -129,7 +133,7 @@ int rdma_addr_size_kss(struct __kernel_sockaddr_storage *addr);
+ 
+ int rdma_addr_find_smac_by_sgid(union ib_gid *sgid, u8 *smac, u16 *vlan_id);
+ int rdma_addr_find_dmac_by_grh(const union ib_gid *sgid, const union ib_gid *dgid,
+-			       u8 *smac, u16 *vlan_id, int if_index);
++			       u8 *smac, u16 *vlan_id, int *if_index);
+ 
+ static inline u16 ib_addr_get_pkey(struct rdma_dev_addr *dev_addr)
+ {
+-- 
+2.17.1
+

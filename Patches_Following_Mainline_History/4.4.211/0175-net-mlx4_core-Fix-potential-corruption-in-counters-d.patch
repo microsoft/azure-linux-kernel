@@ -1,0 +1,46 @@
+From 4cbe826448a5f473ba71be760c79b3b389a3d101 Mon Sep 17 00:00:00 2001
+From: Eran Ben Elisha <eranbe@mellanox.com>
+Date: Wed, 17 Feb 2016 17:24:24 +0200
+Subject: net/mlx4_core: Fix potential corruption in counters database
+Reply-To: joseph.salisbury@microsoft.com
+
+The error flow in procedure handle_existing_counter() is wrong.
+
+The procedure should exit after encountering the error, not continue
+as if everything is OK.
+
+Fixes: 68230242cdbc ('net/mlx4_core: Add port attribute when tracking counters')
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 6b94bab0ee8d5def6a2aac0ef6204ee6e24386b6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index daf4b624f373..6b5a529cca1b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -925,11 +925,13 @@ static int handle_existing_counter(struct mlx4_dev *dev, u8 slave, int port,
+ 
+ 	spin_lock_irq(mlx4_tlock(dev));
+ 	r = find_res(dev, counter_index, RES_COUNTER);
+-	if (!r || r->owner != slave)
++	if (!r || r->owner != slave) {
+ 		ret = -EINVAL;
+-	counter = container_of(r, struct res_counter, com);
+-	if (!counter->port)
+-		counter->port = port;
++	} else {
++		counter = container_of(r, struct res_counter, com);
++		if (!counter->port)
++			counter->port = port;
++	}
+ 
+ 	spin_unlock_irq(mlx4_tlock(dev));
+ 	return ret;
+-- 
+2.17.1
+

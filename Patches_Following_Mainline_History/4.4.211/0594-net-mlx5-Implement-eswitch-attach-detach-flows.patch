@@ -1,0 +1,91 @@
+From 8943d31197bc9942e8707641f5c575ff7cceab31 Mon Sep 17 00:00:00 2001
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
+Date: Fri, 9 Sep 2016 17:35:22 +0300
+Subject: net/mlx5: Implement eswitch attach/detach flows
+Reply-To: joseph.salisbury@microsoft.com
+
+Needed for lightweight and modular internal/pci error handling.
+Implement eswitch attach function which allocates/starts hw related
+resources.
+Implement eswitch detach function which releases/stops hw related
+resources.
+Init/cleanup function only handle eswitch software context allocation
+and destruction.
+
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 62a9b90ad83ebe584bf22a2e716a96e75f82e137)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/eswitch.c | 24 ++++++++++++++++---
+ .../net/ethernet/mellanox/mlx5/core/eswitch.h |  2 ++
+ 2 files changed, 23 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 4b2a37d95a55..0620adbc5236 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1558,6 +1558,25 @@ void mlx5_eswitch_disable_sriov(struct mlx5_eswitch *esw)
+ 	esw_enable_vport(esw, 0, UC_ADDR_CHANGE);
+ }
+ 
++void mlx5_eswitch_attach(struct mlx5_eswitch *esw)
++{
++	if (!esw || !MLX5_CAP_GEN(esw->dev, vport_group_manager) ||
++	    MLX5_CAP_GEN(esw->dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
++		return;
++
++	esw_enable_vport(esw, 0, UC_ADDR_CHANGE);
++	/* VF Vports will be enabled when SRIOV is enabled */
++}
++
++void mlx5_eswitch_detach(struct mlx5_eswitch *esw)
++{
++	if (!esw || !MLX5_CAP_GEN(esw->dev, vport_group_manager) ||
++	    MLX5_CAP_GEN(esw->dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
++		return;
++
++	esw_disable_vport(esw, 0);
++}
++
+ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
+ {
+ 	int l2_table_size = 1 << MLX5_CAP_GEN(dev, log_max_l2_table);
+@@ -1634,9 +1653,8 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
+ 	esw->enabled_vports = 0;
+ 	esw->mode = SRIOV_NONE;
+ 
++	mlx5_eswitch_attach(esw);
+ 	dev->priv.eswitch = esw;
+-	esw_enable_vport(esw, 0, UC_ADDR_CHANGE);
+-	/* VF Vports will be enabled when SRIOV is enabled */
+ 	return 0;
+ abort:
+ 	if (esw->work_queue)
+@@ -1655,8 +1673,8 @@ void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw)
+ 		return;
+ 
+ 	esw_info(esw->dev, "cleanup\n");
+-	esw_disable_vport(esw, 0);
+ 
++	mlx5_eswitch_detach(esw);
+ 	esw->dev->priv.eswitch = NULL;
+ 	destroy_workqueue(esw->work_queue);
+ 	kfree(esw->l2_table.bitmap);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index c0b05603fc31..1692a72332e1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -203,6 +203,8 @@ struct mlx5_eswitch {
+ /* E-Switch API */
+ int mlx5_eswitch_init(struct mlx5_core_dev *dev);
+ void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw);
++void mlx5_eswitch_attach(struct mlx5_eswitch *esw);
++void mlx5_eswitch_detach(struct mlx5_eswitch *esw);
+ void mlx5_eswitch_vport_event(struct mlx5_eswitch *esw, struct mlx5_eqe *eqe);
+ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode);
+ void mlx5_eswitch_disable_sriov(struct mlx5_eswitch *esw);
+-- 
+2.17.1
+

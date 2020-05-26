@@ -1,0 +1,186 @@
+From 3925b174030a212e06c5e29cba9c6e8953aa42e5 Mon Sep 17 00:00:00 2001
+From: Achiad Shochat <achiad@mellanox.com>
+Date: Wed, 23 Dec 2015 18:47:18 +0200
+Subject: net/mlx5_core: Break down the vport mac address query function
+Reply-To: joseph.salisbury@microsoft.com
+
+Introduce a new function called mlx5_query_nic_vport_context().
+This function gets all the NIC vport attributes from the device.
+
+The MAC address is just one of the NIC vport attributes, so
+mlx5_query_nic_vport_mac_address() is now just a wrapper function
+above mlx5_query_nic_vport_context().
+
+More NIC vport attributes will be used in following commits.
+
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit e5f6175c5b66ce4986df7a69baae9913e8d4a430)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/vport.c   | 110 ++----------------
+ 1 file changed, 11 insertions(+), 99 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 076197efea9b..02843b554ae5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -106,8 +106,8 @@ int mlx5_modify_vport_admin_state(struct mlx5_core_dev *mdev, u8 opmod,
+ }
+ EXPORT_SYMBOL(mlx5_modify_vport_admin_state);
+ 
+-static int mlx5_query_nic_vport_context(struct mlx5_core_dev *mdev, u16 vport,
+-					u32 *out, int outlen)
++static int mlx5_query_nic_vport_context(struct mlx5_core_dev *mdev, u32 *out,
++					int outlen)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(query_nic_vport_context_in)];
+ 
+@@ -116,27 +116,10 @@ static int mlx5_query_nic_vport_context(struct mlx5_core_dev *mdev, u16 vport,
+ 	MLX5_SET(query_nic_vport_context_in, in, opcode,
+ 		 MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT);
+ 
+-	MLX5_SET(query_nic_vport_context_in, in, vport_number, vport);
+-	if (vport)
+-		MLX5_SET(query_nic_vport_context_in, in, other_vport, 1);
+-
+ 	return mlx5_cmd_exec_check_status(mdev, in, sizeof(in), out, outlen);
+ }
+ 
+-static int mlx5_modify_nic_vport_context(struct mlx5_core_dev *mdev, void *in,
+-					 int inlen)
+-{
+-	u32 out[MLX5_ST_SZ_DW(modify_nic_vport_context_out)];
+-
+-	MLX5_SET(modify_nic_vport_context_in, in, opcode,
+-		 MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT);
+-
+-	memset(out, 0, sizeof(out));
+-	return mlx5_cmd_exec_check_status(mdev, in, inlen, out, sizeof(out));
+-}
+-
+-int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+-				     u16 vport, u8 *addr)
++void mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev, u8 *addr)
+ {
+ 	u32 *out;
+ 	int outlen = MLX5_ST_SZ_BYTES(query_nic_vport_context_out);
+@@ -145,22 +128,18 @@ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 
+ 	out = mlx5_vzalloc(outlen);
+ 	if (!out)
+-		return -ENOMEM;
++		return;
+ 
+ 	out_addr = MLX5_ADDR_OF(query_nic_vport_context_out, out,
+ 				nic_vport_context.permanent_address);
+ 
+-	err = mlx5_query_nic_vport_context(mdev, vport, out, outlen);
+-	if (err)
+-		goto out;
+-
+-	ether_addr_copy(addr, &out_addr[2]);
++	err = mlx5_query_nic_vport_context(mdev, out, outlen);
++	if (!err)
++		ether_addr_copy(addr, &out_addr[2]);
+ 
+-out:
+ 	kvfree(out);
+-	return err;
+ }
+-EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_mac_address);
++EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_mac_list);
+ 
+ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 				      u16 vport, u8 *addr)
+@@ -171,11 +150,9 @@ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 	void *nic_vport_ctx;
+ 	u8 *perm_mac;
+ 
+-	in = mlx5_vzalloc(inlen);
+-	if (!in) {
+-		mlx5_core_warn(mdev, "failed to allocate inbox\n");
++	in = kvzalloc(inlen, GFP_KERNEL);
++	if (!in)
+ 		return -ENOMEM;
+-	}
+ 
+ 	MLX5_SET(modify_nic_vport_context_in, in,
+ 		 field_select.permanent_address, 1);
+@@ -197,72 +174,7 @@ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL(mlx5_modify_nic_vport_mac_address);
+-
+-int mlx5_query_nic_vport_mac_list(struct mlx5_core_dev *dev,
+-				  u32 vport,
+-				  enum mlx5_list_type list_type,
+-				  u8 addr_list[][ETH_ALEN],
+-				  int *list_size)
+-{
+-	u32 in[MLX5_ST_SZ_DW(query_nic_vport_context_in)];
+-	void *nic_vport_ctx;
+-	int max_list_size;
+-	int req_list_size;
+-	int out_sz;
+-	void *out;
+-	int err;
+-	int i;
+-
+-	req_list_size = *list_size;
+-
+-	max_list_size = list_type == MLX5_NVPRT_LIST_TYPE_UC ?
+-		1 << MLX5_CAP_GEN(dev, log_max_current_uc_list) :
+-		1 << MLX5_CAP_GEN(dev, log_max_current_mc_list);
+-
+-	if (req_list_size > max_list_size) {
+-		mlx5_core_warn(dev, "Requested list size (%d) > (%d) max_list_size\n",
+-			       req_list_size, max_list_size);
+-		req_list_size = max_list_size;
+-	}
+-
+-	out_sz = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in) +
+-			req_list_size * MLX5_ST_SZ_BYTES(mac_address_layout);
+-
+-	memset(in, 0, sizeof(in));
+-	out = kzalloc(out_sz, GFP_KERNEL);
+-	if (!out)
+-		return -ENOMEM;
+-
+-	MLX5_SET(query_nic_vport_context_in, in, opcode,
+-		 MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT);
+-	MLX5_SET(query_nic_vport_context_in, in, allowed_list_type, list_type);
+-	MLX5_SET(query_nic_vport_context_in, in, vport_number, vport);
+-
+-	if (vport)
+-		MLX5_SET(query_nic_vport_context_in, in, other_vport, 1);
+-
+-	err = mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, out_sz);
+-	if (err)
+-		goto out;
+-
+-	nic_vport_ctx = MLX5_ADDR_OF(query_nic_vport_context_out, out,
+-				     nic_vport_context);
+-	req_list_size = MLX5_GET(nic_vport_context, nic_vport_ctx,
+-				 allowed_list_size);
+-
+-	*list_size = req_list_size;
+-	for (i = 0; i < req_list_size; i++) {
+-		u8 *mac_addr = MLX5_ADDR_OF(nic_vport_context,
+-					nic_vport_ctx,
+-					current_uc_mac_address[i]) + 2;
+-		ether_addr_copy(addr_list[i], mac_addr);
+-	}
+-out:
+-	kfree(out);
+-	return err;
+-}
+-EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_mac_list);
++EXPORT_SYMBOL_GPL(mlx5_modify_nic_vport_mac_address);
+ 
+ int mlx5_modify_nic_vport_mac_list(struct mlx5_core_dev *dev,
+ 				   enum mlx5_list_type list_type,
+-- 
+2.17.1
+

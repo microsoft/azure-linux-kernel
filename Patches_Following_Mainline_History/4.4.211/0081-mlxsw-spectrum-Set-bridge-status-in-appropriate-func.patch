@@ -1,0 +1,70 @@
+From 0b28361c2428cedefe1bfe333b4820b1570192cb Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Mon, 4 Jan 2016 10:42:25 +0100
+Subject: mlxsw: spectrum: Set bridge status in appropriate functions
+Reply-To: joseph.salisbury@microsoft.com
+
+Set the bridge status of physical ports in the appropriate functions, to
+be consistent with LAG join/leave and vPorts joining/leaving bridge.
+
+Also, remove the error messages in these two functions, as we already
+emit errors in both the single functions they call.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 5a8f45258eb2ff9da1ee68aad96b1189df8af50e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 15 +++++----------
+ 1 file changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 3283466fe30b..13629c6fd19c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1990,8 +1990,8 @@ static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	 * own VLANs.
+ 	 */
+ 	err = mlxsw_sp_port_kill_vid(dev, 0, 1);
+-	if (err)
+-		netdev_err(dev, "Failed to remove VID 1\n");
++	if (!err)
++		mlxsw_sp_port->bridged = 1;
+ 
+ 	return err;
+ }
+@@ -1999,16 +1999,13 @@ static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port)
+ static int mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port)
+ {
+ 	struct net_device *dev = mlxsw_sp_port->dev;
+-	int err;
++
++	mlxsw_sp_port->bridged = 0;
+ 
+ 	/* Add implicit VLAN interface in the device, so that untagged
+ 	 * packets will be classified to the default vFID.
+ 	 */
+-	err = mlxsw_sp_port_add_vid(dev, 0, 1);
+-	if (err)
+-		netdev_err(dev, "Failed to add VID 1\n");
+-
+-	return err;
++	return mlxsw_sp_port_add_vid(dev, 0, 1);
+ }
+ 
+ static bool mlxsw_sp_master_bridge_check(struct mlxsw_sp *mlxsw_sp,
+@@ -2363,10 +2360,8 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
+ 					return NOTIFY_BAD;
+ 				}
+ 				mlxsw_sp_master_bridge_inc(mlxsw_sp, upper_dev);
+-				mlxsw_sp_port->bridged = 1;
+ 			} else {
+ 				err = mlxsw_sp_port_bridge_leave(mlxsw_sp_port);
+-				mlxsw_sp_port->bridged = 0;
+ 				mlxsw_sp_master_bridge_dec(mlxsw_sp, upper_dev);
+ 				if (err) {
+ 					netdev_err(dev, "Failed to leave bridge\n");
+-- 
+2.17.1
+
