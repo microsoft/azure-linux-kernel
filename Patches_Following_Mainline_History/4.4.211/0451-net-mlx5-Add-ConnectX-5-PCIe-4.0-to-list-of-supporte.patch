@@ -1,0 +1,36 @@
+From aa6f26f2a4780e598f394d9e5bbda40efd7df835 Mon Sep 17 00:00:00 2001
+From: Majd Dibbiny <majd@mellanox.com>
+Date: Mon, 27 Jun 2016 12:08:33 +0300
+Subject: net/mlx5: Add ConnectX-5 PCIe 4.0 to list of supported devices
+Reply-To: joseph.salisbury@microsoft.com
+
+Add the upcoming ConnectX-5 PCIe 4.0 device to the list of
+supported devices by the mlx5 driver.
+
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 7092fe866907f4f243122ab388cbf0e77305afaa)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index e56031b779fd..4e1267019e31 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1499,8 +1499,9 @@ static const struct pci_device_id mlx5_core_pci_table[] = {
+ 	{ PCI_VDEVICE(MELLANOX, 0x1014), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4 VF */
+ 	{ PCI_VDEVICE(MELLANOX, 0x1015) },			/* ConnectX-4LX */
+ 	{ PCI_VDEVICE(MELLANOX, 0x1016), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4LX VF */
+-	{ PCI_VDEVICE(MELLANOX, 0x1017) },			/* ConnectX-5 */
++	{ PCI_VDEVICE(MELLANOX, 0x1017) },			/* ConnectX-5, PCIe 3.0 */
+ 	{ PCI_VDEVICE(MELLANOX, 0x1018), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5 VF */
++	{ PCI_VDEVICE(MELLANOX, 0x1019) },			/* ConnectX-5, PCIe 4.0 */
+ 	{ 0, }
+ };
+ 
+-- 
+2.17.1
+

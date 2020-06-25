@@ -1,4 +1,4 @@
-From 6d16d3b0de5c85b81768d92bce00f2698a55bb05 Mon Sep 17 00:00:00 2001
+From c4eac9a85a673a6574905f8440fc37e410d15f39 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Tue, 15 Dec 2015 20:30:13 +0200
 Subject: IB/mlx5: Mmap the HCA's core clock register to user-space

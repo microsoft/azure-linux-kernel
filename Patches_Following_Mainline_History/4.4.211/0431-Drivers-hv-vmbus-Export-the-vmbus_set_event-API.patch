@@ -1,0 +1,54 @@
+From 42d9ec0b24e56888c9df873581d20850c56f0c16 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Sat, 2 Apr 2016 17:59:49 -0700
+Subject: Drivers: hv: vmbus: Export the vmbus_set_event() API
+Reply-To: joseph.salisbury@microsoft.com
+
+In preparation for moving some ring buffer functionality out of the
+vmbus driver, export the API for signaling the host.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 5cc472477f928fb8584eb8e08245c9cf9002d74a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/connection.c   | 1 +
+ drivers/hv/hyperv_vmbus.h | 2 --
+ include/linux/hyperv.h    | 1 +
+ 3 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
+index 5ce86ea93929..a514377b278f 100644
+--- a/drivers/hv/connection.c
++++ b/drivers/hv/connection.c
+@@ -484,3 +484,4 @@ void vmbus_set_event(struct vmbus_channel *channel)
+ 
+ 	hv_do_hypercall(HVCALL_SIGNAL_EVENT, channel->sig_event, NULL);
+ }
++EXPORT_SYMBOL_GPL(vmbus_set_event);
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 1c02e66ddbcc..eba92bea4d4d 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -663,8 +663,6 @@ void vmbus_disconnect(void);
+ 
+ int vmbus_post_msg(void *buffer, size_t buflen);
+ 
+-void vmbus_set_event(struct vmbus_channel *channel);
+-
+ void vmbus_on_event(unsigned long data);
+ void vmbus_on_msg_dpc(unsigned long data);
+ 
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 66a6ded8a51f..1c16f0090ef9 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1382,4 +1382,5 @@ extern __u32 vmbus_proto_version;
+ 
+ int vmbus_send_tl_connect_request(const uuid_le *shv_guest_servie_id,
+ 				  const uuid_le *shv_host_servie_id);
++void vmbus_set_event(struct vmbus_channel *channel);
+ #endif /* _HYPERV_H */
+-- 
+2.17.1
+

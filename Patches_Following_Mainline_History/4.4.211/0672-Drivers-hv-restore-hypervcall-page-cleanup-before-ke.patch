@@ -1,0 +1,149 @@
+From a91a015b7506c686d710d88424a3679668fe5181 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Sat, 28 Jan 2017 12:37:14 -0700
+Subject: Drivers: hv: restore hypervcall page cleanup before kexec
+Reply-To: joseph.salisbury@microsoft.com
+
+We need to cleanup the hypercall page before doing kexec/kdump or the new
+kernel may crash if it tries to use it. Reuse the now-empty hv_cleanup
+function renaming it to hyperv_cleanup and moving to the arch specific
+code.
+
+Fixes: 8730046c1498 ("Drivers: hv vmbus: Move Hypercall page setup out of common code")
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit d6f3609d2b4c6d0eec01f398cb685e50da3e6013)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c       | 16 ++++++++++++++++
+ arch/x86/include/asm/mshyperv.h |  1 +
+ drivers/hv/hv.c                 | 10 ----------
+ drivers/hv/hyperv_vmbus.h       |  2 --
+ drivers/hv/vmbus_drv.c          | 10 +++-------
+ 5 files changed, 20 insertions(+), 19 deletions(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index d289bc29d282..d6b018b86c42 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -165,6 +165,22 @@ void hyperv_init(void)
+ 		clocksource_register_hz(&hyperv_cs_msr, NSEC_PER_SEC/100);
+ }
+ 
++/*
++ * This routine is called before kexec/kdump, it does the required cleanup.
++ */
++void hyperv_cleanup(void)
++{
++	union hv_x64_msr_hypercall_contents hypercall_msr;
++
++	/* Reset our OS id */
++	wrmsrl(HV_X64_MSR_GUEST_OS_ID, 0);
++
++	/* Reset the hypercall page */
++	hypercall_msr.as_uint64 = 0;
++	wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
++}
++EXPORT_SYMBOL_GPL(hyperv_cleanup);
++
+ /*
+  * hv_do_hypercall- Invoke the specified hypercall
+  */
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index 2d40bfc57e7a..33387a87890e 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -168,5 +168,6 @@ void hv_remove_crash_handler(void);
+ void hyperv_init(void);
+ void hyperv_report_panic(struct pt_regs *regs);
+ bool hv_is_hypercall_page_setup(void);
++void hyperv_cleanup(void);
+ #endif
+ #endif
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index e17258094554..3d37f344e6ca 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -71,16 +71,6 @@ int hv_init(void)
+ 	return 0;
+ }
+ 
+-/*
+- * hv_cleanup - Cleanup routine.
+- *
+- * This routine is called normally during driver unloading or exiting.
+- */
+-void hv_cleanup(bool crash)
+-{
+-
+-}
+-
+ /*
+  * hv_post_message - Post a message using the hypervisor message IPC.
+  *
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index d46176fe22f2..ff8cb8da9f62 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -414,8 +414,6 @@ struct hv_ring_buffer_debug_info {
+ 
+ extern int hv_init(void);
+ 
+-extern void hv_cleanup(bool crash);
+-
+ extern int hv_post_message(union hv_connection_id connection_id,
+ 			 enum hv_message_type message_type,
+ 			 void *payload, size_t payload_size);
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index ab32ea754436..4806a658f398 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -826,7 +826,7 @@ static int vmbus_bus_init(void)
+ 
+ 	ret = bus_register(&hv_bus);
+ 	if (ret)
+-		goto err_cleanup;
++		return ret;
+ 
+ 	hv_setup_vmbus_irq(vmbus_isr);
+ 
+@@ -871,9 +871,6 @@ err_alloc:
+ 
+ 	bus_unregister(&hv_bus);
+ 
+-err_cleanup:
+-	hv_cleanup(false);
+-
+ 	return ret;
+ }
+ 
+@@ -1249,7 +1246,7 @@ static void hv_kexec_handler(void)
+ 	hv_synic_clockevents_cleanup();
+ 	vmbus_initiate_unload(false);
+ 	cpuhp_remove_state(hyperv_cpuhp_online);
+-	hv_cleanup(false);
++	hyperv_cleanup();
+ };
+ 
+ static void hv_crash_handler(struct pt_regs *regs)
+@@ -1261,7 +1258,7 @@ static void hv_crash_handler(struct pt_regs *regs)
+ 	 * for kdump.
+ 	 */
+ 	hv_synic_cleanup(smp_processor_id());
+-	hv_cleanup(true);
++	hyperv_cleanup();
+ };
+ 
+ static int __init hv_acpi_init(void)
+@@ -1321,7 +1318,6 @@ static void __exit vmbus_exit(void)
+ 						 &hyperv_panic_block);
+ 	}
+ 	bus_unregister(&hv_bus);
+-	hv_cleanup(false);
+ 	for_each_online_cpu(cpu) {
+ 		tasklet_kill(hv_context.event_dpc[cpu]);
+ 	}
+-- 
+2.17.1
+

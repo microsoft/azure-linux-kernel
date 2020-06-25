@@ -1,0 +1,55 @@
+From 8063e0d21feefa6705da8ce575361c450450beff Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sat, 11 Feb 2017 23:02:25 -0700
+Subject: vmbus: replace modulus operation with subtraction
+Reply-To: joseph.salisbury@microsoft.com
+
+Takes less clock cycles to check for ring wrap and subtract than to
+do a modulus instruction.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 8d12f88257cd9039d9556585475deb46db055050)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/ring_buffer.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
+index 51fd1889b8b5..6c79b253ad2e 100644
+--- a/drivers/hv/ring_buffer.c
++++ b/drivers/hv/ring_buffer.c
+@@ -125,7 +125,8 @@ hv_get_next_readlocation_withoffset(struct hv_ring_buffer_info *ring_info,
+ 	u32 next = ring_info->ring_buffer->read_index;
+ 
+ 	next += offset;
+-	next %= ring_info->ring_datasize;
++	if (next >= ring_info->ring_datasize)
++		next -= ring_info->ring_datasize;
+ 
+ 	return next;
+ }
+@@ -185,7 +186,8 @@ static u32 hv_copyfrom_ringbuffer(
+ 	memcpy(dest, ring_buffer + start_read_offset, destlen);
+ 
+ 	start_read_offset += destlen;
+-	start_read_offset %= ring_buffer_size;
++	if (start_read_offset >= ring_buffer_size)
++		start_read_offset -= ring_buffer_size;
+ 
+ 	return start_read_offset;
+ }
+@@ -211,7 +213,8 @@ static u32 hv_copyto_ringbuffer(
+ 	memcpy(ring_buffer + start_write_offset, src, srclen);
+ 
+ 	start_write_offset += srclen;
+-	start_write_offset %= ring_buffer_size;
++	if (start_write_offset >= ring_buffer_size)
++		start_write_offset -= ring_buffer_size;
+ 
+ 	return start_write_offset;
+ }
+-- 
+2.17.1
+

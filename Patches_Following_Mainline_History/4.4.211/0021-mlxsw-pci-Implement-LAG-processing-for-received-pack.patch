@@ -1,4 +1,4 @@
-From 680a6f51f92a87d5f8f245eb1050eb0447891681 Mon Sep 17 00:00:00 2001
+From 9eb896dcc44a54a95733277de73d015765dd31fe Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 12:12:24 +0100
 Subject: mlxsw: pci: Implement LAG processing for received packets

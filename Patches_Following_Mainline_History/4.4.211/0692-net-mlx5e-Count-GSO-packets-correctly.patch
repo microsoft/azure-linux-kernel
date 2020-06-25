@@ -1,0 +1,75 @@
+From d1af038ddb1c8d645831575d2344a6c5d6fd0754 Mon Sep 17 00:00:00 2001
+From: Gal Pressman <galp@mellanox.com>
+Date: Tue, 21 Mar 2017 15:59:18 +0200
+Subject: net/mlx5e: Count GSO packets correctly
+Reply-To: joseph.salisbury@microsoft.com
+
+TX packets statistics ('tx_packets' counter) used to count GSO packets
+as one, even though it contains multiple segments.
+This patch will increment the counter by the number of segments, and
+align the driver with the behavior of other drivers in the stack.
+
+Note that no information is lost in this patch due to 'tx_tso_packets'
+counter existence.
+
+Before, ethtool showed:
+$ ethtool -S ens6 | egrep "tx_packets|tx_tso_packets"
+     tx_packets: 61340
+     tx_tso_packets: 60954
+     tx_packets_phy: 2451115
+
+Now, we will see the more logical statistics:
+$ ethtool -S ens6 | egrep "tx_packets|tx_tso_packets"
+     tx_packets: 2451115
+     tx_tso_packets: 60954
+     tx_packets_phy: 2451115
+
+Fixes: e586b3b0baee ("net/mlx5: Ethernet Datapath files")
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Cc: kernel-team@fb.com
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit d3a4e4da54c7adb420d5f48e89be913b14bdeff1)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 0296531a8471..a4039e84806f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -218,16 +218,18 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 			sq->stats.tso_bytes += skb->len - ihs;
+ 		}
+ 
+-		wi->num_bytes = skb->len +
+-				(skb_shinfo(skb)->gso_segs - 1) * ihs;
++		sq->stats.packets += skb_shinfo(skb)->gso_segs;
++		num_bytes = skb->len + (skb_shinfo(skb)->gso_segs - 1) * ihs;
+ 	} else {
+ 		bf = sq->bf_budget &&
+ 		     !skb->xmit_more &&
+ 		     !skb_shinfo(skb)->nr_frags;
+ 		ihs = mlx5e_get_inline_hdr_size(sq, skb, bf);
++		sq->stats.packets++;
+ 		num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
+ 	}
+ 
++	sq->stats.bytes += num_bytes;
+ 	wi->num_bytes = num_bytes;
+ 
+ 	if (skb_vlan_tag_present(skb)) {
+@@ -320,8 +322,6 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ 	sq->bf_budget = bf ? sq->bf_budget - 1 : 0;
+ 
+-	sq->stats.packets++;
+-	sq->stats.bytes += num_bytes;
+ 	return NETDEV_TX_OK;
+ 
+ dma_unmap_wqe_err:
+-- 
+2.17.1
+

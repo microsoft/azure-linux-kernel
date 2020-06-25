@@ -1,4 +1,4 @@
-From c20b6cfd93647db46cd2cf6371ae9752916b12e8 Mon Sep 17 00:00:00 2001
+From 1ac26b17b988e36b3333724e9b9d025bc835e146 Mon Sep 17 00:00:00 2001
 From: Tom Herbert <tom@herbertland.com>
 Date: Mon, 14 Dec 2015 11:19:43 -0800
 Subject: net: Rename NETIF_F_ALL_CSUM to NETIF_F_CSUM_MASK

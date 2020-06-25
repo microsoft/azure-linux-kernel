@@ -1,4 +1,4 @@
-From 5ed93ff74ef93f7e9afcc01d259460b0f22a86fa Mon Sep 17 00:00:00 2001
+From d6c9585c4802c2b0cef30075bc021f02c5c3af53 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Mon, 15 Feb 2016 13:19:54 +0100
 Subject: mlxsw: spectrum: Set STP state when leaving 802.1D bridge

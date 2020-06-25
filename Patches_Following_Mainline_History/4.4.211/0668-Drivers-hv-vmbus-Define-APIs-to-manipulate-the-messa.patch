@@ -1,0 +1,72 @@
+From 28cd4cef0862649fac5e54c5f1b00d56d931a724 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Thu, 19 Jan 2017 11:51:54 -0700
+Subject: Drivers: hv: vmbus: Define APIs to manipulate the message page
+Reply-To: joseph.salisbury@microsoft.com
+
+As part of cleaning up architecture specific code, define APIs
+to manipulate the message page.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 155e4a2f28a59e5344dfa7c5d003161fe59a5bf2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/include/asm/mshyperv.h | 7 +++++++
+ drivers/hv/hv.c                 | 8 ++++----
+ 2 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index b57b470ac2a7..1e75141bc123 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -136,6 +136,13 @@ static inline void vmbus_signal_eom(struct hv_message *msg, u32 old_msg_type)
+ 	}
+ }
+ 
++#define hv_get_current_tick(tick) rdmsrl(HV_X64_MSR_TIME_REF_COUNT, tick)
++#define hv_init_timer(timer, tick) wrmsrl(timer, tick)
++#define hv_init_timer_config(config, val) wrmsrl(config, val)
++
++#define hv_get_simp(val) rdmsrl(HV_X64_MSR_SIMP, val)
++#define hv_set_simp(val) wrmsrl(HV_X64_MSR_SIMP, val)
++
+ void hyperv_callback_vector(void);
+ #ifdef CONFIG_TRACING
+ #define trace_hyperv_callback_vector hyperv_callback_vector
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index c0c9fe6daa84..cff1b0d1b22b 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -269,12 +269,12 @@ int hv_synic_init(unsigned int cpu)
+ 	u64 vp_index;
+ 
+ 	/* Setup the Synic's message page */
+-	rdmsrl(HV_X64_MSR_SIMP, simp.as_uint64);
++	hv_get_simp(simp.as_uint64);
+ 	simp.simp_enabled = 1;
+ 	simp.base_simp_gpa = virt_to_phys(hv_context.synic_message_page[cpu])
+ 		>> PAGE_SHIFT;
+ 
+-	wrmsrl(HV_X64_MSR_SIMP, simp.as_uint64);
++	hv_set_simp(simp.as_uint64);
+ 
+ 	/* Setup the Synic's event page */
+ 	rdmsrl(HV_X64_MSR_SIEFP, siefp.as_uint64);
+@@ -360,11 +360,11 @@ int hv_synic_cleanup(unsigned int cpu)
+ 	/* Disable the interrupt */
+ 	wrmsrl(HV_X64_MSR_SINT0 + VMBUS_MESSAGE_SINT, shared_sint.as_uint64);
+ 
+-	rdmsrl(HV_X64_MSR_SIMP, simp.as_uint64);
++	hv_get_simp(simp.as_uint64);
+ 	simp.simp_enabled = 0;
+ 	simp.base_simp_gpa = 0;
+ 
+-	wrmsrl(HV_X64_MSR_SIMP, simp.as_uint64);
++	hv_set_simp(simp.as_uint64);
+ 
+ 	rdmsrl(HV_X64_MSR_SIEFP, siefp.as_uint64);
+ 	siefp.siefp_enabled = 0;
+-- 
+2.17.1
+

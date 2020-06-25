@@ -1,0 +1,78 @@
+From d24c8f3728aa98eb6f526ddc8f0ab156a3a20d9f Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Sun, 25 Jun 2017 10:06:41 -0700
+Subject: x86/hyper-v: stash the max number of virtual/logical processor
+Reply-To: joseph.salisbury@microsoft.com
+
+Max virtual processor will be needed for 'extended' hypercalls supporting
+more than 64 vCPUs. While on it, unify on 'Hyper-V' in mshyperv.c as we
+currently have a mix, report acquired misc features as well.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit dd018597a074bcd1e5307d3b8e7863e05287bddf)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/include/asm/mshyperv.h |  2 ++
+ arch/x86/kernel/cpu/mshyperv.c  | 16 +++++++++++-----
+ 2 files changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index d54833d39736..32df591a6d3b 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -29,6 +29,8 @@ struct ms_hyperv_info {
+ 	u32 features;
+ 	u32 misc_features;
+ 	u32 hints;
++	u32 max_vp_index;
++	u32 max_lp_index;
+ };
+ 
+ extern struct ms_hyperv_info ms_hyperv;
+diff --git a/arch/x86/kernel/cpu/mshyperv.c b/arch/x86/kernel/cpu/mshyperv.c
+index 6587a7eae3b3..21334c4061f6 100644
+--- a/arch/x86/kernel/cpu/mshyperv.c
++++ b/arch/x86/kernel/cpu/mshyperv.c
+@@ -172,8 +172,14 @@ static void __init ms_hyperv_init_platform(void)
+ 	ms_hyperv.misc_features = cpuid_edx(HYPERV_CPUID_FEATURES);
+ 	ms_hyperv.hints    = cpuid_eax(HYPERV_CPUID_ENLIGHTMENT_INFO);
+ 
+-	printk(KERN_INFO "HyperV: features 0x%x, hints 0x%x\n",
+-	       ms_hyperv.features, ms_hyperv.hints);
++	pr_info("Hyper-V: features 0x%x, hints 0x%x\n",
++		ms_hyperv.features, ms_hyperv.hints);
++
++	ms_hyperv.max_vp_index = cpuid_eax(HVCPUID_IMPLEMENTATION_LIMITS);
++	ms_hyperv.max_lp_index = cpuid_ebx(HVCPUID_IMPLEMENTATION_LIMITS);
++
++	pr_debug("Hyper-V: max %u virtual processors, %u logical processors\n",
++		 ms_hyperv.max_vp_index, ms_hyperv.max_lp_index);
+ 
+ 	/*
+ 	 * Extract host information.
+@@ -200,8 +206,8 @@ static void __init ms_hyperv_init_platform(void)
+ 		rdmsrl(HV_X64_MSR_APIC_FREQUENCY, hv_lapic_frequency);
+ 		hv_lapic_frequency = div_u64(hv_lapic_frequency, HZ);
+ 		lapic_timer_frequency = hv_lapic_frequency;
+-		printk(KERN_INFO "HyperV: LAPIC Timer Frequency: %#x\n",
+-				lapic_timer_frequency);
++		pr_info("Hyper-V: LAPIC Timer Frequency: %#x\n",
++			lapic_timer_frequency);
+ 	}
+ 
+ 	register_nmi_handler(NMI_UNKNOWN, hv_nmi_unknown, NMI_FLAG_FIRST,
+@@ -234,7 +240,7 @@ static void __init ms_hyperv_init_platform(void)
+ }
+ 
+ const __refconst struct hypervisor_x86 x86_hyper_ms_hyperv = {
+-	.name			= "Microsoft HyperV",
++	.name			= "Microsoft Hyper-V",
+ 	.detect			= ms_hyperv_platform,
+ 	.init_platform		= ms_hyperv_init_platform,
+ };
+-- 
+2.17.1
+

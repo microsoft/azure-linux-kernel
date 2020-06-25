@@ -1,4 +1,4 @@
-From 85861c66c07e1d043781aefe9ac745661a7f12dc Mon Sep 17 00:00:00 2001
+From 3f0303646378d4feab98287e38ae0ef61c91c6b6 Mon Sep 17 00:00:00 2001
 From: Eran Ben Elisha <eranbe@mellanox.com>
 Date: Mon, 29 Feb 2016 21:17:11 +0200
 Subject: net/mlx5e: Fix soft lockup when HW Timestamping is enabled

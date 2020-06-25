@@ -1,4 +1,4 @@
-From 8b291f38368a54f94914d7f34f717f82fba1fa79 Mon Sep 17 00:00:00 2001
+From 52b869319bbb50181e6acd65c9bb007dd2e90de1 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 27 Nov 2015 11:39:55 +0100
 Subject: hv_netvsc: rework link status change handling

@@ -1,4 +1,4 @@
-From 01f2fb6ee510a259d054543635624e35e1480b67 Mon Sep 17 00:00:00 2001
+From 5cbc354d2f6aea0e5b80315e90a4c072c238c0cc Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Tue, 15 Dec 2015 20:30:12 +0200
 Subject: IB/mlx5: Add hca_core_clock_offset to udata in init_ucontext

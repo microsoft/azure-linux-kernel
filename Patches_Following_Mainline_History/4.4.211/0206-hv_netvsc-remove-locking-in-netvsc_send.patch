@@ -1,4 +1,4 @@
-From 9ad5d7997d3a0d127796b4987446bf1e3540d5f8 Mon Sep 17 00:00:00 2001
+From 411cd7473eacbd76b63675407e681e227d4b705a Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Tue, 1 Dec 2015 16:43:12 -0800
 Subject: hv_netvsc: remove locking in netvsc_send()

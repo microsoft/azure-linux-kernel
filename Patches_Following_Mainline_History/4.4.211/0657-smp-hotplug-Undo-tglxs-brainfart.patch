@@ -1,0 +1,60 @@
+From 2b3cb70fff15894bd2ae03a86a8c8726b3c092ba Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Mon, 26 Dec 2016 22:58:19 +0100
+Subject: smp/hotplug: Undo tglxs brainfart
+Reply-To: joseph.salisbury@microsoft.com
+
+The attempt to prevent overwriting an active state resulted in a
+disaster which effectively disables all dynamically allocated hotplug
+states.
+
+Cleanup the mess.
+
+Fixes: dc280d936239 ("cpu/hotplug: Prevent overwriting of callbacks")
+Reported-by: Markus Trippelsdorf <markus@trippelsdorf.de>
+Reported-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+(cherry picked from commit b9d9d6911bd5c370ad4b3aa57d758c093d17aed5)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ kernel/cpu.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index aa3bcbc99aa1..a8aa01cc5187 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -1539,6 +1539,7 @@ int __cpuhp_setup_state(enum cpuhp_state state,
+ 			bool multi_instance)
+ {
+ 	int cpu, ret = 0;
++	bool dynstate;
+ 
+ 	if (cpuhp_cb_check(state) || !name)
+ 		return -EINVAL;
+@@ -1548,6 +1549,12 @@ int __cpuhp_setup_state(enum cpuhp_state state,
+ 	ret = cpuhp_store_callbacks(state, name, startup, teardown,
+ 				    multi_instance);
+ 
++	dynstate = state == CPUHP_AP_ONLINE_DYN;
++	if (ret > 0 && dynstate) {
++		state = ret;
++		ret = 0;
++	}
++
+ 	if (ret || !invoke || !startup)
+ 		goto out;
+ 
+@@ -1576,7 +1583,7 @@ out:
+ 	 * If the requested state is CPUHP_AP_ONLINE_DYN, return the
+ 	 * dynamically allocated state in case of success.
+ 	 */
+-	if (!ret && state == CPUHP_AP_ONLINE_DYN)
++	if (!ret && dynstate)
+ 		return state;
+ 	return ret;
+ }
+-- 
+2.17.1
+

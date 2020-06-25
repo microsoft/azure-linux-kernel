@@ -1,4 +1,4 @@
-From d802981e53f8142ea1af1e85fb79b48f19cdbd72 Mon Sep 17 00:00:00 2001
+From ce06df4dc4162ca8edbd2af6f71ca916bfaad280 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:22 +0100
 Subject: mlxsw: spectrum: Don't report VLAN for 802.1D FDB entries

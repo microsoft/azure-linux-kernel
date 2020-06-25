@@ -1,0 +1,74 @@
+From 488961fc722dbd17ba63c2518ba19040fedeb0be Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Thu, 22 Sep 2016 16:56:35 -0700
+Subject: hv_netvsc: count multicast packets received
+Reply-To: joseph.salisbury@microsoft.com
+
+Useful for debugging issues with multicast and SR-IOV to keep track
+of number of received multicast packets.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit f7ad75b753f386454f50044fd69edad767b69ce8)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h | 2 ++
+ drivers/net/hyperv/netvsc_drv.c | 9 ++++++++-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index ae4e526981f0..1e97ed202be5 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -640,6 +640,8 @@ struct multi_send_data {
+ struct netvsc_stats {
+ 	u64 packets;
+ 	u64 bytes;
++	u64 broadcast;
++	u64 multicast;
+ 	struct u64_stats_sync syncp;
+ };
+ 
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 6765931029b7..6a51ec3987c5 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -692,6 +692,11 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	u64_stats_update_begin(&rx_stats->syncp);
+ 	rx_stats->packets++;
+ 	rx_stats->bytes += packet->total_data_buflen;
++
++	if (skb->pkt_type == PACKET_BROADCAST)
++		++rx_stats->broadcast;
++	else if (skb->pkt_type == PACKET_MULTICAST)
++		++rx_stats->multicast;
+ 	u64_stats_update_end(&rx_stats->syncp);
+ 
+ 	/*
+@@ -930,7 +935,7 @@ static struct rtnl_link_stats64 *netvsc_get_stats64(struct net_device *net,
+ 							    cpu);
+ 		struct netvsc_stats *rx_stats = per_cpu_ptr(ndev_ctx->rx_stats,
+ 							    cpu);
+-		u64 tx_packets, tx_bytes, rx_packets, rx_bytes;
++		u64 tx_packets, tx_bytes, rx_packets, rx_bytes, rx_multicast;
+ 		unsigned int start;
+ 
+ 		do {
+@@ -943,12 +948,14 @@ static struct rtnl_link_stats64 *netvsc_get_stats64(struct net_device *net,
+ 			start = u64_stats_fetch_begin_irq(&rx_stats->syncp);
+ 			rx_packets = rx_stats->packets;
+ 			rx_bytes = rx_stats->bytes;
++			rx_multicast = rx_stats->multicast + rx_stats->broadcast;
+ 		} while (u64_stats_fetch_retry_irq(&rx_stats->syncp, start));
+ 
+ 		t->tx_bytes	+= tx_bytes;
+ 		t->tx_packets	+= tx_packets;
+ 		t->rx_bytes	+= rx_bytes;
+ 		t->rx_packets	+= rx_packets;
++		t->multicast	+= rx_multicast;
+ 	}
+ 
+ 	t->tx_dropped	= net->stats.tx_dropped;
+-- 
+2.17.1
+

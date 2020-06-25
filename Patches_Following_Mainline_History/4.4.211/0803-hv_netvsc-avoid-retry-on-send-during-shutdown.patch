@@ -1,0 +1,87 @@
+From bb23acd05d5e359a99d2b7273150cf9c064b329e Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 2 Mar 2018 13:49:01 -0800
+Subject: hv_netvsc: avoid retry on send during shutdown
+Reply-To: joseph.salisbury@microsoft.com
+
+Change the initialization order so that the device is ready to transmit
+(ie connect vsp is completed) before setting the internal reference
+to the device with RCU.
+
+This avoids any races on initialization and prevents retry issues
+on shutdown.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 12f69661a49446840d742d8feb593ace022d9f66)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 24 +++++++-----------------
+ 1 file changed, 7 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 76f9aea7d1b9..3334188d3583 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -875,13 +875,6 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ 	if (unlikely(!net_device || net_device->destroy))
+ 		return -ENODEV;
+ 
+-	/* We may race with netvsc_connect_vsp()/netvsc_init_buf() and get
+-	 * here before the negotiation with the host is finished and
+-	 * send_section_map may not be allocated yet.
+-	 */
+-	if (!net_device->send_section_map)
+-		return -EAGAIN;
+-
+ 	nvchan = &net_device->chan_table[packet->q_idx];
+ 	packet->send_buf_index = NETVSC_INVALID_INDEX;
+ 	packet->cp_partial = false;
+@@ -889,10 +882,8 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ 	/* Send control message directly without accessing msd (Multi-Send
+ 	 * Data) field which may be changed during data packet processing.
+ 	 */
+-	if (!skb) {
+-		cur_send = packet;
+-		goto send_now;
+-	}
++	if (!skb)
++		return netvsc_send_pkt(device, packet, net_device, pb, skb);
+ 
+ 	/* batch packets in send buffer if possible */
+ 	msdp = &nvchan->msd;
+@@ -971,7 +962,6 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ 		}
+ 	}
+ 
+-send_now:
+ 	if (cur_send)
+ 		ret = netvsc_send_pkt(device, cur_send, net_device, pb, skb);
+ 
+@@ -1318,11 +1308,6 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 
+ 	napi_enable(&net_device->chan_table[0].napi);
+ 
+-	/* Writing nvdev pointer unlocks netvsc_send(), make sure chn_table is
+-	 * populated.
+-	 */
+-	rcu_assign_pointer(net_device_ctx->nvdev, net_device);
+-
+ 	/* Connect with the NetVsp */
+ 	ret = netvsc_connect_vsp(device, net_device, device_info);
+ 	if (ret != 0) {
+@@ -1331,6 +1316,11 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 		goto close;
+ 	}
+ 
++	/* Writing nvdev pointer unlocks netvsc_send(), make sure chn_table is
++	 * populated.
++	 */
++	rcu_assign_pointer(net_device_ctx->nvdev, net_device);
++
+ 	return net_device;
+ 
+ close:
+-- 
+2.17.1
+

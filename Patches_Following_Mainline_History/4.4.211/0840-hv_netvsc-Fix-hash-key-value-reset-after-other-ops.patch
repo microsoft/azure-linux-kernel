@@ -1,0 +1,205 @@
+From 59a8749120963ef52e9606564d931fc05a56bcff Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Tue, 15 Jan 2019 00:51:44 +0000
+Subject: hv_netvsc: Fix hash key value reset after other ops
+Reply-To: joseph.salisbury@microsoft.com
+
+Changing mtu, channels, or buffer sizes ops call to netvsc_attach(),
+rndis_set_subchannel(), which always reset the hash key to default
+value. That will override hash key changed previously. This patch
+fixes the problem by save the hash key, then restore it when we re-
+add the netvsc device.
+
+Fixes: ff4a44199012 ("netvsc: allow get/set of RSS indirection table")
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: Michael Kelley <mikelley@microsoft.com>
+[sl: fix up subject line]
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(backported from commit 17d91256898402daf4425cc541ac9cbf64574d9a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   | 36 +++++++++++++++++++++++--------
+ drivers/net/hyperv/netvsc.c       |  2 +-
+ drivers/net/hyperv/netvsc_drv.c   | 35 +++++++++++++++++++++++++++++-
+ drivers/net/hyperv/rndis_filter.c |  9 ++++++--
+ 4 files changed, 69 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 1859fe3ef0e4..cbd53d26b442 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -151,6 +151,8 @@ struct hv_netvsc_packet {
+ 	void (*send_completion)(void *context);
+ };
+ 
++#define NETVSC_HASH_KEYLEN 40
++
+ struct netvsc_device_info {
+ 	unsigned char mac_adr[ETH_ALEN];
+ 	int  ring_size;
+@@ -160,6 +162,8 @@ struct netvsc_device_info {
+ 	u32  recv_sections;
+ 	u32  send_section_size;
+ 	u32  recv_section_size;
++
++	u8 rss_key[NETVSC_HASH_KEYLEN];
+ };
+ 
+ enum rndis_device_state {
+@@ -169,8 +173,6 @@ enum rndis_device_state {
+ 	RNDIS_DEV_DATAINITIALIZED,
+ };
+ 
+-#define NETVSC_HASH_KEYLEN 40
+-
+ struct rndis_device {
+ 	struct net_device *ndev;
+ 
+@@ -216,7 +218,9 @@ int netvsc_recv_callback(struct net_device *net,
+ void netvsc_channel_cb(void *context);
+ int netvsc_poll(struct napi_struct *napi, int budget);
+ 
+-int rndis_set_subchannel(struct net_device *ndev, struct netvsc_device *nvdev);
++int rndis_set_subchannel(struct net_device *ndev,
++			 struct netvsc_device *nvdev,
++			 struct netvsc_device_info *dev_info);
+ int rndis_filter_open(struct netvsc_device *nvdev);
+ int rndis_filter_close(struct netvsc_device *nvdev);
+ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
+@@ -642,13 +646,26 @@ struct nvsp_message {
+ #define NETVSC_MTU 65535
+ #define NETVSC_MTU_MIN ETH_MIN_MTU
+ 
+-#define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
+-#define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15)  /* 15MB */
+-#define NETVSC_SEND_BUFFER_SIZE			(1024 * 1024 * 15)   /* 15MB */
+-#define NETVSC_INVALID_INDEX			-1
++/* Max buffer sizes allowed by a host */
++#define NETVSC_RECEIVE_BUFFER_SIZE              (1024 * 1024 * 31) /* 31MB */
++#define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY       (1024 * 1024 * 15) /* 15MB */
++#define NETVSC_RECEIVE_BUFFER_DEFAULT           (1024 * 1024 * 16)
++
++#define NETVSC_SEND_BUFFER_SIZE                 (1024 * 1024 * 15)  /* 15MB */
++#define NETVSC_SEND_BUFFER_DEFAULT              (1024 * 1024)
++
++#define NETVSC_INVALID_INDEX                    -1
++
++#define NETVSC_SEND_SECTION_SIZE                6144
++#define NETVSC_RECV_SECTION_SIZE                1728
+ 
+-#define NETVSC_SEND_SECTION_SIZE		6144
+-#define NETVSC_RECV_SECTION_SIZE		1728
++/* Default size of TX buf: 1MB, RX buf: 16MB */
++#define NETVSC_MIN_TX_SECTIONS  10
++#define NETVSC_DEFAULT_TX       (NETVSC_SEND_BUFFER_DEFAULT \
++				 / NETVSC_SEND_SECTION_SIZE)
++#define NETVSC_MIN_RX_SECTIONS  10
++#define NETVSC_DEFAULT_RX       (NETVSC_RECEIVE_BUFFER_DEFAULT \
++				 / NETVSC_RECV_SECTION_SIZE)
+ 
+ #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
+ #define NETVSC_SEND_BUFFER_ID			0
+@@ -697,6 +714,7 @@ struct netvsc_ethtool_stats {
+ 	unsigned long tx_busy;
+ 	unsigned long tx_send_full;
+ 	unsigned long rx_comp_busy;
++	unsigned long rx_no_memory;
+ 	unsigned long stop_queue;
+ 	unsigned long wake_queue;
+ };
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index d98701047851..10525d20a2bc 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -83,7 +83,7 @@ static void netvsc_subchan_work(struct work_struct *w)
+ 
+ 	rdev = nvdev->extension;
+ 	if (rdev) {
+-		ret = rndis_set_subchannel(rdev->ndev, nvdev);
++		ret = rndis_set_subchannel(rdev->ndev, nvdev, NULL);
+ 		if (ret == 0) {
+ 			netif_device_attach(rdev->ndev);
+ 		} else {
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 00fd7928ddb9..ecc2e2c3dca6 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -853,6 +853,39 @@ static void netvsc_get_channels(struct net_device *net,
+ 	}
+ }
+ 
++/* Alloc struct netvsc_device_info, and initialize it from either existing
++ * struct netvsc_device, or from default values.
++ */
++static struct netvsc_device_info *netvsc_devinfo_get
++			(struct netvsc_device *nvdev)
++{
++	struct netvsc_device_info *dev_info;
++
++	dev_info = kzalloc(sizeof(*dev_info), GFP_ATOMIC);
++
++	if (!dev_info)
++		return NULL;
++
++	if (nvdev) {
++		dev_info->num_chn = nvdev->num_chn;
++		dev_info->send_sections = nvdev->send_section_cnt;
++		dev_info->send_section_size = nvdev->send_section_size;
++		dev_info->recv_sections = nvdev->recv_section_cnt;
++		dev_info->recv_section_size = nvdev->recv_section_size;
++
++		memcpy(dev_info->rss_key, nvdev->extension->rss_key,
++		       NETVSC_HASH_KEYLEN);
++	} else {
++		dev_info->num_chn = VRSS_CHANNEL_DEFAULT;
++		dev_info->send_sections = NETVSC_DEFAULT_TX;
++		dev_info->send_section_size = NETVSC_SEND_SECTION_SIZE;
++		dev_info->recv_sections = NETVSC_DEFAULT_RX;
++		dev_info->recv_section_size = NETVSC_RECV_SECTION_SIZE;
++	}
++
++	return dev_info;
++}
++
+ static int netvsc_detach(struct net_device *ndev,
+ 			 struct netvsc_device *nvdev)
+ {
+@@ -904,7 +937,7 @@ static int netvsc_attach(struct net_device *ndev,
+ 		return PTR_ERR(nvdev);
+ 
+ 	if (nvdev->num_chn > 1) {
+-		ret = rndis_set_subchannel(ndev, nvdev);
++		ret = rndis_set_subchannel(ndev, nvdev, dev_info);
+ 
+ 		/* if unavailable, just proceed with one queue */
+ 		if (ret) {
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 9d77005bb9a1..1fe3c583b742 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1071,7 +1071,9 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+  * This breaks overlap of processing the host message for the
+  * new primary channel with the initialization of sub-channels.
+  */
+-int rndis_set_subchannel(struct net_device *ndev, struct netvsc_device *nvdev)
++int rndis_set_subchannel(struct net_device *ndev,
++			 struct netvsc_device *nvdev,
++			 struct netvsc_device_info *dev_info)
+ {
+ 	struct nvsp_message *init_packet = &nvdev->channel_init_pkt;
+ 	struct net_device_context *ndev_ctx = netdev_priv(ndev);
+@@ -1112,7 +1114,10 @@ int rndis_set_subchannel(struct net_device *ndev, struct netvsc_device *nvdev)
+ 		   atomic_read(&nvdev->open_chn) == nvdev->num_chn);
+ 
+ 	/* ignore failues from setting rss parameters, still have channels */
+-	rndis_filter_set_rss_param(rdev, netvsc_hash_key);
++	if (dev_info)
++		rndis_filter_set_rss_param(rdev, dev_info->rss_key);
++	else
++		rndis_filter_set_rss_param(rdev, netvsc_hash_key);
+ 
+ 	netif_set_real_num_tx_queues(ndev, nvdev->num_chn);
+ 	netif_set_real_num_rx_queues(ndev, nvdev->num_chn);
+-- 
+2.17.1
+

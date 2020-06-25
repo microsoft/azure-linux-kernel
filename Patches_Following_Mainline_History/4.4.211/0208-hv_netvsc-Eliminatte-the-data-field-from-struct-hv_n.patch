@@ -1,4 +1,4 @@
-From ec9c06ba8610a02b9a3276bcbc0a79bf13939672 Mon Sep 17 00:00:00 2001
+From 45255a79c1e20409943fea19f15f095a86434faa Mon Sep 17 00:00:00 2001
 From: KY Srinivasan <kys@microsoft.com>
 Date: Tue, 1 Dec 2015 16:43:07 -0800
 Subject: hv_netvsc: Eliminatte the data field from struct hv_netvsc_packet

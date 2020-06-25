@@ -1,0 +1,167 @@
+From 9cc9c531f9a2acabcdda0d93a926a1ff7bb317c6 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 7 Dec 2016 14:53:11 -0800
+Subject: hv: switch to cpuhp state machine for synic init/cleanup
+Reply-To: joseph.salisbury@microsoft.com
+
+To make it possible to online/offline CPUs switch to cpuhp infrastructure
+for doing hv_synic_init()/hv_synic_cleanup().
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 76d36ab79820430f73c584673aef10ba2446fced)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/hv.c           | 15 +++++++--------
+ drivers/hv/hyperv_vmbus.h |  4 ++--
+ drivers/hv/vmbus_drv.c    | 19 +++++++++++--------
+ 3 files changed, 20 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index d79626ac7f0e..70a2ce7be4e3 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -499,7 +499,7 @@ void hv_synic_free(void)
+  * retrieve the initialized message and event pages.  Otherwise, we create and
+  * initialize the message and event pages.
+  */
+-void hv_synic_init(void *arg)
++int hv_synic_init(unsigned int cpu)
+ {
+ 	u64 version;
+ 	union hv_synic_simp simp;
+@@ -508,10 +508,8 @@ void hv_synic_init(void *arg)
+ 	union hv_synic_scontrol sctrl;
+ 	u64 vp_index;
+ 
+-	int cpu = smp_processor_id();
+-
+ 	if (!hv_context.hypercall_page)
+-		return;
++		return -EFAULT;
+ 
+ 	/* Check the version */
+ 	rdmsrl(HV_X64_MSR_SVERSION, version);
+@@ -566,7 +564,7 @@ void hv_synic_init(void *arg)
+ 						HV_TIMER_FREQUENCY,
+ 						HV_MIN_DELTA_TICKS,
+ 						HV_MAX_MAX_DELTA_TICKS);
+-	return;
++	return 0;
+ }
+ 
+ /*
+@@ -586,16 +584,15 @@ void hv_synic_clockevents_cleanup(void)
+ /*
+  * hv_synic_cleanup - Cleanup routine for hv_synic_init().
+  */
+-void hv_synic_cleanup(void *arg)
++int hv_synic_cleanup(unsigned int cpu)
+ {
+ 	union hv_synic_sint shared_sint;
+ 	union hv_synic_simp simp;
+ 	union hv_synic_siefp siefp;
+ 	union hv_synic_scontrol sctrl;
+-	int cpu = smp_processor_id();
+ 
+ 	if (!hv_context.synic_initialized)
+-		return;
++		return -EFAULT;
+ 
+ 	/* Turn off clockevent device */
+ 	if (ms_hyperv.features & HV_X64_MSR_SYNTIMER_AVAILABLE)
+@@ -625,4 +622,6 @@ void hv_synic_cleanup(void *arg)
+ 	rdmsrl(HV_X64_MSR_SCONTROL, sctrl.as_uint64);
+ 	sctrl.enable = 0;
+ 	wrmsrl(HV_X64_MSR_SCONTROL, sctrl.as_uint64);
++
++	return 0;
+ }
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 9c6f2b476faf..fe5893f3d70a 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -520,9 +520,9 @@ extern int hv_synic_alloc(void);
+ 
+ extern void hv_synic_free(void);
+ 
+-extern void hv_synic_init(void *irqarg);
++extern int hv_synic_init(unsigned int cpu);
+ 
+-extern void hv_synic_cleanup(void *arg);
++extern int hv_synic_cleanup(unsigned int cpu);
+ 
+ extern void hv_synic_clockevents_cleanup(void);
+ 
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index d5e56b3be832..431cef9158ef 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -48,6 +48,7 @@ static struct acpi_device  *hv_acpi_dev;
+ 
+ static struct completion probe_event;
+ 
++static int hyperv_cpuhp_online;
+ 
+ static void hyperv_report_panic(struct pt_regs *regs)
+ {
+@@ -861,7 +862,12 @@ static int vmbus_bus_init(void)
+ 	 * Initialize the per-cpu interrupt state and
+ 	 * connect to the host.
+ 	 */
+-	on_each_cpu(hv_synic_init, NULL, 1);
++	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "x86/hyperv:online",
++				hv_synic_init, hv_synic_cleanup);
++	if (ret < 0)
++		goto err_alloc;
++	hyperv_cpuhp_online = ret;
++
+ 	ret = vmbus_connect();
+ 	if (ret)
+ 		goto err_connect;
+@@ -883,7 +889,7 @@ static int vmbus_bus_init(void)
+ 	return 0;
+ 
+ err_connect:
+-	on_each_cpu(hv_synic_cleanup, NULL, 1);
++	cpuhp_remove_state(hyperv_cpuhp_online);
+ err_alloc:
+ 	hv_synic_free();
+ 	hv_remove_vmbus_irq();
+@@ -1265,12 +1271,9 @@ static struct acpi_driver vmbus_acpi_driver = {
+ 
+ static void hv_kexec_handler(void)
+ {
+-	int cpu;
+-
+ 	hv_synic_clockevents_cleanup();
+ 	vmbus_initiate_unload(false);
+-	for_each_online_cpu(cpu)
+-		smp_call_function_single(cpu, hv_synic_cleanup, NULL, 1);
++	cpuhp_remove_state(hyperv_cpuhp_online);
+ 	hv_cleanup(false);
+ };
+ 
+@@ -1282,7 +1285,7 @@ static void hv_crash_handler(struct pt_regs *regs)
+ 	 * doing the cleanup for current CPU only. This should be sufficient
+ 	 * for kdump.
+ 	 */
+-	hv_synic_cleanup(NULL);
++	hv_synic_cleanup(smp_processor_id());
+ 	hv_cleanup(true);
+ };
+ 
+@@ -1346,8 +1349,8 @@ static void __exit vmbus_exit(void)
+ 	hv_cleanup(false);
+ 	for_each_online_cpu(cpu) {
+ 		tasklet_kill(hv_context.event_dpc[cpu]);
+-		smp_call_function_single(cpu, hv_synic_cleanup, NULL, 1);
+ 	}
++	cpuhp_remove_state(hyperv_cpuhp_online);
+ 	hv_synic_free();
+ 	acpi_bus_unregister_driver(&vmbus_acpi_driver);
+ 	if (vmbus_proto_version > VERSION_WIN7)
+-- 
+2.17.1
+

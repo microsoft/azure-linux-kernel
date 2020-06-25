@@ -1,4 +1,4 @@
-From 9f3dce077aec65a685653dff296d765ba564375c Mon Sep 17 00:00:00 2001
+From 2f1d704ffbd9104f6f55e1edd758f4a630601f09 Mon Sep 17 00:00:00 2001
 From: Arnd Bergmann <arnd@arndb.de>
 Date: Wed, 2 Mar 2016 10:40:54 +0100
 Subject: net: mellanox: add DEVLINK dependencies

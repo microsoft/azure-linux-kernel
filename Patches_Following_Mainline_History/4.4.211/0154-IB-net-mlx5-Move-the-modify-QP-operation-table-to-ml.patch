@@ -1,4 +1,4 @@
-From f1e4843d395c9a9cccaad5968df96fe7acdf2a55 Mon Sep 17 00:00:00 2001
+From 67187dee972ed2cf5b91677b3a87a89c3f89ce66 Mon Sep 17 00:00:00 2001
 From: "majd@mellanox.com" <majd@mellanox.com>
 Date: Thu, 14 Jan 2016 19:13:07 +0200
 Subject: {IB, net}/mlx5: Move the modify QP operation table to mlx5_ib

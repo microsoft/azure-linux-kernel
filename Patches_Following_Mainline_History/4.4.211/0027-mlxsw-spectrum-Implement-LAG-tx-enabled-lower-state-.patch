@@ -1,4 +1,4 @@
-From 996c92cfe0745fd00f991a7f0c9d6445c89d645a Mon Sep 17 00:00:00 2001
+From 856fe20aa0ab15706d3f07d925b4b561b100a4f3 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 12:12:30 +0100
 Subject: mlxsw: spectrum: Implement LAG tx enabled lower state change

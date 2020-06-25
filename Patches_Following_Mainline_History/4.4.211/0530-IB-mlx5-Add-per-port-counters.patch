@@ -1,0 +1,181 @@
+From 462e0f2bb979d053966d38e459b83ceb4344892f Mon Sep 17 00:00:00 2001
+From: Mark Bloch <markb@mellanox.com>
+Date: Fri, 17 Jun 2016 15:10:55 +0300
+Subject: IB/mlx5: Add per port counters
+Reply-To: joseph.salisbury@microsoft.com
+
+In order to support statistics for ports, we attach
+each QP to a counter set which is dedicate to this port.
+
+Signed-off-by: Mark Bloch <markb@mellanox.com>
+Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 0837e86a7a3422b85aa45c6f4631f6a3f74cbd01)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/main.c    | 56 +++++++++++++++++++++++++++-
+ drivers/infiniband/hw/mlx5/mlx5_ib.h |  6 +++
+ drivers/infiniband/hw/mlx5/qp.c      |  9 +++++
+ 3 files changed, 69 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index 0f30ae3c1e3b..b420b25bca5b 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -2461,6 +2461,41 @@ static void mlx5_disable_roce(struct mlx5_ib_dev *dev)
+ 	unregister_netdevice_notifier(&dev->roce.nb);
+ }
+ 
++static void mlx5_ib_dealloc_q_counters(struct mlx5_ib_dev *dev)
++{
++	unsigned int i;
++
++	for (i = 0; i < dev->num_ports; i++)
++		mlx5_core_dealloc_q_counter(dev->mdev,
++					    dev->port[i].q_cnt_id);
++}
++
++static int mlx5_ib_alloc_q_counters(struct mlx5_ib_dev *dev)
++{
++	int i;
++	int ret;
++
++	for (i = 0; i < dev->num_ports; i++) {
++		ret = mlx5_core_alloc_q_counter(dev->mdev,
++						&dev->port[i].q_cnt_id);
++		if (ret) {
++			mlx5_ib_warn(dev,
++				     "couldn't allocate queue counter for port %d, err %d\n",
++				     i + 1, ret);
++			goto dealloc_counters;
++		}
++	}
++
++	return 0;
++
++dealloc_counters:
++	while (--i >= 0)
++		mlx5_core_dealloc_q_counter(dev->mdev,
++					    dev->port[i].q_cnt_id);
++
++	return ret;
++}
++
+ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
+ {
+ 	struct mlx5_ib_dev *dev;
+@@ -2483,10 +2518,15 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
+ 
+ 	dev->mdev = mdev;
+ 
++	dev->port = kcalloc(MLX5_CAP_GEN(mdev, num_ports), sizeof(*dev->port),
++			    GFP_KERNEL);
++	if (!dev->port)
++		goto err_dealloc;
++
+ 	rwlock_init(&dev->roce.netdev_lock);
+ 	err = get_port_caps(dev);
+ 	if (err)
+-		goto err_dealloc;
++		goto err_free_port;
+ 
+ 	if (mlx5_use_mad_ifc(dev))
+ 		get_ext_port_caps(dev);
+@@ -2647,10 +2687,14 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
+ 	if (err)
+ 		goto err_rsrc;
+ 
+-	err = ib_register_device(&dev->ib_dev, NULL);
++	err = mlx5_ib_alloc_q_counters(dev);
+ 	if (err)
+ 		goto err_odp;
+ 
++	err = ib_register_device(&dev->ib_dev, NULL);
++	if (err)
++		goto err_q_cnt;
++
+ 	err = create_umr_res(dev);
+ 	if (err)
+ 		goto err_dev;
+@@ -2672,6 +2716,9 @@ err_umrc:
+ err_dev:
+ 	ib_unregister_device(&dev->ib_dev);
+ 
++err_q_cnt:
++	mlx5_ib_dealloc_q_counters(dev);
++
+ err_odp:
+ 	mlx5_ib_odp_remove_one(dev);
+ 
+@@ -2682,6 +2729,9 @@ err_disable_roce:
+ 	if (ll == IB_LINK_LAYER_ETHERNET)
+ 		mlx5_disable_roce(dev);
+ 
++err_free_port:
++	kfree(dev->port);
++
+ err_dealloc:
+ 	ib_dealloc_device((struct ib_device *)dev);
+ 
+@@ -2694,11 +2744,13 @@ static void mlx5_ib_remove(struct mlx5_core_dev *mdev, void *context)
+ 	enum rdma_link_layer ll = mlx5_ib_port_link_layer(&dev->ib_dev, 1);
+ 
+ 	ib_unregister_device(&dev->ib_dev);
++	mlx5_ib_dealloc_q_counters(dev);
+ 	destroy_umrc_res(dev);
+ 	mlx5_ib_odp_remove_one(dev);
+ 	destroy_dev_resources(&dev->devr);
+ 	if (ll == IB_LINK_LAYER_ETHERNET)
+ 		mlx5_disable_roce(dev);
++	kfree(dev->port);
+ 	ib_dealloc_device(&dev->ib_dev);
+ }
+ 
+diff --git a/drivers/infiniband/hw/mlx5/mlx5_ib.h b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+index ac0d040cd997..8d6a8074492b 100644
+--- a/drivers/infiniband/hw/mlx5/mlx5_ib.h
++++ b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+@@ -598,6 +598,10 @@ struct mlx5_ib_resources {
+ 	struct mutex	mutex;
+ };
+ 
++struct mlx5_ib_port {
++	u16 q_cnt_id;
++};
++
+ struct mlx5_roce {
+ 	/* Protect mlx5_ib_get_netdev from invoking dev_hold() with a NULL
+ 	 * netdev pointer
+@@ -636,6 +640,8 @@ struct mlx5_ib_dev {
+ 	/* protect resources needed as part of reset flow */
+ 	spinlock_t		reset_flow_resource_lock;
+ 	struct list_head	qp_list;
++	/* Array with num_ports elements */
++	struct mlx5_ib_port	*port;
+ };
+ 
+ static inline struct mlx5_ib_cq *to_mibcq(struct mlx5_core_cq *mcq)
+diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
+index 85f657a88e96..da05de89dea8 100644
+--- a/drivers/infiniband/hw/mlx5/qp.c
++++ b/drivers/infiniband/hw/mlx5/qp.c
+@@ -2619,6 +2619,15 @@ static int __mlx5_ib_modify_qp(struct ib_qp *ibqp,
+ 	else
+ 		sqd_event = 0;
+ 
++	if (cur_state == IB_QPS_RESET && new_state == IB_QPS_INIT) {
++		u8 port_num = (attr_mask & IB_QP_PORT ? attr->port_num :
++			       qp->port) - 1;
++		struct mlx5_ib_port *mibport = &dev->port[port_num];
++
++		context->qp_counter_set_usr_page |=
++			cpu_to_be32(mibport->q_cnt_id << 16);
++	}
++
+ 	if (!ibqp->uobject && cur_state == IB_QPS_RESET && new_state == IB_QPS_INIT)
+ 		context->sq_crq_size |= cpu_to_be16(1 << 4);
+ 
+-- 
+2.17.1
+

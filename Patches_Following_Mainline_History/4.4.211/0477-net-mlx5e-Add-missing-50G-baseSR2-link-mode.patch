@@ -1,0 +1,34 @@
+From c486b9fe0d4b3565599282e99da0678de262d19f Mon Sep 17 00:00:00 2001
+From: Gal Pressman <galp@mellanox.com>
+Date: Thu, 23 Jun 2016 17:02:44 +0300
+Subject: net/mlx5e: Add missing 50G baseSR2 link mode
+Reply-To: joseph.salisbury@microsoft.com
+
+Add MLX5E_50GBASE_SR2 as ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT.
+
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Cc: Ben Hutchings <bwh@kernel.org>
+Cc: David Decotigny <decot@googlers.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 4a50e35b04c9008558a73ed4e349b3b483ef6739)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index d420e5c91bf3..b82f6f797ab4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -615,6 +615,7 @@ enum mlx5e_link_mode {
+ 	MLX5E_10GBASE_ER	 = 14,
+ 	MLX5E_40GBASE_SR4	 = 15,
+ 	MLX5E_40GBASE_LR4	 = 16,
++	MLX5E_50GBASE_SR2	 = 18,
+ 	MLX5E_100GBASE_CR4	 = 20,
+ 	MLX5E_100GBASE_SR4	 = 21,
+ 	MLX5E_100GBASE_KR4	 = 22,
+-- 
+2.17.1
+

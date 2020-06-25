@@ -1,4 +1,4 @@
-From cdc22007583e720aa37d39919bbe767700180640 Mon Sep 17 00:00:00 2001
+From 1172f596a2843a45b0cdeec5f758730b8022405a Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:26:04 +0200
 Subject: net/mlx5_core: Enable flow steering support for the IB driver

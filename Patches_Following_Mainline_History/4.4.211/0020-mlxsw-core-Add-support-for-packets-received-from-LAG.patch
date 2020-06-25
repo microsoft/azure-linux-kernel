@@ -1,4 +1,4 @@
-From 6179bc6fa328d75a367a9aabbe9824a18dae81df Mon Sep 17 00:00:00 2001
+From 410baa7e1b240f1645e343e871fbdb6fa391dd13 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 12:12:23 +0100
 Subject: mlxsw: core: Add support for packets received from LAG port

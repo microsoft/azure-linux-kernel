@@ -1,0 +1,143 @@
+From 9c10ac74352b0002a7cfb0a52e3913be4cef8fc2 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Fri, 13 May 2016 13:55:20 +0200
+Subject: hv_netvsc: move start_remove flag to net_device_context
+Reply-To: joseph.salisbury@microsoft.com
+
+struct netvsc_device is destroyed on mtu change so keeping the
+protection flag there is not a good idea. Move it to struct
+net_device_context which is preserved.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit f580aec4bfd7babe51f086e599400027def08ed8)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  4 +++-
+ drivers/net/hyperv/netvsc.c     |  3 +--
+ drivers/net/hyperv/netvsc_drv.c | 18 ++++++++++++------
+ 3 files changed, 16 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index b28b44d3205d..471bf806e345 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -678,6 +678,9 @@ struct net_device_context {
+ 	/* Ethtool settings */
+ 	u8 duplex;
+ 	u32 speed;
++
++	/* the device is going away */
++	bool start_remove;
+ };
+ 
+ /* Per netvsc device */
+@@ -688,7 +691,6 @@ struct netvsc_device {
+ 
+ 	atomic_t num_outstanding_sends;
+ 	wait_queue_head_t wait_drain;
+-	bool start_remove;
+ 	bool destroy;
+ 
+ 	/* Receive buffer allocated by us but manages by NetVSP */
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index c4264d9ffcf3..8e5e34a2ce7b 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -74,7 +74,6 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
+ 	}
+ 
+ 	init_waitqueue_head(&net_device->wait_drain);
+-	net_device->start_remove = false;
+ 	net_device->destroy = false;
+ 	atomic_set(&net_device->open_cnt, 0);
+ 	atomic_set(&net_device->vf_use_cnt, 0);
+@@ -691,7 +690,7 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+ 			wake_up(&net_device->wait_drain);
+ 
+ 		if (netif_tx_queue_stopped(netdev_get_tx_queue(ndev, q_idx)) &&
+-		    !net_device->start_remove &&
++		    !net_device->nd_ctx->start_remove &&
+ 		    (hv_ringbuf_avail_percent(&channel->outbound) >
+ 		     RING_AVAIL_PERCENT_HIWATER || queue_sends < 1))
+ 				netif_tx_wake_queue(netdev_get_tx_queue(
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index fc9687768e22..dc30732e9b3e 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -790,7 +790,7 @@ static int netvsc_set_channels(struct net_device *net,
+ 		goto out;
+ 
+  do_set:
+-	nvdev->start_remove = true;
++	net_device_ctx->start_remove = true;
+ 	rndis_filter_device_remove(dev);
+ 
+ 	nvdev->num_chn = channels->combined_count;
+@@ -834,6 +834,7 @@ static int netvsc_set_channels(struct net_device *net,
+ 
+  out:
+ 	netvsc_open(net);
++	net_device_ctx->start_remove = false;
+ 
+ 	return ret;
+ 
+@@ -906,6 +907,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	struct netvsc_device *nvdev = hv_get_drvdata(hdev);
+ 	struct netvsc_device_info device_info;
+ 	int limit = ETH_DATA_LEN;
++	u32 num_chn;
+ 	int ret = 0;
+ 
+ 	if (nvdev == NULL || nvdev->destroy)
+@@ -921,14 +923,13 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	if (ret)
+ 		goto out;
+ 
+-	nvdev->start_remove = true;
++	num_chn = nvdev->num_chn;
++
++	ndevctx->start_remove = true;
+ 	rndis_filter_device_remove(hdev);
+ 
+ 	ndev->mtu = mtu;
+ 
+-	ndevctx->device_ctx = hdev;
+-	hv_set_drvdata(hdev, ndev);
+-
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+ 	device_info.num_chn = nvdev->num_chn;
+@@ -937,6 +938,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 
+ out:
+ 	netvsc_open(ndev);
++	ndevctx->start_remove = false;
+ 
+ 	return ret;
+ }
+@@ -1352,6 +1354,9 @@ static int netvsc_probe(struct hv_device *dev,
+ 	}
+ 
+ 	hv_set_drvdata(dev, net);
++
++	net_device_ctx->start_remove = false;
++
+ 	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
+ 	INIT_WORK(&net_device_ctx->work, do_set_multicast);
+ 	INIT_WORK(&net_device_ctx->gwrk.dwrk, netvsc_notify_peers);
+@@ -1413,9 +1418,10 @@ static int netvsc_remove(struct hv_device *dev)
+ 		return 0;
+ 	}
+ 
+-	net_device->start_remove = true;
+ 
+ 	ndev_ctx = netdev_priv(net);
++	ndev_ctx->start_remove = true;
++
+ 	cancel_delayed_work_sync(&ndev_ctx->dwork);
+ 	cancel_work_sync(&ndev_ctx->work);
+ 
+-- 
+2.17.1
+

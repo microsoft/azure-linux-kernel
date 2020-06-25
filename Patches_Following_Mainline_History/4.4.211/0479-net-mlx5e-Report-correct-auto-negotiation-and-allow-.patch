@@ -1,0 +1,218 @@
+From dcd0a00596e6d24cd0cb9d684499b6e5281cccd4 Mon Sep 17 00:00:00 2001
+From: Gal Pressman <galp@mellanox.com>
+Date: Thu, 23 Jun 2016 17:02:46 +0300
+Subject: net/mlx5e: Report correct auto negotiation and allow toggling
+Reply-To: joseph.salisbury@microsoft.com
+
+Previous to this patch auto negotiation was reported off although it was
+on by default in hardware. This patch reports the correct information to
+ethtool and allows the user to toggle it on/off.
+
+Added another parameter to set port proto function in order to pass
+the auto negotiation field to the hardware.
+
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 52244d960755936fa9c8ce54d583d0ed46f24fb6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../ethernet/mellanox/mlx5/core/en_ethtool.c  | 42 +++++++++++++++----
+ .../net/ethernet/mellanox/mlx5/core/port.c    | 36 ++++++++++++++--
+ include/linux/mlx5/port.h                     | 15 ++++++-
+ 3 files changed, 80 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 945605e3f025..4f235420f09e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -702,6 +702,8 @@ static int mlx5e_get_link_ksettings(struct net_device *netdev,
+ 	u32 eth_proto_admin;
+ 	u32 eth_proto_lp;
+ 	u32 eth_proto_oper;
++	u8 an_disable_admin;
++	u8 an_status;
+ 	int err;
+ 
+ 	err = mlx5_query_port_ptys(mdev, out, sizeof(out), MLX5_PTYS_EN, 1);
+@@ -712,10 +714,12 @@ static int mlx5e_get_link_ksettings(struct net_device *netdev,
+ 		goto err_query_ptys;
+ 	}
+ 
+-	eth_proto_cap   = MLX5_GET(ptys_reg, out, eth_proto_capability);
+-	eth_proto_admin = MLX5_GET(ptys_reg, out, eth_proto_admin);
+-	eth_proto_oper  = MLX5_GET(ptys_reg, out, eth_proto_oper);
+-	eth_proto_lp    = MLX5_GET(ptys_reg, out, eth_proto_lp_advertise);
++	eth_proto_cap    = MLX5_GET(ptys_reg, out, eth_proto_capability);
++	eth_proto_admin  = MLX5_GET(ptys_reg, out, eth_proto_admin);
++	eth_proto_oper   = MLX5_GET(ptys_reg, out, eth_proto_oper);
++	eth_proto_lp     = MLX5_GET(ptys_reg, out, eth_proto_lp_advertise);
++	an_disable_admin = MLX5_GET(ptys_reg, out, an_disable_admin);
++	an_status        = MLX5_GET(ptys_reg, out, an_status);
+ 
+ 	ethtool_link_ksettings_zero_link_mode(link_ksettings, supported);
+ 	ethtool_link_ksettings_zero_link_mode(link_ksettings, advertising);
+@@ -729,6 +733,18 @@ static int mlx5e_get_link_ksettings(struct net_device *netdev,
+ 	link_ksettings->base.port = get_connector_port(eth_proto_oper);
+ 	get_lp_advertising(eth_proto_lp, link_ksettings);
+ 
++	if (an_status == MLX5_AN_COMPLETE)
++		ethtool_link_ksettings_add_link_mode(link_ksettings,
++						     lp_advertising, Autoneg);
++
++	link_ksettings->base.autoneg = an_disable_admin ? AUTONEG_DISABLE :
++							  AUTONEG_ENABLE;
++	ethtool_link_ksettings_add_link_mode(link_ksettings, supported,
++					     Autoneg);
++	if (!an_disable_admin)
++		ethtool_link_ksettings_add_link_mode(link_ksettings,
++						     advertising, Autoneg);
++
+ err_query_ptys:
+ 	return err;
+ }
+@@ -764,9 +780,14 @@ static int mlx5e_set_link_ksettings(struct net_device *netdev,
+ {
+ 	struct mlx5e_priv *priv    = netdev_priv(netdev);
+ 	struct mlx5_core_dev *mdev = priv->mdev;
++	u32 eth_proto_cap, eth_proto_admin;
++	bool an_changes = false;
++	u8 an_disable_admin;
++	u8 an_disable_cap;
++	bool an_disable;
+ 	u32 link_modes;
++	u8 an_status;
+ 	u32 speed;
+-	u32 eth_proto_cap, eth_proto_admin;
+ 	int err;
+ 
+ 	speed = link_ksettings->base.speed;
+@@ -797,10 +818,17 @@ static int mlx5e_set_link_ksettings(struct net_device *netdev,
+ 		goto out;
+ 	}
+ 
+-	if (link_modes == eth_proto_admin)
++	mlx5_query_port_autoneg(mdev, MLX5_PTYS_EN, &an_status,
++				&an_disable_cap, &an_disable_admin);
++
++	an_disable = link_ksettings->base.autoneg == AUTONEG_DISABLE;
++	an_changes = ((!an_disable && an_disable_admin) ||
++		      (an_disable && !an_disable_admin));
++
++	if (!an_changes && link_modes == eth_proto_admin)
+ 		goto out;
+ 
+-	mlx5_set_port_proto(mdev, link_modes, MLX5_PTYS_EN);
++	mlx5_set_port_ptys(mdev, an_disable, link_modes, MLX5_PTYS_EN);
+ 	mlx5_toggle_port_link(mdev);
+ 
+ out:
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 1562e7310f5b..752c08127138 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -202,15 +202,24 @@ int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_proto_oper);
+ 
+-int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+-			int proto_mask)
++int mlx5_set_port_ptys(struct mlx5_core_dev *dev, bool an_disable,
++		       u32 proto_admin, int proto_mask)
+ {
+-	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
+ 	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
++	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
++	u8 an_disable_admin;
++	u8 an_disable_cap;
++	u8 an_status;
++
++	mlx5_query_port_autoneg(dev, proto_mask, &an_status,
++				&an_disable_cap, &an_disable_admin);
++	if (!an_disable_cap && an_disable)
++		return -EPERM;
+ 
+ 	memset(in, 0, sizeof(in));
+ 
+ 	MLX5_SET(ptys_reg, in, local_port, 1);
++	MLX5_SET(ptys_reg, in, an_disable_admin, an_disable);
+ 	MLX5_SET(ptys_reg, in, proto_mask, proto_mask);
+ 	if (proto_mask == MLX5_PTYS_EN)
+ 		MLX5_SET(ptys_reg, in, eth_proto_admin, proto_admin);
+@@ -220,7 +229,7 @@ int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+ 	return mlx5_core_access_reg(dev, in, sizeof(in), out,
+ 				    sizeof(out), MLX5_REG_PTYS, 0, 1);
+ }
+-EXPORT_SYMBOL_GPL(mlx5_set_port_proto);
++EXPORT_SYMBOL_GPL(mlx5_set_port_ptys);
+ 
+ /* This function should be used after setting a port register only */
+ void mlx5_toggle_port_link(struct mlx5_core_dev *dev)
+@@ -530,6 +539,25 @@ int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx, u8 *pfc_en_rx)
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_pfc);
+ 
++void mlx5_query_port_autoneg(struct mlx5_core_dev *dev, int proto_mask,
++			     u8 *an_status,
++			     u8 *an_disable_cap, u8 *an_disable_admin)
++{
++	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
++
++	*an_status = 0;
++	*an_disable_cap = 0;
++	*an_disable_admin = 0;
++
++	if (mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask, 1))
++		return;
++
++	*an_status = MLX5_GET(ptys_reg, out, an_status);
++	*an_disable_cap = MLX5_GET(ptys_reg, out, an_disable_cap);
++	*an_disable_admin = MLX5_GET(ptys_reg, out, an_disable_admin);
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_autoneg);
++
+ int mlx5_max_tc(struct mlx5_core_dev *mdev)
+ {
+ 	u8 num_tc = MLX5_CAP_GEN(mdev, max_tc) ? : 8;
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index 4adfac15f0e9..e3012cc64b8a 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -47,6 +47,14 @@ enum mlx5_module_id {
+ 	MLX5_MODULE_ID_QSFP28           = 0x11,
+ };
+ 
++enum mlx5_an_status {
++	MLX5_AN_UNAVAILABLE = 0,
++	MLX5_AN_COMPLETE    = 1,
++	MLX5_AN_FAILED      = 2,
++	MLX5_AN_LINK_UP     = 3,
++	MLX5_AN_LINK_DOWN   = 4,
++};
++
+ #define MLX5_EEPROM_MAX_BYTES			32
+ #define MLX5_EEPROM_IDENTIFIER_BYTE_MASK	0x000000ff
+ #define MLX5_I2C_ADDR_LOW		0x50
+@@ -65,14 +73,17 @@ int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
+ int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
+ 			       u8 *proto_oper, int proto_mask,
+ 			       u8 local_port);
+-int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+-			int proto_mask);
++int mlx5_set_port_ptys(struct mlx5_core_dev *dev, bool an_disable,
++		       u32 proto_admin, int proto_mask);
+ void mlx5_toggle_port_link(struct mlx5_core_dev *dev);
+ int mlx5_set_port_admin_status(struct mlx5_core_dev *dev,
+ 			       enum mlx5_port_status status);
+ int mlx5_query_port_admin_status(struct mlx5_core_dev *dev,
+ 				 enum mlx5_port_status *status);
+ int mlx5_set_port_beacon(struct mlx5_core_dev *dev, u16 beacon_duration);
++void mlx5_query_port_autoneg(struct mlx5_core_dev *dev, int proto_mask,
++			     u8 *an_status,
++			     u8 *an_disable_cap, u8 *an_disable_admin);
+ 
+ int mlx5_set_port_mtu(struct mlx5_core_dev *dev, u16 mtu, u8 port);
+ void mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, u16 *max_mtu, u8 port);
+-- 
+2.17.1
+

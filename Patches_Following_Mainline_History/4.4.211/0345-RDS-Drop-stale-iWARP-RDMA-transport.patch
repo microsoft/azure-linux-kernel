@@ -1,0 +1,4483 @@
+From 46d3b6614d3e14b953e08277be9684845655dda3 Mon Sep 17 00:00:00 2001
+From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Date: Tue, 1 Mar 2016 15:20:42 -0800
+Subject: RDS: Drop stale iWARP RDMA transport
+Reply-To: joseph.salisbury@microsoft.com
+
+RDS iWarp support code has become stale and non testable. As
+indicated earlier, am dropping the support for it.
+
+If new iWarp user(s) shows up in future, we can adapat the RDS IB
+transprt for the special RDMA READ sink case. iWarp needs an MR
+for the RDMA READ sink.
+
+Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit dcdede0406d30e14a6ed727dce69dfac0518371d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ Documentation/networking/rds.txt |   4 +-
+ net/rds/Kconfig                  |   7 +-
+ net/rds/Makefile                 |   4 +-
+ net/rds/iw.h                     | 398 -------------
+ net/rds/iw_cm.c                  | 769 ------------------------
+ net/rds/iw_rdma.c                | 837 --------------------------
+ net/rds/iw_recv.c                | 904 ----------------------------
+ net/rds/iw_ring.c                | 169 ------
+ net/rds/iw_send.c                | 981 -------------------------------
+ net/rds/iw_stats.c               |  95 ---
+ net/rds/iw_sysctl.c              | 123 ----
+ net/rds/rdma_transport.c         |  13 +-
+ net/rds/rdma_transport.h         |   5 -
+ 13 files changed, 7 insertions(+), 4302 deletions(-)
+ delete mode 100644 net/rds/iw.h
+ delete mode 100644 net/rds/iw_cm.c
+ delete mode 100644 net/rds/iw_rdma.c
+ delete mode 100644 net/rds/iw_recv.c
+ delete mode 100644 net/rds/iw_ring.c
+ delete mode 100644 net/rds/iw_send.c
+ delete mode 100644 net/rds/iw_stats.c
+ delete mode 100644 net/rds/iw_sysctl.c
+
+diff --git a/Documentation/networking/rds.txt b/Documentation/networking/rds.txt
+index e1a3d59bbe0f..9d219d856d46 100644
+--- a/Documentation/networking/rds.txt
++++ b/Documentation/networking/rds.txt
+@@ -19,9 +19,7 @@ to N*N if you use a connection-oriented socket transport like TCP.
+ 
+ RDS is not Infiniband-specific; it was designed to support different
+ transports.  The current implementation used to support RDS over TCP as well
+-as IB. Work is in progress to support RDS over iWARP, and using DCE to
+-guarantee no dropped packets on Ethernet, it may be possible to use RDS over
+-UDP in the future.
++as IB.
+ 
+ The high-level semantics of RDS from the application's point of view are
+ 
+diff --git a/net/rds/Kconfig b/net/rds/Kconfig
+index f2c670ba7b9b..bffde4b46c5d 100644
+--- a/net/rds/Kconfig
++++ b/net/rds/Kconfig
+@@ -4,14 +4,13 @@ config RDS
+ 	depends on INET
+ 	---help---
+ 	  The RDS (Reliable Datagram Sockets) protocol provides reliable,
+-	  sequenced delivery of datagrams over Infiniband, iWARP,
+-	  or TCP.
++	  sequenced delivery of datagrams over Infiniband or TCP.
+ 
+ config RDS_RDMA
+-	tristate "RDS over Infiniband and iWARP"
++	tristate "RDS over Infiniband"
+ 	depends on RDS && INFINIBAND && INFINIBAND_ADDR_TRANS
+ 	---help---
+-	  Allow RDS to use Infiniband and iWARP as a transport.
++	  Allow RDS to use Infiniband as a transport.
+ 	  This transport supports RDMA operations.
+ 
+ config RDS_TCP
+diff --git a/net/rds/Makefile b/net/rds/Makefile
+index 56d3f6023ced..19e54854ba2d 100644
+--- a/net/rds/Makefile
++++ b/net/rds/Makefile
+@@ -6,9 +6,7 @@ rds-y :=	af_rds.o bind.o cong.o connection.o info.o message.o   \
+ obj-$(CONFIG_RDS_RDMA) += rds_rdma.o
+ rds_rdma-y :=	rdma_transport.o \
+ 			ib.o ib_cm.o ib_recv.o ib_ring.o ib_send.o ib_stats.o \
+-			ib_sysctl.o ib_rdma.o \
+-			iw.o iw_cm.o iw_recv.o iw_ring.o iw_send.o iw_stats.o \
+-			iw_sysctl.o iw_rdma.o
++			ib_sysctl.o ib_rdma.o
+ 
+ 
+ obj-$(CONFIG_RDS_TCP) += rds_tcp.o
+diff --git a/net/rds/iw.h b/net/rds/iw.h
+deleted file mode 100644
+index 5af01d1758b3..000000000000
+--- a/net/rds/iw.h
++++ /dev/null
+@@ -1,398 +0,0 @@
+-#ifndef _RDS_IW_H
+-#define _RDS_IW_H
+-
+-#include <linux/interrupt.h>
+-#include <rdma/ib_verbs.h>
+-#include <rdma/rdma_cm.h>
+-#include "rds.h"
+-#include "rdma_transport.h"
+-
+-#define RDS_FASTREG_SIZE		20
+-#define RDS_FASTREG_POOL_SIZE		2048
+-
+-#define RDS_IW_MAX_SGE			8
+-#define RDS_IW_RECV_SGE 		2
+-
+-#define RDS_IW_DEFAULT_RECV_WR		1024
+-#define RDS_IW_DEFAULT_SEND_WR		256
+-
+-#define RDS_IW_SUPPORTED_PROTOCOLS	0x00000003	/* minor versions supported */
+-
+-extern struct list_head rds_iw_devices;
+-
+-/*
+- * IB posts RDS_FRAG_SIZE fragments of pages to the receive queues to
+- * try and minimize the amount of memory tied up both the device and
+- * socket receive queues.
+- */
+-/* page offset of the final full frag that fits in the page */
+-#define RDS_PAGE_LAST_OFF (((PAGE_SIZE  / RDS_FRAG_SIZE) - 1) * RDS_FRAG_SIZE)
+-struct rds_page_frag {
+-	struct list_head	f_item;
+-	struct page		*f_page;
+-	unsigned long		f_offset;
+-	dma_addr_t 		f_mapped;
+-};
+-
+-struct rds_iw_incoming {
+-	struct list_head	ii_frags;
+-	struct rds_incoming	ii_inc;
+-};
+-
+-struct rds_iw_connect_private {
+-	/* Add new fields at the end, and don't permute existing fields. */
+-	__be32			dp_saddr;
+-	__be32			dp_daddr;
+-	u8			dp_protocol_major;
+-	u8			dp_protocol_minor;
+-	__be16			dp_protocol_minor_mask; /* bitmask */
+-	__be32			dp_reserved1;
+-	__be64			dp_ack_seq;
+-	__be32			dp_credit;		/* non-zero enables flow ctl */
+-};
+-
+-struct rds_iw_scatterlist {
+-	struct scatterlist	*list;
+-	unsigned int		len;
+-	int			dma_len;
+-	unsigned int		dma_npages;
+-	unsigned int		bytes;
+-};
+-
+-struct rds_iw_mapping {
+-	spinlock_t		m_lock;	/* protect the mapping struct */
+-	struct list_head	m_list;
+-	struct rds_iw_mr	*m_mr;
+-	uint32_t		m_rkey;
+-	struct rds_iw_scatterlist m_sg;
+-};
+-
+-struct rds_iw_send_work {
+-	struct rds_message	*s_rm;
+-
+-	/* We should really put these into a union: */
+-	struct rm_rdma_op	*s_op;
+-	struct rds_iw_mapping	*s_mapping;
+-	struct ib_mr		*s_mr;
+-	unsigned char		s_remap_count;
+-
+-	union {
+-		struct ib_send_wr	s_send_wr;
+-		struct ib_rdma_wr	s_rdma_wr;
+-		struct ib_reg_wr	s_reg_wr;
+-	};
+-	struct ib_sge		s_sge[RDS_IW_MAX_SGE];
+-	unsigned long		s_queued;
+-};
+-
+-struct rds_iw_recv_work {
+-	struct rds_iw_incoming 	*r_iwinc;
+-	struct rds_page_frag	*r_frag;
+-	struct ib_recv_wr	r_wr;
+-	struct ib_sge		r_sge[2];
+-};
+-
+-struct rds_iw_work_ring {
+-	u32		w_nr;
+-	u32		w_alloc_ptr;
+-	u32		w_alloc_ctr;
+-	u32		w_free_ptr;
+-	atomic_t	w_free_ctr;
+-};
+-
+-struct rds_iw_device;
+-
+-struct rds_iw_connection {
+-
+-	struct list_head	iw_node;
+-	struct rds_iw_device 	*rds_iwdev;
+-	struct rds_connection	*conn;
+-
+-	/* alphabet soup, IBTA style */
+-	struct rdma_cm_id	*i_cm_id;
+-	struct ib_pd		*i_pd;
+-	struct ib_mr		*i_mr;
+-	struct ib_cq		*i_send_cq;
+-	struct ib_cq		*i_recv_cq;
+-
+-	/* tx */
+-	struct rds_iw_work_ring	i_send_ring;
+-	struct rds_message	*i_rm;
+-	struct rds_header	*i_send_hdrs;
+-	u64			i_send_hdrs_dma;
+-	struct rds_iw_send_work *i_sends;
+-
+-	/* rx */
+-	struct tasklet_struct	i_recv_tasklet;
+-	struct mutex		i_recv_mutex;
+-	struct rds_iw_work_ring	i_recv_ring;
+-	struct rds_iw_incoming	*i_iwinc;
+-	u32			i_recv_data_rem;
+-	struct rds_header	*i_recv_hdrs;
+-	u64			i_recv_hdrs_dma;
+-	struct rds_iw_recv_work *i_recvs;
+-	struct rds_page_frag	i_frag;
+-	u64			i_ack_recv;	/* last ACK received */
+-
+-	/* sending acks */
+-	unsigned long		i_ack_flags;
+-#ifdef KERNEL_HAS_ATOMIC64
+-	atomic64_t		i_ack_next;	/* next ACK to send */
+-#else
+-	spinlock_t		i_ack_lock;	/* protect i_ack_next */
+-	u64			i_ack_next;	/* next ACK to send */
+-#endif
+-	struct rds_header	*i_ack;
+-	struct ib_send_wr	i_ack_wr;
+-	struct ib_sge		i_ack_sge;
+-	u64			i_ack_dma;
+-	unsigned long		i_ack_queued;
+-
+-	/* Flow control related information
+-	 *
+-	 * Our algorithm uses a pair variables that we need to access
+-	 * atomically - one for the send credits, and one posted
+-	 * recv credits we need to transfer to remote.
+-	 * Rather than protect them using a slow spinlock, we put both into
+-	 * a single atomic_t and update it using cmpxchg
+-	 */
+-	atomic_t		i_credits;
+-
+-	/* Protocol version specific information */
+-	unsigned int		i_flowctl:1;	/* enable/disable flow ctl */
+-	unsigned int		i_dma_local_lkey:1;
+-	unsigned int		i_fastreg_posted:1; /* fastreg posted on this connection */
+-	/* Batched completions */
+-	unsigned int		i_unsignaled_wrs;
+-	long			i_unsignaled_bytes;
+-};
+-
+-/* This assumes that atomic_t is at least 32 bits */
+-#define IB_GET_SEND_CREDITS(v)	((v) & 0xffff)
+-#define IB_GET_POST_CREDITS(v)	((v) >> 16)
+-#define IB_SET_SEND_CREDITS(v)	((v) & 0xffff)
+-#define IB_SET_POST_CREDITS(v)	((v) << 16)
+-
+-struct rds_iw_cm_id {
+-	struct list_head	list;
+-	struct rdma_cm_id	*cm_id;
+-};
+-
+-struct rds_iw_device {
+-	struct list_head	list;
+-	struct list_head	cm_id_list;
+-	struct list_head	conn_list;
+-	struct ib_device	*dev;
+-	struct ib_pd		*pd;
+-	struct ib_mr		*mr;
+-	struct rds_iw_mr_pool	*mr_pool;
+-	int			max_sge;
+-	unsigned int		max_wrs;
+-	unsigned int		dma_local_lkey:1;
+-	spinlock_t		spinlock;	/* protect the above */
+-};
+-
+-/* bits for i_ack_flags */
+-#define IB_ACK_IN_FLIGHT	0
+-#define IB_ACK_REQUESTED	1
+-
+-/* Magic WR_ID for ACKs */
+-#define RDS_IW_ACK_WR_ID	((u64)0xffffffffffffffffULL)
+-#define RDS_IW_REG_WR_ID	((u64)0xefefefefefefefefULL)
+-#define RDS_IW_LOCAL_INV_WR_ID	((u64)0xdfdfdfdfdfdfdfdfULL)
+-
+-struct rds_iw_statistics {
+-	uint64_t	s_iw_connect_raced;
+-	uint64_t	s_iw_listen_closed_stale;
+-	uint64_t	s_iw_tx_cq_call;
+-	uint64_t	s_iw_tx_cq_event;
+-	uint64_t	s_iw_tx_ring_full;
+-	uint64_t	s_iw_tx_throttle;
+-	uint64_t	s_iw_tx_sg_mapping_failure;
+-	uint64_t	s_iw_tx_stalled;
+-	uint64_t	s_iw_tx_credit_updates;
+-	uint64_t	s_iw_rx_cq_call;
+-	uint64_t	s_iw_rx_cq_event;
+-	uint64_t	s_iw_rx_ring_empty;
+-	uint64_t	s_iw_rx_refill_from_cq;
+-	uint64_t	s_iw_rx_refill_from_thread;
+-	uint64_t	s_iw_rx_alloc_limit;
+-	uint64_t	s_iw_rx_credit_updates;
+-	uint64_t	s_iw_ack_sent;
+-	uint64_t	s_iw_ack_send_failure;
+-	uint64_t	s_iw_ack_send_delayed;
+-	uint64_t	s_iw_ack_send_piggybacked;
+-	uint64_t	s_iw_ack_received;
+-	uint64_t	s_iw_rdma_mr_alloc;
+-	uint64_t	s_iw_rdma_mr_free;
+-	uint64_t	s_iw_rdma_mr_used;
+-	uint64_t	s_iw_rdma_mr_pool_flush;
+-	uint64_t	s_iw_rdma_mr_pool_wait;
+-	uint64_t	s_iw_rdma_mr_pool_depleted;
+-};
+-
+-extern struct workqueue_struct *rds_iw_wq;
+-
+-/*
+- * Fake ib_dma_sync_sg_for_{cpu,device} as long as ib_verbs.h
+- * doesn't define it.
+- */
+-static inline void rds_iw_dma_sync_sg_for_cpu(struct ib_device *dev,
+-		struct scatterlist *sg, unsigned int sg_dma_len, int direction)
+-{
+-	unsigned int i;
+-
+-	for (i = 0; i < sg_dma_len; ++i) {
+-		ib_dma_sync_single_for_cpu(dev,
+-				ib_sg_dma_address(dev, &sg[i]),
+-				ib_sg_dma_len(dev, &sg[i]),
+-				direction);
+-	}
+-}
+-#define ib_dma_sync_sg_for_cpu	rds_iw_dma_sync_sg_for_cpu
+-
+-static inline void rds_iw_dma_sync_sg_for_device(struct ib_device *dev,
+-		struct scatterlist *sg, unsigned int sg_dma_len, int direction)
+-{
+-	unsigned int i;
+-
+-	for (i = 0; i < sg_dma_len; ++i) {
+-		ib_dma_sync_single_for_device(dev,
+-				ib_sg_dma_address(dev, &sg[i]),
+-				ib_sg_dma_len(dev, &sg[i]),
+-				direction);
+-	}
+-}
+-#define ib_dma_sync_sg_for_device	rds_iw_dma_sync_sg_for_device
+-
+-static inline u32 rds_iw_local_dma_lkey(struct rds_iw_connection *ic)
+-{
+-	return ic->i_dma_local_lkey ? ic->i_cm_id->device->local_dma_lkey : ic->i_mr->lkey;
+-}
+-
+-/* ib.c */
+-extern struct rds_transport rds_iw_transport;
+-extern struct ib_client rds_iw_client;
+-
+-extern unsigned int fastreg_pool_size;
+-extern unsigned int fastreg_message_size;
+-
+-extern spinlock_t iw_nodev_conns_lock;
+-extern struct list_head iw_nodev_conns;
+-
+-/* ib_cm.c */
+-int rds_iw_conn_alloc(struct rds_connection *conn, gfp_t gfp);
+-void rds_iw_conn_free(void *arg);
+-int rds_iw_conn_connect(struct rds_connection *conn);
+-void rds_iw_conn_shutdown(struct rds_connection *conn);
+-void rds_iw_state_change(struct sock *sk);
+-int rds_iw_listen_init(void);
+-void rds_iw_listen_stop(void);
+-void __rds_iw_conn_error(struct rds_connection *conn, const char *, ...);
+-int rds_iw_cm_handle_connect(struct rdma_cm_id *cm_id,
+-			     struct rdma_cm_event *event);
+-int rds_iw_cm_initiate_connect(struct rdma_cm_id *cm_id);
+-void rds_iw_cm_connect_complete(struct rds_connection *conn,
+-				struct rdma_cm_event *event);
+-
+-
+-#define rds_iw_conn_error(conn, fmt...) \
+-	__rds_iw_conn_error(conn, KERN_WARNING "RDS/IW: " fmt)
+-
+-/* ib_rdma.c */
+-int rds_iw_update_cm_id(struct rds_iw_device *rds_iwdev, struct rdma_cm_id *cm_id);
+-void rds_iw_add_conn(struct rds_iw_device *rds_iwdev, struct rds_connection *conn);
+-void rds_iw_remove_conn(struct rds_iw_device *rds_iwdev, struct rds_connection *conn);
+-void __rds_iw_destroy_conns(struct list_head *list, spinlock_t *list_lock);
+-static inline void rds_iw_destroy_nodev_conns(void)
+-{
+-	__rds_iw_destroy_conns(&iw_nodev_conns, &iw_nodev_conns_lock);
+-}
+-static inline void rds_iw_destroy_conns(struct rds_iw_device *rds_iwdev)
+-{
+-	__rds_iw_destroy_conns(&rds_iwdev->conn_list, &rds_iwdev->spinlock);
+-}
+-struct rds_iw_mr_pool *rds_iw_create_mr_pool(struct rds_iw_device *);
+-void rds_iw_get_mr_info(struct rds_iw_device *rds_iwdev, struct rds_info_rdma_connection *iinfo);
+-void rds_iw_destroy_mr_pool(struct rds_iw_mr_pool *);
+-void *rds_iw_get_mr(struct scatterlist *sg, unsigned long nents,
+-		    struct rds_sock *rs, u32 *key_ret);
+-void rds_iw_sync_mr(void *trans_private, int dir);
+-void rds_iw_free_mr(void *trans_private, int invalidate);
+-void rds_iw_flush_mrs(void);
+-
+-/* ib_recv.c */
+-int rds_iw_recv_init(void);
+-void rds_iw_recv_exit(void);
+-int rds_iw_recv(struct rds_connection *conn);
+-int rds_iw_recv_refill(struct rds_connection *conn, gfp_t kptr_gfp,
+-		       gfp_t page_gfp, int prefill);
+-void rds_iw_inc_free(struct rds_incoming *inc);
+-int rds_iw_inc_copy_to_user(struct rds_incoming *inc, struct iov_iter *to);
+-void rds_iw_recv_cq_comp_handler(struct ib_cq *cq, void *context);
+-void rds_iw_recv_tasklet_fn(unsigned long data);
+-void rds_iw_recv_init_ring(struct rds_iw_connection *ic);
+-void rds_iw_recv_clear_ring(struct rds_iw_connection *ic);
+-void rds_iw_recv_init_ack(struct rds_iw_connection *ic);
+-void rds_iw_attempt_ack(struct rds_iw_connection *ic);
+-void rds_iw_ack_send_complete(struct rds_iw_connection *ic);
+-u64 rds_iw_piggyb_ack(struct rds_iw_connection *ic);
+-
+-/* ib_ring.c */
+-void rds_iw_ring_init(struct rds_iw_work_ring *ring, u32 nr);
+-void rds_iw_ring_resize(struct rds_iw_work_ring *ring, u32 nr);
+-u32 rds_iw_ring_alloc(struct rds_iw_work_ring *ring, u32 val, u32 *pos);
+-void rds_iw_ring_free(struct rds_iw_work_ring *ring, u32 val);
+-void rds_iw_ring_unalloc(struct rds_iw_work_ring *ring, u32 val);
+-int rds_iw_ring_empty(struct rds_iw_work_ring *ring);
+-int rds_iw_ring_low(struct rds_iw_work_ring *ring);
+-u32 rds_iw_ring_oldest(struct rds_iw_work_ring *ring);
+-u32 rds_iw_ring_completed(struct rds_iw_work_ring *ring, u32 wr_id, u32 oldest);
+-extern wait_queue_head_t rds_iw_ring_empty_wait;
+-
+-/* ib_send.c */
+-void rds_iw_xmit_complete(struct rds_connection *conn);
+-int rds_iw_xmit(struct rds_connection *conn, struct rds_message *rm,
+-		unsigned int hdr_off, unsigned int sg, unsigned int off);
+-void rds_iw_send_cq_comp_handler(struct ib_cq *cq, void *context);
+-void rds_iw_send_init_ring(struct rds_iw_connection *ic);
+-void rds_iw_send_clear_ring(struct rds_iw_connection *ic);
+-int rds_iw_xmit_rdma(struct rds_connection *conn, struct rm_rdma_op *op);
+-void rds_iw_send_add_credits(struct rds_connection *conn, unsigned int credits);
+-void rds_iw_advertise_credits(struct rds_connection *conn, unsigned int posted);
+-int rds_iw_send_grab_credits(struct rds_iw_connection *ic, u32 wanted,
+-			     u32 *adv_credits, int need_posted, int max_posted);
+-
+-/* ib_stats.c */
+-DECLARE_PER_CPU(struct rds_iw_statistics, rds_iw_stats);
+-#define rds_iw_stats_inc(member) rds_stats_inc_which(rds_iw_stats, member)
+-unsigned int rds_iw_stats_info_copy(struct rds_info_iterator *iter,
+-				    unsigned int avail);
+-
+-/* ib_sysctl.c */
+-int rds_iw_sysctl_init(void);
+-void rds_iw_sysctl_exit(void);
+-extern unsigned long rds_iw_sysctl_max_send_wr;
+-extern unsigned long rds_iw_sysctl_max_recv_wr;
+-extern unsigned long rds_iw_sysctl_max_unsig_wrs;
+-extern unsigned long rds_iw_sysctl_max_unsig_bytes;
+-extern unsigned long rds_iw_sysctl_max_recv_allocation;
+-extern unsigned int rds_iw_sysctl_flow_control;
+-
+-/*
+- * Helper functions for getting/setting the header and data SGEs in
+- * RDS packets (not RDMA)
+- */
+-static inline struct ib_sge *
+-rds_iw_header_sge(struct rds_iw_connection *ic, struct ib_sge *sge)
+-{
+-	return &sge[0];
+-}
+-
+-static inline struct ib_sge *
+-rds_iw_data_sge(struct rds_iw_connection *ic, struct ib_sge *sge)
+-{
+-	return &sge[1];
+-}
+-
+-#endif
+diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
+deleted file mode 100644
+index aea4c911bc76..000000000000
+--- a/net/rds/iw_cm.c
++++ /dev/null
+@@ -1,769 +0,0 @@
+-/*
+- * Copyright (c) 2006 Oracle.  All rights reserved.
+- *
+- * This software is available to you under a choice of one of two
+- * licenses.  You may choose to be licensed under the terms of the GNU
+- * General Public License (GPL) Version 2, available from the file
+- * COPYING in the main directory of this source tree, or the
+- * OpenIB.org BSD license below:
+- *
+- *     Redistribution and use in source and binary forms, with or
+- *     without modification, are permitted provided that the following
+- *     conditions are met:
+- *
+- *      - Redistributions of source code must retain the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer.
+- *
+- *      - Redistributions in binary form must reproduce the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer in the documentation and/or other materials
+- *        provided with the distribution.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+- * SOFTWARE.
+- *
+- */
+-#include <linux/kernel.h>
+-#include <linux/in.h>
+-#include <linux/slab.h>
+-#include <linux/vmalloc.h>
+-#include <linux/ratelimit.h>
+-
+-#include "rds.h"
+-#include "iw.h"
+-
+-/*
+- * Set the selected protocol version
+- */
+-static void rds_iw_set_protocol(struct rds_connection *conn, unsigned int version)
+-{
+-	conn->c_version = version;
+-}
+-
+-/*
+- * Set up flow control
+- */
+-static void rds_iw_set_flow_control(struct rds_connection *conn, u32 credits)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-
+-	if (rds_iw_sysctl_flow_control && credits != 0) {
+-		/* We're doing flow control */
+-		ic->i_flowctl = 1;
+-		rds_iw_send_add_credits(conn, credits);
+-	} else {
+-		ic->i_flowctl = 0;
+-	}
+-}
+-
+-/*
+- * Connection established.
+- * We get here for both outgoing and incoming connection.
+- */
+-void rds_iw_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_event *event)
+-{
+-	const struct rds_iw_connect_private *dp = NULL;
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	struct rds_iw_device *rds_iwdev;
+-	int err;
+-
+-	if (event->param.conn.private_data_len) {
+-		dp = event->param.conn.private_data;
+-
+-		rds_iw_set_protocol(conn,
+-				RDS_PROTOCOL(dp->dp_protocol_major,
+-					dp->dp_protocol_minor));
+-		rds_iw_set_flow_control(conn, be32_to_cpu(dp->dp_credit));
+-	}
+-
+-	/* update ib_device with this local ipaddr & conn */
+-	rds_iwdev = ib_get_client_data(ic->i_cm_id->device, &rds_iw_client);
+-	err = rds_iw_update_cm_id(rds_iwdev, ic->i_cm_id);
+-	if (err)
+-		printk(KERN_ERR "rds_iw_update_ipaddr failed (%d)\n", err);
+-	rds_iw_add_conn(rds_iwdev, conn);
+-
+-	/* If the peer gave us the last packet it saw, process this as if
+-	 * we had received a regular ACK. */
+-	if (dp && dp->dp_ack_seq)
+-		rds_send_drop_acked(conn, be64_to_cpu(dp->dp_ack_seq), NULL);
+-
+-	printk(KERN_NOTICE "RDS/IW: connected to %pI4<->%pI4 version %u.%u%s\n",
+-			&conn->c_laddr, &conn->c_faddr,
+-			RDS_PROTOCOL_MAJOR(conn->c_version),
+-			RDS_PROTOCOL_MINOR(conn->c_version),
+-			ic->i_flowctl ? ", flow control" : "");
+-
+-	rds_connect_complete(conn);
+-}
+-
+-static void rds_iw_cm_fill_conn_param(struct rds_connection *conn,
+-			struct rdma_conn_param *conn_param,
+-			struct rds_iw_connect_private *dp,
+-			u32 protocol_version)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-
+-	memset(conn_param, 0, sizeof(struct rdma_conn_param));
+-	/* XXX tune these? */
+-	conn_param->responder_resources = 1;
+-	conn_param->initiator_depth = 1;
+-
+-	if (dp) {
+-		memset(dp, 0, sizeof(*dp));
+-		dp->dp_saddr = conn->c_laddr;
+-		dp->dp_daddr = conn->c_faddr;
+-		dp->dp_protocol_major = RDS_PROTOCOL_MAJOR(protocol_version);
+-		dp->dp_protocol_minor = RDS_PROTOCOL_MINOR(protocol_version);
+-		dp->dp_protocol_minor_mask = cpu_to_be16(RDS_IW_SUPPORTED_PROTOCOLS);
+-		dp->dp_ack_seq = rds_iw_piggyb_ack(ic);
+-
+-		/* Advertise flow control */
+-		if (ic->i_flowctl) {
+-			unsigned int credits;
+-
+-			credits = IB_GET_POST_CREDITS(atomic_read(&ic->i_credits));
+-			dp->dp_credit = cpu_to_be32(credits);
+-			atomic_sub(IB_SET_POST_CREDITS(credits), &ic->i_credits);
+-		}
+-
+-		conn_param->private_data = dp;
+-		conn_param->private_data_len = sizeof(*dp);
+-	}
+-}
+-
+-static void rds_iw_cq_event_handler(struct ib_event *event, void *data)
+-{
+-	rdsdebug("event %u data %p\n", event->event, data);
+-}
+-
+-static void rds_iw_qp_event_handler(struct ib_event *event, void *data)
+-{
+-	struct rds_connection *conn = data;
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-
+-	rdsdebug("conn %p ic %p event %u\n", conn, ic, event->event);
+-
+-	switch (event->event) {
+-	case IB_EVENT_COMM_EST:
+-		rdma_notify(ic->i_cm_id, IB_EVENT_COMM_EST);
+-		break;
+-	case IB_EVENT_QP_REQ_ERR:
+-	case IB_EVENT_QP_FATAL:
+-	default:
+-		rdsdebug("Fatal QP Event %u "
+-			"- connection %pI4->%pI4, reconnecting\n",
+-			event->event, &conn->c_laddr,
+-			&conn->c_faddr);
+-		rds_conn_drop(conn);
+-		break;
+-	}
+-}
+-
+-/*
+- * Create a QP
+- */
+-static int rds_iw_init_qp_attrs(struct ib_qp_init_attr *attr,
+-		struct rds_iw_device *rds_iwdev,
+-		struct rds_iw_work_ring *send_ring,
+-		void (*send_cq_handler)(struct ib_cq *, void *),
+-		struct rds_iw_work_ring *recv_ring,
+-		void (*recv_cq_handler)(struct ib_cq *, void *),
+-		void *context)
+-{
+-	struct ib_device *dev = rds_iwdev->dev;
+-	struct ib_cq_init_attr cq_attr = {};
+-	unsigned int send_size, recv_size;
+-	int ret;
+-
+-	/* The offset of 1 is to accommodate the additional ACK WR. */
+-	send_size = min_t(unsigned int, rds_iwdev->max_wrs, rds_iw_sysctl_max_send_wr + 1);
+-	recv_size = min_t(unsigned int, rds_iwdev->max_wrs, rds_iw_sysctl_max_recv_wr + 1);
+-	rds_iw_ring_resize(send_ring, send_size - 1);
+-	rds_iw_ring_resize(recv_ring, recv_size - 1);
+-
+-	memset(attr, 0, sizeof(*attr));
+-	attr->event_handler = rds_iw_qp_event_handler;
+-	attr->qp_context = context;
+-	attr->cap.max_send_wr = send_size;
+-	attr->cap.max_recv_wr = recv_size;
+-	attr->cap.max_send_sge = rds_iwdev->max_sge;
+-	attr->cap.max_recv_sge = RDS_IW_RECV_SGE;
+-	attr->sq_sig_type = IB_SIGNAL_REQ_WR;
+-	attr->qp_type = IB_QPT_RC;
+-
+-	cq_attr.cqe = send_size;
+-	attr->send_cq = ib_create_cq(dev, send_cq_handler,
+-				     rds_iw_cq_event_handler,
+-				     context, &cq_attr);
+-	if (IS_ERR(attr->send_cq)) {
+-		ret = PTR_ERR(attr->send_cq);
+-		attr->send_cq = NULL;
+-		rdsdebug("ib_create_cq send failed: %d\n", ret);
+-		goto out;
+-	}
+-
+-	cq_attr.cqe = recv_size;
+-	attr->recv_cq = ib_create_cq(dev, recv_cq_handler,
+-				     rds_iw_cq_event_handler,
+-				     context, &cq_attr);
+-	if (IS_ERR(attr->recv_cq)) {
+-		ret = PTR_ERR(attr->recv_cq);
+-		attr->recv_cq = NULL;
+-		rdsdebug("ib_create_cq send failed: %d\n", ret);
+-		goto out;
+-	}
+-
+-	ret = ib_req_notify_cq(attr->send_cq, IB_CQ_NEXT_COMP);
+-	if (ret) {
+-		rdsdebug("ib_req_notify_cq send failed: %d\n", ret);
+-		goto out;
+-	}
+-
+-	ret = ib_req_notify_cq(attr->recv_cq, IB_CQ_SOLICITED);
+-	if (ret) {
+-		rdsdebug("ib_req_notify_cq recv failed: %d\n", ret);
+-		goto out;
+-	}
+-
+-out:
+-	if (ret) {
+-		if (attr->send_cq)
+-			ib_destroy_cq(attr->send_cq);
+-		if (attr->recv_cq)
+-			ib_destroy_cq(attr->recv_cq);
+-	}
+-	return ret;
+-}
+-
+-/*
+- * This needs to be very careful to not leave IS_ERR pointers around for
+- * cleanup to trip over.
+- */
+-static int rds_iw_setup_qp(struct rds_connection *conn)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	struct ib_device *dev = ic->i_cm_id->device;
+-	struct ib_qp_init_attr attr;
+-	struct rds_iw_device *rds_iwdev;
+-	int ret;
+-
+-	/* rds_iw_add_one creates a rds_iw_device object per IB device,
+-	 * and allocates a protection domain, memory range and MR pool
+-	 * for each.  If that fails for any reason, it will not register
+-	 * the rds_iwdev at all.
+-	 */
+-	rds_iwdev = ib_get_client_data(dev, &rds_iw_client);
+-	if (!rds_iwdev) {
+-		printk_ratelimited(KERN_NOTICE "RDS/IW: No client_data for device %s\n",
+-					dev->name);
+-		return -EOPNOTSUPP;
+-	}
+-
+-	/* Protection domain and memory range */
+-	ic->i_pd = rds_iwdev->pd;
+-	ic->i_mr = rds_iwdev->mr;
+-
+-	ret = rds_iw_init_qp_attrs(&attr, rds_iwdev,
+-			&ic->i_send_ring, rds_iw_send_cq_comp_handler,
+-			&ic->i_recv_ring, rds_iw_recv_cq_comp_handler,
+-			conn);
+-	if (ret < 0)
+-		goto out;
+-
+-	ic->i_send_cq = attr.send_cq;
+-	ic->i_recv_cq = attr.recv_cq;
+-
+-	/*
+-	 * XXX this can fail if max_*_wr is too large?  Are we supposed
+-	 * to back off until we get a value that the hardware can support?
+-	 */
+-	ret = rdma_create_qp(ic->i_cm_id, ic->i_pd, &attr);
+-	if (ret) {
+-		rdsdebug("rdma_create_qp failed: %d\n", ret);
+-		goto out;
+-	}
+-
+-	ic->i_send_hdrs = ib_dma_alloc_coherent(dev,
+-					   ic->i_send_ring.w_nr *
+-						sizeof(struct rds_header),
+-					   &ic->i_send_hdrs_dma, GFP_KERNEL);
+-	if (!ic->i_send_hdrs) {
+-		ret = -ENOMEM;
+-		rdsdebug("ib_dma_alloc_coherent send failed\n");
+-		goto out;
+-	}
+-
+-	ic->i_recv_hdrs = ib_dma_alloc_coherent(dev,
+-					   ic->i_recv_ring.w_nr *
+-						sizeof(struct rds_header),
+-					   &ic->i_recv_hdrs_dma, GFP_KERNEL);
+-	if (!ic->i_recv_hdrs) {
+-		ret = -ENOMEM;
+-		rdsdebug("ib_dma_alloc_coherent recv failed\n");
+-		goto out;
+-	}
+-
+-	ic->i_ack = ib_dma_alloc_coherent(dev, sizeof(struct rds_header),
+-				       &ic->i_ack_dma, GFP_KERNEL);
+-	if (!ic->i_ack) {
+-		ret = -ENOMEM;
+-		rdsdebug("ib_dma_alloc_coherent ack failed\n");
+-		goto out;
+-	}
+-
+-	ic->i_sends = vmalloc(ic->i_send_ring.w_nr * sizeof(struct rds_iw_send_work));
+-	if (!ic->i_sends) {
+-		ret = -ENOMEM;
+-		rdsdebug("send allocation failed\n");
+-		goto out;
+-	}
+-	rds_iw_send_init_ring(ic);
+-
+-	ic->i_recvs = vmalloc(ic->i_recv_ring.w_nr * sizeof(struct rds_iw_recv_work));
+-	if (!ic->i_recvs) {
+-		ret = -ENOMEM;
+-		rdsdebug("recv allocation failed\n");
+-		goto out;
+-	}
+-
+-	rds_iw_recv_init_ring(ic);
+-	rds_iw_recv_init_ack(ic);
+-
+-	/* Post receive buffers - as a side effect, this will update
+-	 * the posted credit count. */
+-	rds_iw_recv_refill(conn, GFP_KERNEL, GFP_HIGHUSER, 1);
+-
+-	rdsdebug("conn %p pd %p mr %p cq %p %p\n", conn, ic->i_pd, ic->i_mr,
+-		 ic->i_send_cq, ic->i_recv_cq);
+-
+-out:
+-	return ret;
+-}
+-
+-static u32 rds_iw_protocol_compatible(const struct rds_iw_connect_private *dp)
+-{
+-	u16 common;
+-	u32 version = 0;
+-
+-	/* rdma_cm private data is odd - when there is any private data in the
+-	 * request, we will be given a pretty large buffer without telling us the
+-	 * original size. The only way to tell the difference is by looking at
+-	 * the contents, which are initialized to zero.
+-	 * If the protocol version fields aren't set, this is a connection attempt
+-	 * from an older version. This could could be 3.0 or 2.0 - we can't tell.
+-	 * We really should have changed this for OFED 1.3 :-( */
+-	if (dp->dp_protocol_major == 0)
+-		return RDS_PROTOCOL_3_0;
+-
+-	common = be16_to_cpu(dp->dp_protocol_minor_mask) & RDS_IW_SUPPORTED_PROTOCOLS;
+-	if (dp->dp_protocol_major == 3 && common) {
+-		version = RDS_PROTOCOL_3_0;
+-		while ((common >>= 1) != 0)
+-			version++;
+-	}
+-	printk_ratelimited(KERN_NOTICE "RDS: Connection from %pI4 using "
+-			"incompatible protocol version %u.%u\n",
+-			&dp->dp_saddr,
+-			dp->dp_protocol_major,
+-			dp->dp_protocol_minor);
+-	return version;
+-}
+-
+-int rds_iw_cm_handle_connect(struct rdma_cm_id *cm_id,
+-				    struct rdma_cm_event *event)
+-{
+-	const struct rds_iw_connect_private *dp = event->param.conn.private_data;
+-	struct rds_iw_connect_private dp_rep;
+-	struct rds_connection *conn = NULL;
+-	struct rds_iw_connection *ic = NULL;
+-	struct rdma_conn_param conn_param;
+-	struct rds_iw_device *rds_iwdev;
+-	u32 version;
+-	int err, destroy = 1;
+-
+-	/* Check whether the remote protocol version matches ours. */
+-	version = rds_iw_protocol_compatible(dp);
+-	if (!version)
+-		goto out;
+-
+-	rdsdebug("saddr %pI4 daddr %pI4 RDSv%u.%u\n",
+-		 &dp->dp_saddr, &dp->dp_daddr,
+-		 RDS_PROTOCOL_MAJOR(version), RDS_PROTOCOL_MINOR(version));
+-
+-	/* RDS/IW is not currently netns aware, thus init_net */
+-	conn = rds_conn_create(&init_net, dp->dp_daddr, dp->dp_saddr,
+-			       &rds_iw_transport, GFP_KERNEL);
+-	if (IS_ERR(conn)) {
+-		rdsdebug("rds_conn_create failed (%ld)\n", PTR_ERR(conn));
+-		conn = NULL;
+-		goto out;
+-	}
+-
+-	/*
+-	 * The connection request may occur while the
+-	 * previous connection exist, e.g. in case of failover.
+-	 * But as connections may be initiated simultaneously
+-	 * by both hosts, we have a random backoff mechanism -
+-	 * see the comment above rds_queue_reconnect()
+-	 */
+-	mutex_lock(&conn->c_cm_lock);
+-	if (!rds_conn_transition(conn, RDS_CONN_DOWN, RDS_CONN_CONNECTING)) {
+-		if (rds_conn_state(conn) == RDS_CONN_UP) {
+-			rdsdebug("incoming connect while connecting\n");
+-			rds_conn_drop(conn);
+-			rds_iw_stats_inc(s_iw_listen_closed_stale);
+-		} else
+-		if (rds_conn_state(conn) == RDS_CONN_CONNECTING) {
+-			/* Wait and see - our connect may still be succeeding */
+-			rds_iw_stats_inc(s_iw_connect_raced);
+-		}
+-		mutex_unlock(&conn->c_cm_lock);
+-		goto out;
+-	}
+-
+-	ic = conn->c_transport_data;
+-
+-	rds_iw_set_protocol(conn, version);
+-	rds_iw_set_flow_control(conn, be32_to_cpu(dp->dp_credit));
+-
+-	/* If the peer gave us the last packet it saw, process this as if
+-	 * we had received a regular ACK. */
+-	if (dp->dp_ack_seq)
+-		rds_send_drop_acked(conn, be64_to_cpu(dp->dp_ack_seq), NULL);
+-
+-	BUG_ON(cm_id->context);
+-	BUG_ON(ic->i_cm_id);
+-
+-	ic->i_cm_id = cm_id;
+-	cm_id->context = conn;
+-
+-	rds_iwdev = ib_get_client_data(cm_id->device, &rds_iw_client);
+-	ic->i_dma_local_lkey = rds_iwdev->dma_local_lkey;
+-
+-	/* We got halfway through setting up the ib_connection, if we
+-	 * fail now, we have to take the long route out of this mess. */
+-	destroy = 0;
+-
+-	err = rds_iw_setup_qp(conn);
+-	if (err) {
+-		rds_iw_conn_error(conn, "rds_iw_setup_qp failed (%d)\n", err);
+-		mutex_unlock(&conn->c_cm_lock);
+-		goto out;
+-	}
+-
+-	rds_iw_cm_fill_conn_param(conn, &conn_param, &dp_rep, version);
+-
+-	/* rdma_accept() calls rdma_reject() internally if it fails */
+-	err = rdma_accept(cm_id, &conn_param);
+-	mutex_unlock(&conn->c_cm_lock);
+-	if (err) {
+-		rds_iw_conn_error(conn, "rdma_accept failed (%d)\n", err);
+-		goto out;
+-	}
+-
+-	return 0;
+-
+-out:
+-	rdma_reject(cm_id, NULL, 0);
+-	return destroy;
+-}
+-
+-
+-int rds_iw_cm_initiate_connect(struct rdma_cm_id *cm_id)
+-{
+-	struct rds_connection *conn = cm_id->context;
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	struct rdma_conn_param conn_param;
+-	struct rds_iw_connect_private dp;
+-	int ret;
+-
+-	/* If the peer doesn't do protocol negotiation, we must
+-	 * default to RDSv3.0 */
+-	rds_iw_set_protocol(conn, RDS_PROTOCOL_3_0);
+-	ic->i_flowctl = rds_iw_sysctl_flow_control;	/* advertise flow control */
+-
+-	ret = rds_iw_setup_qp(conn);
+-	if (ret) {
+-		rds_iw_conn_error(conn, "rds_iw_setup_qp failed (%d)\n", ret);
+-		goto out;
+-	}
+-
+-	rds_iw_cm_fill_conn_param(conn, &conn_param, &dp, RDS_PROTOCOL_VERSION);
+-
+-	ret = rdma_connect(cm_id, &conn_param);
+-	if (ret)
+-		rds_iw_conn_error(conn, "rdma_connect failed (%d)\n", ret);
+-
+-out:
+-	/* Beware - returning non-zero tells the rdma_cm to destroy
+-	 * the cm_id. We should certainly not do it as long as we still
+-	 * "own" the cm_id. */
+-	if (ret) {
+-		struct rds_iw_connection *ic = conn->c_transport_data;
+-
+-		if (ic->i_cm_id == cm_id)
+-			ret = 0;
+-	}
+-	return ret;
+-}
+-
+-int rds_iw_conn_connect(struct rds_connection *conn)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	struct rds_iw_device *rds_iwdev;
+-	struct sockaddr_in src, dest;
+-	int ret;
+-
+-	/* XXX I wonder what affect the port space has */
+-	/* delegate cm event handler to rdma_transport */
+-	ic->i_cm_id = rdma_create_id(&init_net, rds_rdma_cm_event_handler, conn,
+-				     RDMA_PS_TCP, IB_QPT_RC);
+-	if (IS_ERR(ic->i_cm_id)) {
+-		ret = PTR_ERR(ic->i_cm_id);
+-		ic->i_cm_id = NULL;
+-		rdsdebug("rdma_create_id() failed: %d\n", ret);
+-		goto out;
+-	}
+-
+-	rdsdebug("created cm id %p for conn %p\n", ic->i_cm_id, conn);
+-
+-	src.sin_family = AF_INET;
+-	src.sin_addr.s_addr = (__force u32)conn->c_laddr;
+-	src.sin_port = (__force u16)htons(0);
+-
+-	/* First, bind to the local address and device. */
+-	ret = rdma_bind_addr(ic->i_cm_id, (struct sockaddr *) &src);
+-	if (ret) {
+-		rdsdebug("rdma_bind_addr(%pI4) failed: %d\n",
+-				&conn->c_laddr, ret);
+-		rdma_destroy_id(ic->i_cm_id);
+-		ic->i_cm_id = NULL;
+-		goto out;
+-	}
+-
+-	rds_iwdev = ib_get_client_data(ic->i_cm_id->device, &rds_iw_client);
+-	ic->i_dma_local_lkey = rds_iwdev->dma_local_lkey;
+-
+-	dest.sin_family = AF_INET;
+-	dest.sin_addr.s_addr = (__force u32)conn->c_faddr;
+-	dest.sin_port = (__force u16)htons(RDS_PORT);
+-
+-	ret = rdma_resolve_addr(ic->i_cm_id, (struct sockaddr *)&src,
+-				(struct sockaddr *)&dest,
+-				RDS_RDMA_RESOLVE_TIMEOUT_MS);
+-	if (ret) {
+-		rdsdebug("addr resolve failed for cm id %p: %d\n", ic->i_cm_id,
+-			 ret);
+-		rdma_destroy_id(ic->i_cm_id);
+-		ic->i_cm_id = NULL;
+-	}
+-
+-out:
+-	return ret;
+-}
+-
+-/*
+- * This is so careful about only cleaning up resources that were built up
+- * so that it can be called at any point during startup.  In fact it
+- * can be called multiple times for a given connection.
+- */
+-void rds_iw_conn_shutdown(struct rds_connection *conn)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	int err = 0;
+-	struct ib_qp_attr qp_attr;
+-
+-	rdsdebug("cm %p pd %p cq %p %p qp %p\n", ic->i_cm_id,
+-		 ic->i_pd, ic->i_send_cq, ic->i_recv_cq,
+-		 ic->i_cm_id ? ic->i_cm_id->qp : NULL);
+-
+-	if (ic->i_cm_id) {
+-		struct ib_device *dev = ic->i_cm_id->device;
+-
+-		rdsdebug("disconnecting cm %p\n", ic->i_cm_id);
+-		err = rdma_disconnect(ic->i_cm_id);
+-		if (err) {
+-			/* Actually this may happen quite frequently, when
+-			 * an outgoing connect raced with an incoming connect.
+-			 */
+-			rdsdebug("failed to disconnect, cm: %p err %d\n",
+-				 ic->i_cm_id, err);
+-		}
+-
+-		if (ic->i_cm_id->qp) {
+-			qp_attr.qp_state = IB_QPS_ERR;
+-			ib_modify_qp(ic->i_cm_id->qp, &qp_attr, IB_QP_STATE);
+-		}
+-
+-		wait_event(rds_iw_ring_empty_wait,
+-			rds_iw_ring_empty(&ic->i_send_ring) &&
+-			rds_iw_ring_empty(&ic->i_recv_ring));
+-
+-		if (ic->i_send_hdrs)
+-			ib_dma_free_coherent(dev,
+-					   ic->i_send_ring.w_nr *
+-						sizeof(struct rds_header),
+-					   ic->i_send_hdrs,
+-					   ic->i_send_hdrs_dma);
+-
+-		if (ic->i_recv_hdrs)
+-			ib_dma_free_coherent(dev,
+-					   ic->i_recv_ring.w_nr *
+-						sizeof(struct rds_header),
+-					   ic->i_recv_hdrs,
+-					   ic->i_recv_hdrs_dma);
+-
+-		if (ic->i_ack)
+-			ib_dma_free_coherent(dev, sizeof(struct rds_header),
+-					     ic->i_ack, ic->i_ack_dma);
+-
+-		if (ic->i_sends)
+-			rds_iw_send_clear_ring(ic);
+-		if (ic->i_recvs)
+-			rds_iw_recv_clear_ring(ic);
+-
+-		if (ic->i_cm_id->qp)
+-			rdma_destroy_qp(ic->i_cm_id);
+-		if (ic->i_send_cq)
+-			ib_destroy_cq(ic->i_send_cq);
+-		if (ic->i_recv_cq)
+-			ib_destroy_cq(ic->i_recv_cq);
+-
+-		/*
+-		 * If associated with an rds_iw_device:
+-		 * 	Move connection back to the nodev list.
+-		 * 	Remove cm_id from the device cm_id list.
+-		 */
+-		if (ic->rds_iwdev)
+-			rds_iw_remove_conn(ic->rds_iwdev, conn);
+-
+-		rdma_destroy_id(ic->i_cm_id);
+-
+-		ic->i_cm_id = NULL;
+-		ic->i_pd = NULL;
+-		ic->i_mr = NULL;
+-		ic->i_send_cq = NULL;
+-		ic->i_recv_cq = NULL;
+-		ic->i_send_hdrs = NULL;
+-		ic->i_recv_hdrs = NULL;
+-		ic->i_ack = NULL;
+-	}
+-	BUG_ON(ic->rds_iwdev);
+-
+-	/* Clear pending transmit */
+-	if (ic->i_rm) {
+-		rds_message_put(ic->i_rm);
+-		ic->i_rm = NULL;
+-	}
+-
+-	/* Clear the ACK state */
+-	clear_bit(IB_ACK_IN_FLIGHT, &ic->i_ack_flags);
+-#ifdef KERNEL_HAS_ATOMIC64
+-	atomic64_set(&ic->i_ack_next, 0);
+-#else
+-	ic->i_ack_next = 0;
+-#endif
+-	ic->i_ack_recv = 0;
+-
+-	/* Clear flow control state */
+-	ic->i_flowctl = 0;
+-	atomic_set(&ic->i_credits, 0);
+-
+-	rds_iw_ring_init(&ic->i_send_ring, rds_iw_sysctl_max_send_wr);
+-	rds_iw_ring_init(&ic->i_recv_ring, rds_iw_sysctl_max_recv_wr);
+-
+-	if (ic->i_iwinc) {
+-		rds_inc_put(&ic->i_iwinc->ii_inc);
+-		ic->i_iwinc = NULL;
+-	}
+-
+-	vfree(ic->i_sends);
+-	ic->i_sends = NULL;
+-	vfree(ic->i_recvs);
+-	ic->i_recvs = NULL;
+-	rdsdebug("shutdown complete\n");
+-}
+-
+-int rds_iw_conn_alloc(struct rds_connection *conn, gfp_t gfp)
+-{
+-	struct rds_iw_connection *ic;
+-	unsigned long flags;
+-
+-	/* XXX too lazy? */
+-	ic = kzalloc(sizeof(struct rds_iw_connection), gfp);
+-	if (!ic)
+-		return -ENOMEM;
+-
+-	INIT_LIST_HEAD(&ic->iw_node);
+-	tasklet_init(&ic->i_recv_tasklet, rds_iw_recv_tasklet_fn,
+-		     (unsigned long) ic);
+-	mutex_init(&ic->i_recv_mutex);
+-#ifndef KERNEL_HAS_ATOMIC64
+-	spin_lock_init(&ic->i_ack_lock);
+-#endif
+-
+-	/*
+-	 * rds_iw_conn_shutdown() waits for these to be emptied so they
+-	 * must be initialized before it can be called.
+-	 */
+-	rds_iw_ring_init(&ic->i_send_ring, rds_iw_sysctl_max_send_wr);
+-	rds_iw_ring_init(&ic->i_recv_ring, rds_iw_sysctl_max_recv_wr);
+-
+-	ic->conn = conn;
+-	conn->c_transport_data = ic;
+-
+-	spin_lock_irqsave(&iw_nodev_conns_lock, flags);
+-	list_add_tail(&ic->iw_node, &iw_nodev_conns);
+-	spin_unlock_irqrestore(&iw_nodev_conns_lock, flags);
+-
+-
+-	rdsdebug("conn %p conn ic %p\n", conn, conn->c_transport_data);
+-	return 0;
+-}
+-
+-/*
+- * Free a connection. Connection must be shut down and not set for reconnect.
+- */
+-void rds_iw_conn_free(void *arg)
+-{
+-	struct rds_iw_connection *ic = arg;
+-	spinlock_t	*lock_ptr;
+-
+-	rdsdebug("ic %p\n", ic);
+-
+-	/*
+-	 * Conn is either on a dev's list or on the nodev list.
+-	 * A race with shutdown() or connect() would cause problems
+-	 * (since rds_iwdev would change) but that should never happen.
+-	 */
+-	lock_ptr = ic->rds_iwdev ? &ic->rds_iwdev->spinlock : &iw_nodev_conns_lock;
+-
+-	spin_lock_irq(lock_ptr);
+-	list_del(&ic->iw_node);
+-	spin_unlock_irq(lock_ptr);
+-
+-	kfree(ic);
+-}
+-
+-/*
+- * An error occurred on the connection
+- */
+-void
+-__rds_iw_conn_error(struct rds_connection *conn, const char *fmt, ...)
+-{
+-	va_list ap;
+-
+-	rds_conn_drop(conn);
+-
+-	va_start(ap, fmt);
+-	vprintk(fmt, ap);
+-	va_end(ap);
+-}
+diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
+deleted file mode 100644
+index b09a40c1adce..000000000000
+--- a/net/rds/iw_rdma.c
++++ /dev/null
+@@ -1,837 +0,0 @@
+-/*
+- * Copyright (c) 2006 Oracle.  All rights reserved.
+- *
+- * This software is available to you under a choice of one of two
+- * licenses.  You may choose to be licensed under the terms of the GNU
+- * General Public License (GPL) Version 2, available from the file
+- * COPYING in the main directory of this source tree, or the
+- * OpenIB.org BSD license below:
+- *
+- *     Redistribution and use in source and binary forms, with or
+- *     without modification, are permitted provided that the following
+- *     conditions are met:
+- *
+- *      - Redistributions of source code must retain the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer.
+- *
+- *      - Redistributions in binary form must reproduce the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer in the documentation and/or other materials
+- *        provided with the distribution.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+- * SOFTWARE.
+- *
+- */
+-#include <linux/kernel.h>
+-#include <linux/slab.h>
+-#include <linux/ratelimit.h>
+-
+-#include "rds.h"
+-#include "iw.h"
+-
+-
+-/*
+- * This is stored as mr->r_trans_private.
+- */
+-struct rds_iw_mr {
+-	struct rds_iw_device	*device;
+-	struct rds_iw_mr_pool	*pool;
+-	struct rdma_cm_id	*cm_id;
+-
+-	struct ib_mr	*mr;
+-
+-	struct rds_iw_mapping	mapping;
+-	unsigned char		remap_count;
+-};
+-
+-/*
+- * Our own little MR pool
+- */
+-struct rds_iw_mr_pool {
+-	struct rds_iw_device	*device;		/* back ptr to the device that owns us */
+-
+-	struct mutex		flush_lock;		/* serialize fmr invalidate */
+-	struct work_struct	flush_worker;		/* flush worker */
+-
+-	spinlock_t		list_lock;		/* protect variables below */
+-	atomic_t		item_count;		/* total # of MRs */
+-	atomic_t		dirty_count;		/* # dirty of MRs */
+-	struct list_head	dirty_list;		/* dirty mappings */
+-	struct list_head	clean_list;		/* unused & unamapped MRs */
+-	atomic_t		free_pinned;		/* memory pinned by free MRs */
+-	unsigned long		max_message_size;	/* in pages */
+-	unsigned long		max_items;
+-	unsigned long		max_items_soft;
+-	unsigned long		max_free_pinned;
+-	int			max_pages;
+-};
+-
+-static void rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all);
+-static void rds_iw_mr_pool_flush_worker(struct work_struct *work);
+-static int rds_iw_init_reg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
+-static int rds_iw_map_reg(struct rds_iw_mr_pool *pool,
+-			  struct rds_iw_mr *ibmr,
+-			  struct scatterlist *sg, unsigned int nents);
+-static void rds_iw_free_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
+-static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
+-			struct list_head *unmap_list,
+-			struct list_head *kill_list,
+-			int *unpinned);
+-static void rds_iw_destroy_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
+-
+-static int rds_iw_get_device(struct sockaddr_in *src, struct sockaddr_in *dst,
+-			     struct rds_iw_device **rds_iwdev,
+-			     struct rdma_cm_id **cm_id)
+-{
+-	struct rds_iw_device *iwdev;
+-	struct rds_iw_cm_id *i_cm_id;
+-
+-	*rds_iwdev = NULL;
+-	*cm_id = NULL;
+-
+-	list_for_each_entry(iwdev, &rds_iw_devices, list) {
+-		spin_lock_irq(&iwdev->spinlock);
+-		list_for_each_entry(i_cm_id, &iwdev->cm_id_list, list) {
+-			struct sockaddr_in *src_addr, *dst_addr;
+-
+-			src_addr = (struct sockaddr_in *)&i_cm_id->cm_id->route.addr.src_addr;
+-			dst_addr = (struct sockaddr_in *)&i_cm_id->cm_id->route.addr.dst_addr;
+-
+-			rdsdebug("local ipaddr = %x port %d, "
+-				 "remote ipaddr = %x port %d"
+-				 "..looking for %x port %d, "
+-				 "remote ipaddr = %x port %d\n",
+-				src_addr->sin_addr.s_addr,
+-				src_addr->sin_port,
+-				dst_addr->sin_addr.s_addr,
+-				dst_addr->sin_port,
+-				src->sin_addr.s_addr,
+-				src->sin_port,
+-				dst->sin_addr.s_addr,
+-				dst->sin_port);
+-#ifdef WORKING_TUPLE_DETECTION
+-			if (src_addr->sin_addr.s_addr == src->sin_addr.s_addr &&
+-			    src_addr->sin_port == src->sin_port &&
+-			    dst_addr->sin_addr.s_addr == dst->sin_addr.s_addr &&
+-			    dst_addr->sin_port == dst->sin_port) {
+-#else
+-			/* FIXME - needs to compare the local and remote
+-			 * ipaddr/port tuple, but the ipaddr is the only
+-			 * available information in the rds_sock (as the rest are
+-			 * zero'ed.  It doesn't appear to be properly populated
+-			 * during connection setup...
+-			 */
+-			if (src_addr->sin_addr.s_addr == src->sin_addr.s_addr) {
+-#endif
+-				spin_unlock_irq(&iwdev->spinlock);
+-				*rds_iwdev = iwdev;
+-				*cm_id = i_cm_id->cm_id;
+-				return 0;
+-			}
+-		}
+-		spin_unlock_irq(&iwdev->spinlock);
+-	}
+-
+-	return 1;
+-}
+-
+-static int rds_iw_add_cm_id(struct rds_iw_device *rds_iwdev, struct rdma_cm_id *cm_id)
+-{
+-	struct rds_iw_cm_id *i_cm_id;
+-
+-	i_cm_id = kmalloc(sizeof *i_cm_id, GFP_KERNEL);
+-	if (!i_cm_id)
+-		return -ENOMEM;
+-
+-	i_cm_id->cm_id = cm_id;
+-
+-	spin_lock_irq(&rds_iwdev->spinlock);
+-	list_add_tail(&i_cm_id->list, &rds_iwdev->cm_id_list);
+-	spin_unlock_irq(&rds_iwdev->spinlock);
+-
+-	return 0;
+-}
+-
+-static void rds_iw_remove_cm_id(struct rds_iw_device *rds_iwdev,
+-				struct rdma_cm_id *cm_id)
+-{
+-	struct rds_iw_cm_id *i_cm_id;
+-
+-	spin_lock_irq(&rds_iwdev->spinlock);
+-	list_for_each_entry(i_cm_id, &rds_iwdev->cm_id_list, list) {
+-		if (i_cm_id->cm_id == cm_id) {
+-			list_del(&i_cm_id->list);
+-			kfree(i_cm_id);
+-			break;
+-		}
+-	}
+-	spin_unlock_irq(&rds_iwdev->spinlock);
+-}
+-
+-
+-int rds_iw_update_cm_id(struct rds_iw_device *rds_iwdev, struct rdma_cm_id *cm_id)
+-{
+-	struct sockaddr_in *src_addr, *dst_addr;
+-	struct rds_iw_device *rds_iwdev_old;
+-	struct rdma_cm_id *pcm_id;
+-	int rc;
+-
+-	src_addr = (struct sockaddr_in *)&cm_id->route.addr.src_addr;
+-	dst_addr = (struct sockaddr_in *)&cm_id->route.addr.dst_addr;
+-
+-	rc = rds_iw_get_device(src_addr, dst_addr, &rds_iwdev_old, &pcm_id);
+-	if (rc)
+-		rds_iw_remove_cm_id(rds_iwdev, cm_id);
+-
+-	return rds_iw_add_cm_id(rds_iwdev, cm_id);
+-}
+-
+-void rds_iw_add_conn(struct rds_iw_device *rds_iwdev, struct rds_connection *conn)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-
+-	/* conn was previously on the nodev_conns_list */
+-	spin_lock_irq(&iw_nodev_conns_lock);
+-	BUG_ON(list_empty(&iw_nodev_conns));
+-	BUG_ON(list_empty(&ic->iw_node));
+-	list_del(&ic->iw_node);
+-
+-	spin_lock(&rds_iwdev->spinlock);
+-	list_add_tail(&ic->iw_node, &rds_iwdev->conn_list);
+-	spin_unlock(&rds_iwdev->spinlock);
+-	spin_unlock_irq(&iw_nodev_conns_lock);
+-
+-	ic->rds_iwdev = rds_iwdev;
+-}
+-
+-void rds_iw_remove_conn(struct rds_iw_device *rds_iwdev, struct rds_connection *conn)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-
+-	/* place conn on nodev_conns_list */
+-	spin_lock(&iw_nodev_conns_lock);
+-
+-	spin_lock_irq(&rds_iwdev->spinlock);
+-	BUG_ON(list_empty(&ic->iw_node));
+-	list_del(&ic->iw_node);
+-	spin_unlock_irq(&rds_iwdev->spinlock);
+-
+-	list_add_tail(&ic->iw_node, &iw_nodev_conns);
+-
+-	spin_unlock(&iw_nodev_conns_lock);
+-
+-	rds_iw_remove_cm_id(ic->rds_iwdev, ic->i_cm_id);
+-	ic->rds_iwdev = NULL;
+-}
+-
+-void __rds_iw_destroy_conns(struct list_head *list, spinlock_t *list_lock)
+-{
+-	struct rds_iw_connection *ic, *_ic;
+-	LIST_HEAD(tmp_list);
+-
+-	/* avoid calling conn_destroy with irqs off */
+-	spin_lock_irq(list_lock);
+-	list_splice(list, &tmp_list);
+-	INIT_LIST_HEAD(list);
+-	spin_unlock_irq(list_lock);
+-
+-	list_for_each_entry_safe(ic, _ic, &tmp_list, iw_node)
+-		rds_conn_destroy(ic->conn);
+-}
+-
+-static void rds_iw_set_scatterlist(struct rds_iw_scatterlist *sg,
+-		struct scatterlist *list, unsigned int sg_len)
+-{
+-	sg->list = list;
+-	sg->len = sg_len;
+-	sg->dma_len = 0;
+-	sg->dma_npages = 0;
+-	sg->bytes = 0;
+-}
+-
+-static int rds_iw_map_scatterlist(struct rds_iw_device *rds_iwdev,
+-				  struct rds_iw_scatterlist *sg)
+-{
+-	struct ib_device *dev = rds_iwdev->dev;
+-	int i, ret;
+-
+-	WARN_ON(sg->dma_len);
+-
+-	sg->dma_len = ib_dma_map_sg(dev, sg->list, sg->len, DMA_BIDIRECTIONAL);
+-	if (unlikely(!sg->dma_len)) {
+-		printk(KERN_WARNING "RDS/IW: dma_map_sg failed!\n");
+-		return -EBUSY;
+-	}
+-
+-	sg->bytes = 0;
+-	sg->dma_npages = 0;
+-
+-	ret = -EINVAL;
+-	for (i = 0; i < sg->dma_len; ++i) {
+-		unsigned int dma_len = ib_sg_dma_len(dev, &sg->list[i]);
+-		u64 dma_addr = ib_sg_dma_address(dev, &sg->list[i]);
+-		u64 end_addr;
+-
+-		sg->bytes += dma_len;
+-
+-		end_addr = dma_addr + dma_len;
+-		if (dma_addr & PAGE_MASK) {
+-			if (i > 0)
+-				goto out_unmap;
+-			dma_addr &= ~PAGE_MASK;
+-		}
+-		if (end_addr & PAGE_MASK) {
+-			if (i < sg->dma_len - 1)
+-				goto out_unmap;
+-			end_addr = (end_addr + PAGE_MASK) & ~PAGE_MASK;
+-		}
+-
+-		sg->dma_npages += (end_addr - dma_addr) >> PAGE_SHIFT;
+-	}
+-
+-	/* Now gather the dma addrs into one list */
+-	if (sg->dma_npages > fastreg_message_size)
+-		goto out_unmap;
+-
+-
+-
+-	return 0;
+-
+-out_unmap:
+-	ib_dma_unmap_sg(rds_iwdev->dev, sg->list, sg->len, DMA_BIDIRECTIONAL);
+-	sg->dma_len = 0;
+-	return ret;
+-}
+-
+-
+-struct rds_iw_mr_pool *rds_iw_create_mr_pool(struct rds_iw_device *rds_iwdev)
+-{
+-	struct rds_iw_mr_pool *pool;
+-
+-	pool = kzalloc(sizeof(*pool), GFP_KERNEL);
+-	if (!pool) {
+-		printk(KERN_WARNING "RDS/IW: rds_iw_create_mr_pool alloc error\n");
+-		return ERR_PTR(-ENOMEM);
+-	}
+-
+-	pool->device = rds_iwdev;
+-	INIT_LIST_HEAD(&pool->dirty_list);
+-	INIT_LIST_HEAD(&pool->clean_list);
+-	mutex_init(&pool->flush_lock);
+-	spin_lock_init(&pool->list_lock);
+-	INIT_WORK(&pool->flush_worker, rds_iw_mr_pool_flush_worker);
+-
+-	pool->max_message_size = fastreg_message_size;
+-	pool->max_items = fastreg_pool_size;
+-	pool->max_free_pinned = pool->max_items * pool->max_message_size / 4;
+-	pool->max_pages = fastreg_message_size;
+-
+-	/* We never allow more than max_items MRs to be allocated.
+-	 * When we exceed more than max_items_soft, we start freeing
+-	 * items more aggressively.
+-	 * Make sure that max_items > max_items_soft > max_items / 2
+-	 */
+-	pool->max_items_soft = pool->max_items * 3 / 4;
+-
+-	return pool;
+-}
+-
+-void rds_iw_get_mr_info(struct rds_iw_device *rds_iwdev, struct rds_info_rdma_connection *iinfo)
+-{
+-	struct rds_iw_mr_pool *pool = rds_iwdev->mr_pool;
+-
+-	iinfo->rdma_mr_max = pool->max_items;
+-	iinfo->rdma_mr_size = pool->max_pages;
+-}
+-
+-void rds_iw_destroy_mr_pool(struct rds_iw_mr_pool *pool)
+-{
+-	flush_workqueue(rds_wq);
+-	rds_iw_flush_mr_pool(pool, 1);
+-	BUG_ON(atomic_read(&pool->item_count));
+-	BUG_ON(atomic_read(&pool->free_pinned));
+-	kfree(pool);
+-}
+-
+-static inline struct rds_iw_mr *rds_iw_reuse_fmr(struct rds_iw_mr_pool *pool)
+-{
+-	struct rds_iw_mr *ibmr = NULL;
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&pool->list_lock, flags);
+-	if (!list_empty(&pool->clean_list)) {
+-		ibmr = list_entry(pool->clean_list.next, struct rds_iw_mr, mapping.m_list);
+-		list_del_init(&ibmr->mapping.m_list);
+-	}
+-	spin_unlock_irqrestore(&pool->list_lock, flags);
+-
+-	return ibmr;
+-}
+-
+-static struct rds_iw_mr *rds_iw_alloc_mr(struct rds_iw_device *rds_iwdev)
+-{
+-	struct rds_iw_mr_pool *pool = rds_iwdev->mr_pool;
+-	struct rds_iw_mr *ibmr = NULL;
+-	int err = 0, iter = 0;
+-
+-	while (1) {
+-		ibmr = rds_iw_reuse_fmr(pool);
+-		if (ibmr)
+-			return ibmr;
+-
+-		/* No clean MRs - now we have the choice of either
+-		 * allocating a fresh MR up to the limit imposed by the
+-		 * driver, or flush any dirty unused MRs.
+-		 * We try to avoid stalling in the send path if possible,
+-		 * so we allocate as long as we're allowed to.
+-		 *
+-		 * We're fussy with enforcing the FMR limit, though. If the driver
+-		 * tells us we can't use more than N fmrs, we shouldn't start
+-		 * arguing with it */
+-		if (atomic_inc_return(&pool->item_count) <= pool->max_items)
+-			break;
+-
+-		atomic_dec(&pool->item_count);
+-
+-		if (++iter > 2) {
+-			rds_iw_stats_inc(s_iw_rdma_mr_pool_depleted);
+-			return ERR_PTR(-EAGAIN);
+-		}
+-
+-		/* We do have some empty MRs. Flush them out. */
+-		rds_iw_stats_inc(s_iw_rdma_mr_pool_wait);
+-		rds_iw_flush_mr_pool(pool, 0);
+-	}
+-
+-	ibmr = kzalloc(sizeof(*ibmr), GFP_KERNEL);
+-	if (!ibmr) {
+-		err = -ENOMEM;
+-		goto out_no_cigar;
+-	}
+-
+-	spin_lock_init(&ibmr->mapping.m_lock);
+-	INIT_LIST_HEAD(&ibmr->mapping.m_list);
+-	ibmr->mapping.m_mr = ibmr;
+-
+-	err = rds_iw_init_reg(pool, ibmr);
+-	if (err)
+-		goto out_no_cigar;
+-
+-	rds_iw_stats_inc(s_iw_rdma_mr_alloc);
+-	return ibmr;
+-
+-out_no_cigar:
+-	if (ibmr) {
+-		rds_iw_destroy_fastreg(pool, ibmr);
+-		kfree(ibmr);
+-	}
+-	atomic_dec(&pool->item_count);
+-	return ERR_PTR(err);
+-}
+-
+-void rds_iw_sync_mr(void *trans_private, int direction)
+-{
+-	struct rds_iw_mr *ibmr = trans_private;
+-	struct rds_iw_device *rds_iwdev = ibmr->device;
+-
+-	switch (direction) {
+-	case DMA_FROM_DEVICE:
+-		ib_dma_sync_sg_for_cpu(rds_iwdev->dev, ibmr->mapping.m_sg.list,
+-			ibmr->mapping.m_sg.dma_len, DMA_BIDIRECTIONAL);
+-		break;
+-	case DMA_TO_DEVICE:
+-		ib_dma_sync_sg_for_device(rds_iwdev->dev, ibmr->mapping.m_sg.list,
+-			ibmr->mapping.m_sg.dma_len, DMA_BIDIRECTIONAL);
+-		break;
+-	}
+-}
+-
+-/*
+- * Flush our pool of MRs.
+- * At a minimum, all currently unused MRs are unmapped.
+- * If the number of MRs allocated exceeds the limit, we also try
+- * to free as many MRs as needed to get back to this limit.
+- */
+-static void rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
+-{
+-	struct rds_iw_mr *ibmr, *next;
+-	LIST_HEAD(unmap_list);
+-	LIST_HEAD(kill_list);
+-	unsigned long flags;
+-	unsigned int nfreed = 0, ncleaned = 0, unpinned = 0;
+-
+-	rds_iw_stats_inc(s_iw_rdma_mr_pool_flush);
+-
+-	mutex_lock(&pool->flush_lock);
+-
+-	spin_lock_irqsave(&pool->list_lock, flags);
+-	/* Get the list of all mappings to be destroyed */
+-	list_splice_init(&pool->dirty_list, &unmap_list);
+-	if (free_all)
+-		list_splice_init(&pool->clean_list, &kill_list);
+-	spin_unlock_irqrestore(&pool->list_lock, flags);
+-
+-	/* Batched invalidate of dirty MRs.
+-	 * For FMR based MRs, the mappings on the unmap list are
+-	 * actually members of an ibmr (ibmr->mapping). They either
+-	 * migrate to the kill_list, or have been cleaned and should be
+-	 * moved to the clean_list.
+-	 * For fastregs, they will be dynamically allocated, and
+-	 * will be destroyed by the unmap function.
+-	 */
+-	if (!list_empty(&unmap_list)) {
+-		ncleaned = rds_iw_unmap_fastreg_list(pool, &unmap_list,
+-						     &kill_list, &unpinned);
+-		/* If we've been asked to destroy all MRs, move those
+-		 * that were simply cleaned to the kill list */
+-		if (free_all)
+-			list_splice_init(&unmap_list, &kill_list);
+-	}
+-
+-	/* Destroy any MRs that are past their best before date */
+-	list_for_each_entry_safe(ibmr, next, &kill_list, mapping.m_list) {
+-		rds_iw_stats_inc(s_iw_rdma_mr_free);
+-		list_del(&ibmr->mapping.m_list);
+-		rds_iw_destroy_fastreg(pool, ibmr);
+-		kfree(ibmr);
+-		nfreed++;
+-	}
+-
+-	/* Anything that remains are laundered ibmrs, which we can add
+-	 * back to the clean list. */
+-	if (!list_empty(&unmap_list)) {
+-		spin_lock_irqsave(&pool->list_lock, flags);
+-		list_splice(&unmap_list, &pool->clean_list);
+-		spin_unlock_irqrestore(&pool->list_lock, flags);
+-	}
+-
+-	atomic_sub(unpinned, &pool->free_pinned);
+-	atomic_sub(ncleaned, &pool->dirty_count);
+-	atomic_sub(nfreed, &pool->item_count);
+-
+-	mutex_unlock(&pool->flush_lock);
+-}
+-
+-static void rds_iw_mr_pool_flush_worker(struct work_struct *work)
+-{
+-	struct rds_iw_mr_pool *pool = container_of(work, struct rds_iw_mr_pool, flush_worker);
+-
+-	rds_iw_flush_mr_pool(pool, 0);
+-}
+-
+-void rds_iw_free_mr(void *trans_private, int invalidate)
+-{
+-	struct rds_iw_mr *ibmr = trans_private;
+-	struct rds_iw_mr_pool *pool = ibmr->device->mr_pool;
+-
+-	rdsdebug("RDS/IW: free_mr nents %u\n", ibmr->mapping.m_sg.len);
+-	if (!pool)
+-		return;
+-
+-	/* Return it to the pool's free list */
+-	rds_iw_free_fastreg(pool, ibmr);
+-
+-	/* If we've pinned too many pages, request a flush */
+-	if (atomic_read(&pool->free_pinned) >= pool->max_free_pinned ||
+-	    atomic_read(&pool->dirty_count) >= pool->max_items / 10)
+-		queue_work(rds_wq, &pool->flush_worker);
+-
+-	if (invalidate) {
+-		if (likely(!in_interrupt())) {
+-			rds_iw_flush_mr_pool(pool, 0);
+-		} else {
+-			/* We get here if the user created a MR marked
+-			 * as use_once and invalidate at the same time. */
+-			queue_work(rds_wq, &pool->flush_worker);
+-		}
+-	}
+-}
+-
+-void rds_iw_flush_mrs(void)
+-{
+-	struct rds_iw_device *rds_iwdev;
+-
+-	list_for_each_entry(rds_iwdev, &rds_iw_devices, list) {
+-		struct rds_iw_mr_pool *pool = rds_iwdev->mr_pool;
+-
+-		if (pool)
+-			rds_iw_flush_mr_pool(pool, 0);
+-	}
+-}
+-
+-void *rds_iw_get_mr(struct scatterlist *sg, unsigned long nents,
+-		    struct rds_sock *rs, u32 *key_ret)
+-{
+-	struct rds_iw_device *rds_iwdev;
+-	struct rds_iw_mr *ibmr = NULL;
+-	struct rdma_cm_id *cm_id;
+-	struct sockaddr_in src = {
+-		.sin_addr.s_addr = rs->rs_bound_addr,
+-		.sin_port = rs->rs_bound_port,
+-	};
+-	struct sockaddr_in dst = {
+-		.sin_addr.s_addr = rs->rs_conn_addr,
+-		.sin_port = rs->rs_conn_port,
+-	};
+-	int ret;
+-
+-	ret = rds_iw_get_device(&src, &dst, &rds_iwdev, &cm_id);
+-	if (ret || !cm_id) {
+-		ret = -ENODEV;
+-		goto out;
+-	}
+-
+-	if (!rds_iwdev->mr_pool) {
+-		ret = -ENODEV;
+-		goto out;
+-	}
+-
+-	ibmr = rds_iw_alloc_mr(rds_iwdev);
+-	if (IS_ERR(ibmr))
+-		return ibmr;
+-
+-	ibmr->cm_id = cm_id;
+-	ibmr->device = rds_iwdev;
+-
+-	ret = rds_iw_map_reg(rds_iwdev->mr_pool, ibmr, sg, nents);
+-	if (ret == 0)
+-		*key_ret = ibmr->mr->rkey;
+-	else
+-		printk(KERN_WARNING "RDS/IW: failed to map mr (errno=%d)\n", ret);
+-
+-out:
+-	if (ret) {
+-		if (ibmr)
+-			rds_iw_free_mr(ibmr, 0);
+-		ibmr = ERR_PTR(ret);
+-	}
+-	return ibmr;
+-}
+-
+-/*
+- * iWARP reg handling
+- *
+- * The life cycle of a fastreg registration is a bit different from
+- * FMRs.
+- * The idea behind fastreg is to have one MR, to which we bind different
+- * mappings over time. To avoid stalling on the expensive map and invalidate
+- * operations, these operations are pipelined on the same send queue on
+- * which we want to send the message containing the r_key.
+- *
+- * This creates a bit of a problem for us, as we do not have the destination
+- * IP in GET_MR, so the connection must be setup prior to the GET_MR call for
+- * RDMA to be correctly setup.  If a fastreg request is present, rds_iw_xmit
+- * will try to queue a LOCAL_INV (if needed) and a REG_MR work request
+- * before queuing the SEND. When completions for these arrive, they are
+- * dispatched to the MR has a bit set showing that RDMa can be performed.
+- *
+- * There is another interesting aspect that's related to invalidation.
+- * The application can request that a mapping is invalidated in FREE_MR.
+- * The expectation there is that this invalidation step includes ALL
+- * PREVIOUSLY FREED MRs.
+- */
+-static int rds_iw_init_reg(struct rds_iw_mr_pool *pool,
+-			   struct rds_iw_mr *ibmr)
+-{
+-	struct rds_iw_device *rds_iwdev = pool->device;
+-	struct ib_mr *mr;
+-	int err;
+-
+-	mr = ib_alloc_mr(rds_iwdev->pd, IB_MR_TYPE_MEM_REG,
+-			 pool->max_message_size);
+-	if (IS_ERR(mr)) {
+-		err = PTR_ERR(mr);
+-
+-		printk(KERN_WARNING "RDS/IW: ib_alloc_mr failed (err=%d)\n", err);
+-		return err;
+-	}
+-
+-	ibmr->mr = mr;
+-	return 0;
+-}
+-
+-static int rds_iw_rdma_reg_mr(struct rds_iw_mapping *mapping)
+-{
+-	struct rds_iw_mr *ibmr = mapping->m_mr;
+-	struct rds_iw_scatterlist *m_sg = &mapping->m_sg;
+-	struct ib_reg_wr reg_wr;
+-	struct ib_send_wr *failed_wr;
+-	int ret, n;
+-
+-	n = ib_map_mr_sg_zbva(ibmr->mr, m_sg->list, m_sg->len, PAGE_SIZE);
+-	if (unlikely(n != m_sg->len))
+-		return n < 0 ? n : -EINVAL;
+-
+-	reg_wr.wr.next = NULL;
+-	reg_wr.wr.opcode = IB_WR_REG_MR;
+-	reg_wr.wr.wr_id = RDS_IW_REG_WR_ID;
+-	reg_wr.wr.num_sge = 0;
+-	reg_wr.mr = ibmr->mr;
+-	reg_wr.key = mapping->m_rkey;
+-	reg_wr.access = IB_ACCESS_LOCAL_WRITE |
+-			IB_ACCESS_REMOTE_READ |
+-			IB_ACCESS_REMOTE_WRITE;
+-
+-	/*
+-	 * Perform a WR for the reg_mr. Each individual page
+-	 * in the sg list is added to the fast reg page list and placed
+-	 * inside the reg_mr WR.  The key used is a rolling 8bit
+-	 * counter, which should guarantee uniqueness.
+-	 */
+-	ib_update_fast_reg_key(ibmr->mr, ibmr->remap_count++);
+-	mapping->m_rkey = ibmr->mr->rkey;
+-
+-	failed_wr = &reg_wr.wr;
+-	ret = ib_post_send(ibmr->cm_id->qp, &reg_wr.wr, &failed_wr);
+-	BUG_ON(failed_wr != &reg_wr.wr);
+-	if (ret)
+-		printk_ratelimited(KERN_WARNING "RDS/IW: %s:%d ib_post_send returned %d\n",
+-			__func__, __LINE__, ret);
+-	return ret;
+-}
+-
+-static int rds_iw_rdma_fastreg_inv(struct rds_iw_mr *ibmr)
+-{
+-	struct ib_send_wr s_wr, *failed_wr;
+-	int ret = 0;
+-
+-	if (!ibmr->cm_id->qp || !ibmr->mr)
+-		goto out;
+-
+-	memset(&s_wr, 0, sizeof(s_wr));
+-	s_wr.wr_id = RDS_IW_LOCAL_INV_WR_ID;
+-	s_wr.opcode = IB_WR_LOCAL_INV;
+-	s_wr.ex.invalidate_rkey = ibmr->mr->rkey;
+-	s_wr.send_flags = IB_SEND_SIGNALED;
+-
+-	failed_wr = &s_wr;
+-	ret = ib_post_send(ibmr->cm_id->qp, &s_wr, &failed_wr);
+-	if (ret) {
+-		printk_ratelimited(KERN_WARNING "RDS/IW: %s:%d ib_post_send returned %d\n",
+-			__func__, __LINE__, ret);
+-		goto out;
+-	}
+-out:
+-	return ret;
+-}
+-
+-static int rds_iw_map_reg(struct rds_iw_mr_pool *pool,
+-			  struct rds_iw_mr *ibmr,
+-			  struct scatterlist *sg,
+-			  unsigned int sg_len)
+-{
+-	struct rds_iw_device *rds_iwdev = pool->device;
+-	struct rds_iw_mapping *mapping = &ibmr->mapping;
+-	u64 *dma_pages;
+-	int ret = 0;
+-
+-	rds_iw_set_scatterlist(&mapping->m_sg, sg, sg_len);
+-
+-	ret = rds_iw_map_scatterlist(rds_iwdev, &mapping->m_sg);
+-	if (ret) {
+-		dma_pages = NULL;
+-		goto out;
+-	}
+-
+-	if (mapping->m_sg.dma_len > pool->max_message_size) {
+-		ret = -EMSGSIZE;
+-		goto out;
+-	}
+-
+-	ret = rds_iw_rdma_reg_mr(mapping);
+-	if (ret)
+-		goto out;
+-
+-	rds_iw_stats_inc(s_iw_rdma_mr_used);
+-
+-out:
+-	kfree(dma_pages);
+-
+-	return ret;
+-}
+-
+-/*
+- * "Free" a fastreg MR.
+- */
+-static void rds_iw_free_fastreg(struct rds_iw_mr_pool *pool,
+-		struct rds_iw_mr *ibmr)
+-{
+-	unsigned long flags;
+-	int ret;
+-
+-	if (!ibmr->mapping.m_sg.dma_len)
+-		return;
+-
+-	ret = rds_iw_rdma_fastreg_inv(ibmr);
+-	if (ret)
+-		return;
+-
+-	/* Try to post the LOCAL_INV WR to the queue. */
+-	spin_lock_irqsave(&pool->list_lock, flags);
+-
+-	list_add_tail(&ibmr->mapping.m_list, &pool->dirty_list);
+-	atomic_add(ibmr->mapping.m_sg.len, &pool->free_pinned);
+-	atomic_inc(&pool->dirty_count);
+-
+-	spin_unlock_irqrestore(&pool->list_lock, flags);
+-}
+-
+-static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
+-				struct list_head *unmap_list,
+-				struct list_head *kill_list,
+-				int *unpinned)
+-{
+-	struct rds_iw_mapping *mapping, *next;
+-	unsigned int ncleaned = 0;
+-	LIST_HEAD(laundered);
+-
+-	/* Batched invalidation of fastreg MRs.
+-	 * Why do we do it this way, even though we could pipeline unmap
+-	 * and remap? The reason is the application semantics - when the
+-	 * application requests an invalidation of MRs, it expects all
+-	 * previously released R_Keys to become invalid.
+-	 *
+-	 * If we implement MR reuse naively, we risk memory corruption
+-	 * (this has actually been observed). So the default behavior
+-	 * requires that a MR goes through an explicit unmap operation before
+-	 * we can reuse it again.
+-	 *
+-	 * We could probably improve on this a little, by allowing immediate
+-	 * reuse of a MR on the same socket (eg you could add small
+-	 * cache of unused MRs to strct rds_socket - GET_MR could grab one
+-	 * of these without requiring an explicit invalidate).
+-	 */
+-	while (!list_empty(unmap_list)) {
+-		unsigned long flags;
+-
+-		spin_lock_irqsave(&pool->list_lock, flags);
+-		list_for_each_entry_safe(mapping, next, unmap_list, m_list) {
+-			*unpinned += mapping->m_sg.len;
+-			list_move(&mapping->m_list, &laundered);
+-			ncleaned++;
+-		}
+-		spin_unlock_irqrestore(&pool->list_lock, flags);
+-	}
+-
+-	/* Move all laundered mappings back to the unmap list.
+-	 * We do not kill any WRs right now - it doesn't seem the
+-	 * fastreg API has a max_remap limit. */
+-	list_splice_init(&laundered, unmap_list);
+-
+-	return ncleaned;
+-}
+-
+-static void rds_iw_destroy_fastreg(struct rds_iw_mr_pool *pool,
+-		struct rds_iw_mr *ibmr)
+-{
+-	if (ibmr->mr)
+-		ib_dereg_mr(ibmr->mr);
+-}
+diff --git a/net/rds/iw_recv.c b/net/rds/iw_recv.c
+deleted file mode 100644
+index a66d1794b2d0..000000000000
+--- a/net/rds/iw_recv.c
++++ /dev/null
+@@ -1,904 +0,0 @@
+-/*
+- * Copyright (c) 2006 Oracle.  All rights reserved.
+- *
+- * This software is available to you under a choice of one of two
+- * licenses.  You may choose to be licensed under the terms of the GNU
+- * General Public License (GPL) Version 2, available from the file
+- * COPYING in the main directory of this source tree, or the
+- * OpenIB.org BSD license below:
+- *
+- *     Redistribution and use in source and binary forms, with or
+- *     without modification, are permitted provided that the following
+- *     conditions are met:
+- *
+- *      - Redistributions of source code must retain the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer.
+- *
+- *      - Redistributions in binary form must reproduce the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer in the documentation and/or other materials
+- *        provided with the distribution.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+- * SOFTWARE.
+- *
+- */
+-#include <linux/kernel.h>
+-#include <linux/slab.h>
+-#include <linux/pci.h>
+-#include <linux/dma-mapping.h>
+-#include <rdma/rdma_cm.h>
+-
+-#include "rds.h"
+-#include "iw.h"
+-
+-static struct kmem_cache *rds_iw_incoming_slab;
+-static struct kmem_cache *rds_iw_frag_slab;
+-static atomic_t	rds_iw_allocation = ATOMIC_INIT(0);
+-
+-static void rds_iw_frag_drop_page(struct rds_page_frag *frag)
+-{
+-	rdsdebug("frag %p page %p\n", frag, frag->f_page);
+-	__free_page(frag->f_page);
+-	frag->f_page = NULL;
+-}
+-
+-static void rds_iw_frag_free(struct rds_page_frag *frag)
+-{
+-	rdsdebug("frag %p page %p\n", frag, frag->f_page);
+-	BUG_ON(frag->f_page);
+-	kmem_cache_free(rds_iw_frag_slab, frag);
+-}
+-
+-/*
+- * We map a page at a time.  Its fragments are posted in order.  This
+- * is called in fragment order as the fragments get send completion events.
+- * Only the last frag in the page performs the unmapping.
+- *
+- * It's OK for ring cleanup to call this in whatever order it likes because
+- * DMA is not in flight and so we can unmap while other ring entries still
+- * hold page references in their frags.
+- */
+-static void rds_iw_recv_unmap_page(struct rds_iw_connection *ic,
+-				   struct rds_iw_recv_work *recv)
+-{
+-	struct rds_page_frag *frag = recv->r_frag;
+-
+-	rdsdebug("recv %p frag %p page %p\n", recv, frag, frag->f_page);
+-	if (frag->f_mapped)
+-		ib_dma_unmap_page(ic->i_cm_id->device,
+-			       frag->f_mapped,
+-			       RDS_FRAG_SIZE, DMA_FROM_DEVICE);
+-	frag->f_mapped = 0;
+-}
+-
+-void rds_iw_recv_init_ring(struct rds_iw_connection *ic)
+-{
+-	struct rds_iw_recv_work *recv;
+-	u32 i;
+-
+-	for (i = 0, recv = ic->i_recvs; i < ic->i_recv_ring.w_nr; i++, recv++) {
+-		struct ib_sge *sge;
+-
+-		recv->r_iwinc = NULL;
+-		recv->r_frag = NULL;
+-
+-		recv->r_wr.next = NULL;
+-		recv->r_wr.wr_id = i;
+-		recv->r_wr.sg_list = recv->r_sge;
+-		recv->r_wr.num_sge = RDS_IW_RECV_SGE;
+-
+-		sge = rds_iw_data_sge(ic, recv->r_sge);
+-		sge->addr = 0;
+-		sge->length = RDS_FRAG_SIZE;
+-		sge->lkey = 0;
+-
+-		sge = rds_iw_header_sge(ic, recv->r_sge);
+-		sge->addr = ic->i_recv_hdrs_dma + (i * sizeof(struct rds_header));
+-		sge->length = sizeof(struct rds_header);
+-		sge->lkey = 0;
+-	}
+-}
+-
+-static void rds_iw_recv_clear_one(struct rds_iw_connection *ic,
+-				  struct rds_iw_recv_work *recv)
+-{
+-	if (recv->r_iwinc) {
+-		rds_inc_put(&recv->r_iwinc->ii_inc);
+-		recv->r_iwinc = NULL;
+-	}
+-	if (recv->r_frag) {
+-		rds_iw_recv_unmap_page(ic, recv);
+-		if (recv->r_frag->f_page)
+-			rds_iw_frag_drop_page(recv->r_frag);
+-		rds_iw_frag_free(recv->r_frag);
+-		recv->r_frag = NULL;
+-	}
+-}
+-
+-void rds_iw_recv_clear_ring(struct rds_iw_connection *ic)
+-{
+-	u32 i;
+-
+-	for (i = 0; i < ic->i_recv_ring.w_nr; i++)
+-		rds_iw_recv_clear_one(ic, &ic->i_recvs[i]);
+-
+-	if (ic->i_frag.f_page)
+-		rds_iw_frag_drop_page(&ic->i_frag);
+-}
+-
+-static int rds_iw_recv_refill_one(struct rds_connection *conn,
+-				  struct rds_iw_recv_work *recv,
+-				  gfp_t kptr_gfp, gfp_t page_gfp)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	dma_addr_t dma_addr;
+-	struct ib_sge *sge;
+-	int ret = -ENOMEM;
+-
+-	if (!recv->r_iwinc) {
+-		if (!atomic_add_unless(&rds_iw_allocation, 1, rds_iw_sysctl_max_recv_allocation)) {
+-			rds_iw_stats_inc(s_iw_rx_alloc_limit);
+-			goto out;
+-		}
+-		recv->r_iwinc = kmem_cache_alloc(rds_iw_incoming_slab,
+-						 kptr_gfp);
+-		if (!recv->r_iwinc) {
+-			atomic_dec(&rds_iw_allocation);
+-			goto out;
+-		}
+-		INIT_LIST_HEAD(&recv->r_iwinc->ii_frags);
+-		rds_inc_init(&recv->r_iwinc->ii_inc, conn, conn->c_faddr);
+-	}
+-
+-	if (!recv->r_frag) {
+-		recv->r_frag = kmem_cache_alloc(rds_iw_frag_slab, kptr_gfp);
+-		if (!recv->r_frag)
+-			goto out;
+-		INIT_LIST_HEAD(&recv->r_frag->f_item);
+-		recv->r_frag->f_page = NULL;
+-	}
+-
+-	if (!ic->i_frag.f_page) {
+-		ic->i_frag.f_page = alloc_page(page_gfp);
+-		if (!ic->i_frag.f_page)
+-			goto out;
+-		ic->i_frag.f_offset = 0;
+-	}
+-
+-	dma_addr = ib_dma_map_page(ic->i_cm_id->device,
+-				  ic->i_frag.f_page,
+-				  ic->i_frag.f_offset,
+-				  RDS_FRAG_SIZE,
+-				  DMA_FROM_DEVICE);
+-	if (ib_dma_mapping_error(ic->i_cm_id->device, dma_addr))
+-		goto out;
+-
+-	/*
+-	 * Once we get the RDS_PAGE_LAST_OFF frag then rds_iw_frag_unmap()
+-	 * must be called on this recv.  This happens as completions hit
+-	 * in order or on connection shutdown.
+-	 */
+-	recv->r_frag->f_page = ic->i_frag.f_page;
+-	recv->r_frag->f_offset = ic->i_frag.f_offset;
+-	recv->r_frag->f_mapped = dma_addr;
+-
+-	sge = rds_iw_data_sge(ic, recv->r_sge);
+-	sge->addr = dma_addr;
+-	sge->length = RDS_FRAG_SIZE;
+-
+-	sge = rds_iw_header_sge(ic, recv->r_sge);
+-	sge->addr = ic->i_recv_hdrs_dma + (recv - ic->i_recvs) * sizeof(struct rds_header);
+-	sge->length = sizeof(struct rds_header);
+-
+-	get_page(recv->r_frag->f_page);
+-
+-	if (ic->i_frag.f_offset < RDS_PAGE_LAST_OFF) {
+-		ic->i_frag.f_offset += RDS_FRAG_SIZE;
+-	} else {
+-		put_page(ic->i_frag.f_page);
+-		ic->i_frag.f_page = NULL;
+-		ic->i_frag.f_offset = 0;
+-	}
+-
+-	ret = 0;
+-out:
+-	return ret;
+-}
+-
+-/*
+- * This tries to allocate and post unused work requests after making sure that
+- * they have all the allocations they need to queue received fragments into
+- * sockets.  The i_recv_mutex is held here so that ring_alloc and _unalloc
+- * pairs don't go unmatched.
+- *
+- * -1 is returned if posting fails due to temporary resource exhaustion.
+- */
+-int rds_iw_recv_refill(struct rds_connection *conn, gfp_t kptr_gfp,
+-		       gfp_t page_gfp, int prefill)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	struct rds_iw_recv_work *recv;
+-	struct ib_recv_wr *failed_wr;
+-	unsigned int posted = 0;
+-	int ret = 0;
+-	u32 pos;
+-
+-	while ((prefill || rds_conn_up(conn)) &&
+-	       rds_iw_ring_alloc(&ic->i_recv_ring, 1, &pos)) {
+-		if (pos >= ic->i_recv_ring.w_nr) {
+-			printk(KERN_NOTICE "Argh - ring alloc returned pos=%u\n",
+-					pos);
+-			ret = -EINVAL;
+-			break;
+-		}
+-
+-		recv = &ic->i_recvs[pos];
+-		ret = rds_iw_recv_refill_one(conn, recv, kptr_gfp, page_gfp);
+-		if (ret) {
+-			ret = -1;
+-			break;
+-		}
+-
+-		/* XXX when can this fail? */
+-		ret = ib_post_recv(ic->i_cm_id->qp, &recv->r_wr, &failed_wr);
+-		rdsdebug("recv %p iwinc %p page %p addr %lu ret %d\n", recv,
+-			 recv->r_iwinc, recv->r_frag->f_page,
+-			 (long) recv->r_frag->f_mapped, ret);
+-		if (ret) {
+-			rds_iw_conn_error(conn, "recv post on "
+-			       "%pI4 returned %d, disconnecting and "
+-			       "reconnecting\n", &conn->c_faddr,
+-			       ret);
+-			ret = -1;
+-			break;
+-		}
+-
+-		posted++;
+-	}
+-
+-	/* We're doing flow control - update the window. */
+-	if (ic->i_flowctl && posted)
+-		rds_iw_advertise_credits(conn, posted);
+-
+-	if (ret)
+-		rds_iw_ring_unalloc(&ic->i_recv_ring, 1);
+-	return ret;
+-}
+-
+-static void rds_iw_inc_purge(struct rds_incoming *inc)
+-{
+-	struct rds_iw_incoming *iwinc;
+-	struct rds_page_frag *frag;
+-	struct rds_page_frag *pos;
+-
+-	iwinc = container_of(inc, struct rds_iw_incoming, ii_inc);
+-	rdsdebug("purging iwinc %p inc %p\n", iwinc, inc);
+-
+-	list_for_each_entry_safe(frag, pos, &iwinc->ii_frags, f_item) {
+-		list_del_init(&frag->f_item);
+-		rds_iw_frag_drop_page(frag);
+-		rds_iw_frag_free(frag);
+-	}
+-}
+-
+-void rds_iw_inc_free(struct rds_incoming *inc)
+-{
+-	struct rds_iw_incoming *iwinc;
+-
+-	iwinc = container_of(inc, struct rds_iw_incoming, ii_inc);
+-
+-	rds_iw_inc_purge(inc);
+-	rdsdebug("freeing iwinc %p inc %p\n", iwinc, inc);
+-	BUG_ON(!list_empty(&iwinc->ii_frags));
+-	kmem_cache_free(rds_iw_incoming_slab, iwinc);
+-	atomic_dec(&rds_iw_allocation);
+-	BUG_ON(atomic_read(&rds_iw_allocation) < 0);
+-}
+-
+-int rds_iw_inc_copy_to_user(struct rds_incoming *inc, struct iov_iter *to)
+-{
+-	struct rds_iw_incoming *iwinc;
+-	struct rds_page_frag *frag;
+-	unsigned long to_copy;
+-	unsigned long frag_off = 0;
+-	int copied = 0;
+-	int ret;
+-	u32 len;
+-
+-	iwinc = container_of(inc, struct rds_iw_incoming, ii_inc);
+-	frag = list_entry(iwinc->ii_frags.next, struct rds_page_frag, f_item);
+-	len = be32_to_cpu(inc->i_hdr.h_len);
+-
+-	while (iov_iter_count(to) && copied < len) {
+-		if (frag_off == RDS_FRAG_SIZE) {
+-			frag = list_entry(frag->f_item.next,
+-					  struct rds_page_frag, f_item);
+-			frag_off = 0;
+-		}
+-		to_copy = min_t(unsigned long, iov_iter_count(to),
+-				RDS_FRAG_SIZE - frag_off);
+-		to_copy = min_t(unsigned long, to_copy, len - copied);
+-
+-		/* XXX needs + offset for multiple recvs per page */
+-		rds_stats_add(s_copy_to_user, to_copy);
+-		ret = copy_page_to_iter(frag->f_page,
+-					frag->f_offset + frag_off,
+-					to_copy,
+-					to);
+-		if (ret != to_copy)
+-			return -EFAULT;
+-
+-		frag_off += to_copy;
+-		copied += to_copy;
+-	}
+-
+-	return copied;
+-}
+-
+-/* ic starts out kzalloc()ed */
+-void rds_iw_recv_init_ack(struct rds_iw_connection *ic)
+-{
+-	struct ib_send_wr *wr = &ic->i_ack_wr;
+-	struct ib_sge *sge = &ic->i_ack_sge;
+-
+-	sge->addr = ic->i_ack_dma;
+-	sge->length = sizeof(struct rds_header);
+-	sge->lkey = rds_iw_local_dma_lkey(ic);
+-
+-	wr->sg_list = sge;
+-	wr->num_sge = 1;
+-	wr->opcode = IB_WR_SEND;
+-	wr->wr_id = RDS_IW_ACK_WR_ID;
+-	wr->send_flags = IB_SEND_SIGNALED | IB_SEND_SOLICITED;
+-}
+-
+-/*
+- * You'd think that with reliable IB connections you wouldn't need to ack
+- * messages that have been received.  The problem is that IB hardware generates
+- * an ack message before it has DMAed the message into memory.  This creates a
+- * potential message loss if the HCA is disabled for any reason between when it
+- * sends the ack and before the message is DMAed and processed.  This is only a
+- * potential issue if another HCA is available for fail-over.
+- *
+- * When the remote host receives our ack they'll free the sent message from
+- * their send queue.  To decrease the latency of this we always send an ack
+- * immediately after we've received messages.
+- *
+- * For simplicity, we only have one ack in flight at a time.  This puts
+- * pressure on senders to have deep enough send queues to absorb the latency of
+- * a single ack frame being in flight.  This might not be good enough.
+- *
+- * This is implemented by have a long-lived send_wr and sge which point to a
+- * statically allocated ack frame.  This ack wr does not fall under the ring
+- * accounting that the tx and rx wrs do.  The QP attribute specifically makes
+- * room for it beyond the ring size.  Send completion notices its special
+- * wr_id and avoids working with the ring in that case.
+- */
+-#ifndef KERNEL_HAS_ATOMIC64
+-static void rds_iw_set_ack(struct rds_iw_connection *ic, u64 seq,
+-				int ack_required)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&ic->i_ack_lock, flags);
+-	ic->i_ack_next = seq;
+-	if (ack_required)
+-		set_bit(IB_ACK_REQUESTED, &ic->i_ack_flags);
+-	spin_unlock_irqrestore(&ic->i_ack_lock, flags);
+-}
+-
+-static u64 rds_iw_get_ack(struct rds_iw_connection *ic)
+-{
+-	unsigned long flags;
+-	u64 seq;
+-
+-	clear_bit(IB_ACK_REQUESTED, &ic->i_ack_flags);
+-
+-	spin_lock_irqsave(&ic->i_ack_lock, flags);
+-	seq = ic->i_ack_next;
+-	spin_unlock_irqrestore(&ic->i_ack_lock, flags);
+-
+-	return seq;
+-}
+-#else
+-static void rds_iw_set_ack(struct rds_iw_connection *ic, u64 seq,
+-				int ack_required)
+-{
+-	atomic64_set(&ic->i_ack_next, seq);
+-	if (ack_required) {
+-		smp_mb__before_atomic();
+-		set_bit(IB_ACK_REQUESTED, &ic->i_ack_flags);
+-	}
+-}
+-
+-static u64 rds_iw_get_ack(struct rds_iw_connection *ic)
+-{
+-	clear_bit(IB_ACK_REQUESTED, &ic->i_ack_flags);
+-	smp_mb__after_atomic();
+-
+-	return atomic64_read(&ic->i_ack_next);
+-}
+-#endif
+-
+-
+-static void rds_iw_send_ack(struct rds_iw_connection *ic, unsigned int adv_credits)
+-{
+-	struct rds_header *hdr = ic->i_ack;
+-	struct ib_send_wr *failed_wr;
+-	u64 seq;
+-	int ret;
+-
+-	seq = rds_iw_get_ack(ic);
+-
+-	rdsdebug("send_ack: ic %p ack %llu\n", ic, (unsigned long long) seq);
+-	rds_message_populate_header(hdr, 0, 0, 0);
+-	hdr->h_ack = cpu_to_be64(seq);
+-	hdr->h_credit = adv_credits;
+-	rds_message_make_checksum(hdr);
+-	ic->i_ack_queued = jiffies;
+-
+-	ret = ib_post_send(ic->i_cm_id->qp, &ic->i_ack_wr, &failed_wr);
+-	if (unlikely(ret)) {
+-		/* Failed to send. Release the WR, and
+-		 * force another ACK.
+-		 */
+-		clear_bit(IB_ACK_IN_FLIGHT, &ic->i_ack_flags);
+-		set_bit(IB_ACK_REQUESTED, &ic->i_ack_flags);
+-
+-		rds_iw_stats_inc(s_iw_ack_send_failure);
+-
+-		rds_iw_conn_error(ic->conn, "sending ack failed\n");
+-	} else
+-		rds_iw_stats_inc(s_iw_ack_sent);
+-}
+-
+-/*
+- * There are 3 ways of getting acknowledgements to the peer:
+- *  1.	We call rds_iw_attempt_ack from the recv completion handler
+- *	to send an ACK-only frame.
+- *	However, there can be only one such frame in the send queue
+- *	at any time, so we may have to postpone it.
+- *  2.	When another (data) packet is transmitted while there's
+- *	an ACK in the queue, we piggyback the ACK sequence number
+- *	on the data packet.
+- *  3.	If the ACK WR is done sending, we get called from the
+- *	send queue completion handler, and check whether there's
+- *	another ACK pending (postponed because the WR was on the
+- *	queue). If so, we transmit it.
+- *
+- * We maintain 2 variables:
+- *  -	i_ack_flags, which keeps track of whether the ACK WR
+- *	is currently in the send queue or not (IB_ACK_IN_FLIGHT)
+- *  -	i_ack_next, which is the last sequence number we received
+- *
+- * Potentially, send queue and receive queue handlers can run concurrently.
+- * It would be nice to not have to use a spinlock to synchronize things,
+- * but the one problem that rules this out is that 64bit updates are
+- * not atomic on all platforms. Things would be a lot simpler if
+- * we had atomic64 or maybe cmpxchg64 everywhere.
+- *
+- * Reconnecting complicates this picture just slightly. When we
+- * reconnect, we may be seeing duplicate packets. The peer
+- * is retransmitting them, because it hasn't seen an ACK for
+- * them. It is important that we ACK these.
+- *
+- * ACK mitigation adds a header flag "ACK_REQUIRED"; any packet with
+- * this flag set *MUST* be acknowledged immediately.
+- */
+-
+-/*
+- * When we get here, we're called from the recv queue handler.
+- * Check whether we ought to transmit an ACK.
+- */
+-void rds_iw_attempt_ack(struct rds_iw_connection *ic)
+-{
+-	unsigned int adv_credits;
+-
+-	if (!test_bit(IB_ACK_REQUESTED, &ic->i_ack_flags))
+-		return;
+-
+-	if (test_and_set_bit(IB_ACK_IN_FLIGHT, &ic->i_ack_flags)) {
+-		rds_iw_stats_inc(s_iw_ack_send_delayed);
+-		return;
+-	}
+-
+-	/* Can we get a send credit? */
+-	if (!rds_iw_send_grab_credits(ic, 1, &adv_credits, 0, RDS_MAX_ADV_CREDIT)) {
+-		rds_iw_stats_inc(s_iw_tx_throttle);
+-		clear_bit(IB_ACK_IN_FLIGHT, &ic->i_ack_flags);
+-		return;
+-	}
+-
+-	clear_bit(IB_ACK_REQUESTED, &ic->i_ack_flags);
+-	rds_iw_send_ack(ic, adv_credits);
+-}
+-
+-/*
+- * We get here from the send completion handler, when the
+- * adapter tells us the ACK frame was sent.
+- */
+-void rds_iw_ack_send_complete(struct rds_iw_connection *ic)
+-{
+-	clear_bit(IB_ACK_IN_FLIGHT, &ic->i_ack_flags);
+-	rds_iw_attempt_ack(ic);
+-}
+-
+-/*
+- * This is called by the regular xmit code when it wants to piggyback
+- * an ACK on an outgoing frame.
+- */
+-u64 rds_iw_piggyb_ack(struct rds_iw_connection *ic)
+-{
+-	if (test_and_clear_bit(IB_ACK_REQUESTED, &ic->i_ack_flags))
+-		rds_iw_stats_inc(s_iw_ack_send_piggybacked);
+-	return rds_iw_get_ack(ic);
+-}
+-
+-/*
+- * It's kind of lame that we're copying from the posted receive pages into
+- * long-lived bitmaps.  We could have posted the bitmaps and rdma written into
+- * them.  But receiving new congestion bitmaps should be a *rare* event, so
+- * hopefully we won't need to invest that complexity in making it more
+- * efficient.  By copying we can share a simpler core with TCP which has to
+- * copy.
+- */
+-static void rds_iw_cong_recv(struct rds_connection *conn,
+-			      struct rds_iw_incoming *iwinc)
+-{
+-	struct rds_cong_map *map;
+-	unsigned int map_off;
+-	unsigned int map_page;
+-	struct rds_page_frag *frag;
+-	unsigned long frag_off;
+-	unsigned long to_copy;
+-	unsigned long copied;
+-	uint64_t uncongested = 0;
+-	void *addr;
+-
+-	/* catch completely corrupt packets */
+-	if (be32_to_cpu(iwinc->ii_inc.i_hdr.h_len) != RDS_CONG_MAP_BYTES)
+-		return;
+-
+-	map = conn->c_fcong;
+-	map_page = 0;
+-	map_off = 0;
+-
+-	frag = list_entry(iwinc->ii_frags.next, struct rds_page_frag, f_item);
+-	frag_off = 0;
+-
+-	copied = 0;
+-
+-	while (copied < RDS_CONG_MAP_BYTES) {
+-		uint64_t *src, *dst;
+-		unsigned int k;
+-
+-		to_copy = min(RDS_FRAG_SIZE - frag_off, PAGE_SIZE - map_off);
+-		BUG_ON(to_copy & 7); /* Must be 64bit aligned. */
+-
+-		addr = kmap_atomic(frag->f_page);
+-
+-		src = addr + frag_off;
+-		dst = (void *)map->m_page_addrs[map_page] + map_off;
+-		for (k = 0; k < to_copy; k += 8) {
+-			/* Record ports that became uncongested, ie
+-			 * bits that changed from 0 to 1. */
+-			uncongested |= ~(*src) & *dst;
+-			*dst++ = *src++;
+-		}
+-		kunmap_atomic(addr);
+-
+-		copied += to_copy;
+-
+-		map_off += to_copy;
+-		if (map_off == PAGE_SIZE) {
+-			map_off = 0;
+-			map_page++;
+-		}
+-
+-		frag_off += to_copy;
+-		if (frag_off == RDS_FRAG_SIZE) {
+-			frag = list_entry(frag->f_item.next,
+-					  struct rds_page_frag, f_item);
+-			frag_off = 0;
+-		}
+-	}
+-
+-	/* the congestion map is in little endian order */
+-	uncongested = le64_to_cpu(uncongested);
+-
+-	rds_cong_map_updated(map, uncongested);
+-}
+-
+-/*
+- * Rings are posted with all the allocations they'll need to queue the
+- * incoming message to the receiving socket so this can't fail.
+- * All fragments start with a header, so we can make sure we're not receiving
+- * garbage, and we can tell a small 8 byte fragment from an ACK frame.
+- */
+-struct rds_iw_ack_state {
+-	u64		ack_next;
+-	u64		ack_recv;
+-	unsigned int	ack_required:1;
+-	unsigned int	ack_next_valid:1;
+-	unsigned int	ack_recv_valid:1;
+-};
+-
+-static void rds_iw_process_recv(struct rds_connection *conn,
+-				struct rds_iw_recv_work *recv, u32 byte_len,
+-				struct rds_iw_ack_state *state)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	struct rds_iw_incoming *iwinc = ic->i_iwinc;
+-	struct rds_header *ihdr, *hdr;
+-
+-	/* XXX shut down the connection if port 0,0 are seen? */
+-
+-	rdsdebug("ic %p iwinc %p recv %p byte len %u\n", ic, iwinc, recv,
+-		 byte_len);
+-
+-	if (byte_len < sizeof(struct rds_header)) {
+-		rds_iw_conn_error(conn, "incoming message "
+-		       "from %pI4 didn't include a "
+-		       "header, disconnecting and "
+-		       "reconnecting\n",
+-		       &conn->c_faddr);
+-		return;
+-	}
+-	byte_len -= sizeof(struct rds_header);
+-
+-	ihdr = &ic->i_recv_hdrs[recv - ic->i_recvs];
+-
+-	/* Validate the checksum. */
+-	if (!rds_message_verify_checksum(ihdr)) {
+-		rds_iw_conn_error(conn, "incoming message "
+-		       "from %pI4 has corrupted header - "
+-		       "forcing a reconnect\n",
+-		       &conn->c_faddr);
+-		rds_stats_inc(s_recv_drop_bad_checksum);
+-		return;
+-	}
+-
+-	/* Process the ACK sequence which comes with every packet */
+-	state->ack_recv = be64_to_cpu(ihdr->h_ack);
+-	state->ack_recv_valid = 1;
+-
+-	/* Process the credits update if there was one */
+-	if (ihdr->h_credit)
+-		rds_iw_send_add_credits(conn, ihdr->h_credit);
+-
+-	if (ihdr->h_sport == 0 && ihdr->h_dport == 0 && byte_len == 0) {
+-		/* This is an ACK-only packet. The fact that it gets
+-		 * special treatment here is that historically, ACKs
+-		 * were rather special beasts.
+-		 */
+-		rds_iw_stats_inc(s_iw_ack_received);
+-
+-		/*
+-		 * Usually the frags make their way on to incs and are then freed as
+-		 * the inc is freed.  We don't go that route, so we have to drop the
+-		 * page ref ourselves.  We can't just leave the page on the recv
+-		 * because that confuses the dma mapping of pages and each recv's use
+-		 * of a partial page.  We can leave the frag, though, it will be
+-		 * reused.
+-		 *
+-		 * FIXME: Fold this into the code path below.
+-		 */
+-		rds_iw_frag_drop_page(recv->r_frag);
+-		return;
+-	}
+-
+-	/*
+-	 * If we don't already have an inc on the connection then this
+-	 * fragment has a header and starts a message.. copy its header
+-	 * into the inc and save the inc so we can hang upcoming fragments
+-	 * off its list.
+-	 */
+-	if (!iwinc) {
+-		iwinc = recv->r_iwinc;
+-		recv->r_iwinc = NULL;
+-		ic->i_iwinc = iwinc;
+-
+-		hdr = &iwinc->ii_inc.i_hdr;
+-		memcpy(hdr, ihdr, sizeof(*hdr));
+-		ic->i_recv_data_rem = be32_to_cpu(hdr->h_len);
+-
+-		rdsdebug("ic %p iwinc %p rem %u flag 0x%x\n", ic, iwinc,
+-			 ic->i_recv_data_rem, hdr->h_flags);
+-	} else {
+-		hdr = &iwinc->ii_inc.i_hdr;
+-		/* We can't just use memcmp here; fragments of a
+-		 * single message may carry different ACKs */
+-		if (hdr->h_sequence != ihdr->h_sequence ||
+-		    hdr->h_len != ihdr->h_len ||
+-		    hdr->h_sport != ihdr->h_sport ||
+-		    hdr->h_dport != ihdr->h_dport) {
+-			rds_iw_conn_error(conn,
+-				"fragment header mismatch; forcing reconnect\n");
+-			return;
+-		}
+-	}
+-
+-	list_add_tail(&recv->r_frag->f_item, &iwinc->ii_frags);
+-	recv->r_frag = NULL;
+-
+-	if (ic->i_recv_data_rem > RDS_FRAG_SIZE)
+-		ic->i_recv_data_rem -= RDS_FRAG_SIZE;
+-	else {
+-		ic->i_recv_data_rem = 0;
+-		ic->i_iwinc = NULL;
+-
+-		if (iwinc->ii_inc.i_hdr.h_flags == RDS_FLAG_CONG_BITMAP)
+-			rds_iw_cong_recv(conn, iwinc);
+-		else {
+-			rds_recv_incoming(conn, conn->c_faddr, conn->c_laddr,
+-					  &iwinc->ii_inc, GFP_ATOMIC);
+-			state->ack_next = be64_to_cpu(hdr->h_sequence);
+-			state->ack_next_valid = 1;
+-		}
+-
+-		/* Evaluate the ACK_REQUIRED flag *after* we received
+-		 * the complete frame, and after bumping the next_rx
+-		 * sequence. */
+-		if (hdr->h_flags & RDS_FLAG_ACK_REQUIRED) {
+-			rds_stats_inc(s_recv_ack_required);
+-			state->ack_required = 1;
+-		}
+-
+-		rds_inc_put(&iwinc->ii_inc);
+-	}
+-}
+-
+-/*
+- * Plucking the oldest entry from the ring can be done concurrently with
+- * the thread refilling the ring.  Each ring operation is protected by
+- * spinlocks and the transient state of refilling doesn't change the
+- * recording of which entry is oldest.
+- *
+- * This relies on IB only calling one cq comp_handler for each cq so that
+- * there will only be one caller of rds_recv_incoming() per RDS connection.
+- */
+-void rds_iw_recv_cq_comp_handler(struct ib_cq *cq, void *context)
+-{
+-	struct rds_connection *conn = context;
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-
+-	rdsdebug("conn %p cq %p\n", conn, cq);
+-
+-	rds_iw_stats_inc(s_iw_rx_cq_call);
+-
+-	tasklet_schedule(&ic->i_recv_tasklet);
+-}
+-
+-static inline void rds_poll_cq(struct rds_iw_connection *ic,
+-			       struct rds_iw_ack_state *state)
+-{
+-	struct rds_connection *conn = ic->conn;
+-	struct ib_wc wc;
+-	struct rds_iw_recv_work *recv;
+-
+-	while (ib_poll_cq(ic->i_recv_cq, 1, &wc) > 0) {
+-		rdsdebug("wc wr_id 0x%llx status %u byte_len %u imm_data %u\n",
+-			 (unsigned long long)wc.wr_id, wc.status, wc.byte_len,
+-			 be32_to_cpu(wc.ex.imm_data));
+-		rds_iw_stats_inc(s_iw_rx_cq_event);
+-
+-		recv = &ic->i_recvs[rds_iw_ring_oldest(&ic->i_recv_ring)];
+-
+-		rds_iw_recv_unmap_page(ic, recv);
+-
+-		/*
+-		 * Also process recvs in connecting state because it is possible
+-		 * to get a recv completion _before_ the rdmacm ESTABLISHED
+-		 * event is processed.
+-		 */
+-		if (rds_conn_up(conn) || rds_conn_connecting(conn)) {
+-			/* We expect errors as the qp is drained during shutdown */
+-			if (wc.status == IB_WC_SUCCESS) {
+-				rds_iw_process_recv(conn, recv, wc.byte_len, state);
+-			} else {
+-				rds_iw_conn_error(conn, "recv completion on "
+-				       "%pI4 had status %u, disconnecting and "
+-				       "reconnecting\n", &conn->c_faddr,
+-				       wc.status);
+-			}
+-		}
+-
+-		rds_iw_ring_free(&ic->i_recv_ring, 1);
+-	}
+-}
+-
+-void rds_iw_recv_tasklet_fn(unsigned long data)
+-{
+-	struct rds_iw_connection *ic = (struct rds_iw_connection *) data;
+-	struct rds_connection *conn = ic->conn;
+-	struct rds_iw_ack_state state = { 0, };
+-
+-	rds_poll_cq(ic, &state);
+-	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
+-	rds_poll_cq(ic, &state);
+-
+-	if (state.ack_next_valid)
+-		rds_iw_set_ack(ic, state.ack_next, state.ack_required);
+-	if (state.ack_recv_valid && state.ack_recv > ic->i_ack_recv) {
+-		rds_send_drop_acked(conn, state.ack_recv, NULL);
+-		ic->i_ack_recv = state.ack_recv;
+-	}
+-	if (rds_conn_up(conn))
+-		rds_iw_attempt_ack(ic);
+-
+-	/* If we ever end up with a really empty receive ring, we're
+-	 * in deep trouble, as the sender will definitely see RNR
+-	 * timeouts. */
+-	if (rds_iw_ring_empty(&ic->i_recv_ring))
+-		rds_iw_stats_inc(s_iw_rx_ring_empty);
+-
+-	/*
+-	 * If the ring is running low, then schedule the thread to refill.
+-	 */
+-	if (rds_iw_ring_low(&ic->i_recv_ring))
+-		queue_delayed_work(rds_wq, &conn->c_recv_w, 0);
+-}
+-
+-int rds_iw_recv(struct rds_connection *conn)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	int ret = 0;
+-
+-	rdsdebug("conn %p\n", conn);
+-
+-	/*
+-	 * If we get a temporary posting failure in this context then
+-	 * we're really low and we want the caller to back off for a bit.
+-	 */
+-	mutex_lock(&ic->i_recv_mutex);
+-	if (rds_iw_recv_refill(conn, GFP_KERNEL, GFP_HIGHUSER, 0))
+-		ret = -ENOMEM;
+-	else
+-		rds_iw_stats_inc(s_iw_rx_refill_from_thread);
+-	mutex_unlock(&ic->i_recv_mutex);
+-
+-	if (rds_conn_up(conn))
+-		rds_iw_attempt_ack(ic);
+-
+-	return ret;
+-}
+-
+-int rds_iw_recv_init(void)
+-{
+-	struct sysinfo si;
+-	int ret = -ENOMEM;
+-
+-	/* Default to 30% of all available RAM for recv memory */
+-	si_meminfo(&si);
+-	rds_iw_sysctl_max_recv_allocation = si.totalram / 3 * PAGE_SIZE / RDS_FRAG_SIZE;
+-
+-	rds_iw_incoming_slab = kmem_cache_create("rds_iw_incoming",
+-					sizeof(struct rds_iw_incoming),
+-					0, 0, NULL);
+-	if (!rds_iw_incoming_slab)
+-		goto out;
+-
+-	rds_iw_frag_slab = kmem_cache_create("rds_iw_frag",
+-					sizeof(struct rds_page_frag),
+-					0, 0, NULL);
+-	if (!rds_iw_frag_slab)
+-		kmem_cache_destroy(rds_iw_incoming_slab);
+-	else
+-		ret = 0;
+-out:
+-	return ret;
+-}
+-
+-void rds_iw_recv_exit(void)
+-{
+-	kmem_cache_destroy(rds_iw_incoming_slab);
+-	kmem_cache_destroy(rds_iw_frag_slab);
+-}
+diff --git a/net/rds/iw_ring.c b/net/rds/iw_ring.c
+deleted file mode 100644
+index da8e3b63f663..000000000000
+--- a/net/rds/iw_ring.c
++++ /dev/null
+@@ -1,169 +0,0 @@
+-/*
+- * Copyright (c) 2006 Oracle.  All rights reserved.
+- *
+- * This software is available to you under a choice of one of two
+- * licenses.  You may choose to be licensed under the terms of the GNU
+- * General Public License (GPL) Version 2, available from the file
+- * COPYING in the main directory of this source tree, or the
+- * OpenIB.org BSD license below:
+- *
+- *     Redistribution and use in source and binary forms, with or
+- *     without modification, are permitted provided that the following
+- *     conditions are met:
+- *
+- *      - Redistributions of source code must retain the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer.
+- *
+- *      - Redistributions in binary form must reproduce the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer in the documentation and/or other materials
+- *        provided with the distribution.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+- * SOFTWARE.
+- *
+- */
+-#include <linux/kernel.h>
+-
+-#include "rds.h"
+-#include "iw.h"
+-
+-/*
+- * Locking for IB rings.
+- * We assume that allocation is always protected by a mutex
+- * in the caller (this is a valid assumption for the current
+- * implementation).
+- *
+- * Freeing always happens in an interrupt, and hence only
+- * races with allocations, but not with other free()s.
+- *
+- * The interaction between allocation and freeing is that
+- * the alloc code has to determine the number of free entries.
+- * To this end, we maintain two counters; an allocation counter
+- * and a free counter. Both are allowed to run freely, and wrap
+- * around.
+- * The number of used entries is always (alloc_ctr - free_ctr) % NR.
+- *
+- * The current implementation makes free_ctr atomic. When the
+- * caller finds an allocation fails, it should set an "alloc fail"
+- * bit and retry the allocation. The "alloc fail" bit essentially tells
+- * the CQ completion handlers to wake it up after freeing some
+- * more entries.
+- */
+-
+-/*
+- * This only happens on shutdown.
+- */
+-DECLARE_WAIT_QUEUE_HEAD(rds_iw_ring_empty_wait);
+-
+-void rds_iw_ring_init(struct rds_iw_work_ring *ring, u32 nr)
+-{
+-	memset(ring, 0, sizeof(*ring));
+-	ring->w_nr = nr;
+-	rdsdebug("ring %p nr %u\n", ring, ring->w_nr);
+-}
+-
+-static inline u32 __rds_iw_ring_used(struct rds_iw_work_ring *ring)
+-{
+-	u32 diff;
+-
+-	/* This assumes that atomic_t has at least as many bits as u32 */
+-	diff = ring->w_alloc_ctr - (u32) atomic_read(&ring->w_free_ctr);
+-	BUG_ON(diff > ring->w_nr);
+-
+-	return diff;
+-}
+-
+-void rds_iw_ring_resize(struct rds_iw_work_ring *ring, u32 nr)
+-{
+-	/* We only ever get called from the connection setup code,
+-	 * prior to creating the QP. */
+-	BUG_ON(__rds_iw_ring_used(ring));
+-	ring->w_nr = nr;
+-}
+-
+-static int __rds_iw_ring_empty(struct rds_iw_work_ring *ring)
+-{
+-	return __rds_iw_ring_used(ring) == 0;
+-}
+-
+-u32 rds_iw_ring_alloc(struct rds_iw_work_ring *ring, u32 val, u32 *pos)
+-{
+-	u32 ret = 0, avail;
+-
+-	avail = ring->w_nr - __rds_iw_ring_used(ring);
+-
+-	rdsdebug("ring %p val %u next %u free %u\n", ring, val,
+-		 ring->w_alloc_ptr, avail);
+-
+-	if (val && avail) {
+-		ret = min(val, avail);
+-		*pos = ring->w_alloc_ptr;
+-
+-		ring->w_alloc_ptr = (ring->w_alloc_ptr + ret) % ring->w_nr;
+-		ring->w_alloc_ctr += ret;
+-	}
+-
+-	return ret;
+-}
+-
+-void rds_iw_ring_free(struct rds_iw_work_ring *ring, u32 val)
+-{
+-	ring->w_free_ptr = (ring->w_free_ptr + val) % ring->w_nr;
+-	atomic_add(val, &ring->w_free_ctr);
+-
+-	if (__rds_iw_ring_empty(ring) &&
+-	    waitqueue_active(&rds_iw_ring_empty_wait))
+-		wake_up(&rds_iw_ring_empty_wait);
+-}
+-
+-void rds_iw_ring_unalloc(struct rds_iw_work_ring *ring, u32 val)
+-{
+-	ring->w_alloc_ptr = (ring->w_alloc_ptr - val) % ring->w_nr;
+-	ring->w_alloc_ctr -= val;
+-}
+-
+-int rds_iw_ring_empty(struct rds_iw_work_ring *ring)
+-{
+-	return __rds_iw_ring_empty(ring);
+-}
+-
+-int rds_iw_ring_low(struct rds_iw_work_ring *ring)
+-{
+-	return __rds_iw_ring_used(ring) <= (ring->w_nr >> 1);
+-}
+-
+-
+-/*
+- * returns the oldest alloced ring entry.  This will be the next one
+- * freed.  This can't be called if there are none allocated.
+- */
+-u32 rds_iw_ring_oldest(struct rds_iw_work_ring *ring)
+-{
+-	return ring->w_free_ptr;
+-}
+-
+-/*
+- * returns the number of completed work requests.
+- */
+-
+-u32 rds_iw_ring_completed(struct rds_iw_work_ring *ring, u32 wr_id, u32 oldest)
+-{
+-	u32 ret;
+-
+-	if (oldest <= (unsigned long long)wr_id)
+-		ret = (unsigned long long)wr_id - oldest + 1;
+-	else
+-		ret = ring->w_nr - oldest + (unsigned long long)wr_id + 1;
+-
+-	rdsdebug("ring %p ret %u wr_id %u oldest %u\n", ring, ret,
+-		 wr_id, oldest);
+-	return ret;
+-}
+diff --git a/net/rds/iw_send.c b/net/rds/iw_send.c
+deleted file mode 100644
+index e20bd503f4bd..000000000000
+--- a/net/rds/iw_send.c
++++ /dev/null
+@@ -1,981 +0,0 @@
+-/*
+- * Copyright (c) 2006 Oracle.  All rights reserved.
+- *
+- * This software is available to you under a choice of one of two
+- * licenses.  You may choose to be licensed under the terms of the GNU
+- * General Public License (GPL) Version 2, available from the file
+- * COPYING in the main directory of this source tree, or the
+- * OpenIB.org BSD license below:
+- *
+- *     Redistribution and use in source and binary forms, with or
+- *     without modification, are permitted provided that the following
+- *     conditions are met:
+- *
+- *      - Redistributions of source code must retain the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer.
+- *
+- *      - Redistributions in binary form must reproduce the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer in the documentation and/or other materials
+- *        provided with the distribution.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+- * SOFTWARE.
+- *
+- */
+-#include <linux/kernel.h>
+-#include <linux/in.h>
+-#include <linux/device.h>
+-#include <linux/dmapool.h>
+-#include <linux/ratelimit.h>
+-
+-#include "rds.h"
+-#include "iw.h"
+-
+-static void rds_iw_send_rdma_complete(struct rds_message *rm,
+-				      int wc_status)
+-{
+-	int notify_status;
+-
+-	switch (wc_status) {
+-	case IB_WC_WR_FLUSH_ERR:
+-		return;
+-
+-	case IB_WC_SUCCESS:
+-		notify_status = RDS_RDMA_SUCCESS;
+-		break;
+-
+-	case IB_WC_REM_ACCESS_ERR:
+-		notify_status = RDS_RDMA_REMOTE_ERROR;
+-		break;
+-
+-	default:
+-		notify_status = RDS_RDMA_OTHER_ERROR;
+-		break;
+-	}
+-	rds_rdma_send_complete(rm, notify_status);
+-}
+-
+-static void rds_iw_send_unmap_rdma(struct rds_iw_connection *ic,
+-				   struct rm_rdma_op *op)
+-{
+-	if (op->op_mapped) {
+-		ib_dma_unmap_sg(ic->i_cm_id->device,
+-			op->op_sg, op->op_nents,
+-			op->op_write ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+-		op->op_mapped = 0;
+-	}
+-}
+-
+-static void rds_iw_send_unmap_rm(struct rds_iw_connection *ic,
+-			  struct rds_iw_send_work *send,
+-			  int wc_status)
+-{
+-	struct rds_message *rm = send->s_rm;
+-
+-	rdsdebug("ic %p send %p rm %p\n", ic, send, rm);
+-
+-	ib_dma_unmap_sg(ic->i_cm_id->device,
+-		     rm->data.op_sg, rm->data.op_nents,
+-		     DMA_TO_DEVICE);
+-
+-	if (rm->rdma.op_active) {
+-		rds_iw_send_unmap_rdma(ic, &rm->rdma);
+-
+-		/* If the user asked for a completion notification on this
+-		 * message, we can implement three different semantics:
+-		 *  1.	Notify when we received the ACK on the RDS message
+-		 *	that was queued with the RDMA. This provides reliable
+-		 *	notification of RDMA status at the expense of a one-way
+-		 *	packet delay.
+-		 *  2.	Notify when the IB stack gives us the completion event for
+-		 *	the RDMA operation.
+-		 *  3.	Notify when the IB stack gives us the completion event for
+-		 *	the accompanying RDS messages.
+-		 * Here, we implement approach #3. To implement approach #2,
+-		 * call rds_rdma_send_complete from the cq_handler. To implement #1,
+-		 * don't call rds_rdma_send_complete at all, and fall back to the notify
+-		 * handling in the ACK processing code.
+-		 *
+-		 * Note: There's no need to explicitly sync any RDMA buffers using
+-		 * ib_dma_sync_sg_for_cpu - the completion for the RDMA
+-		 * operation itself unmapped the RDMA buffers, which takes care
+-		 * of synching.
+-		 */
+-		rds_iw_send_rdma_complete(rm, wc_status);
+-
+-		if (rm->rdma.op_write)
+-			rds_stats_add(s_send_rdma_bytes, rm->rdma.op_bytes);
+-		else
+-			rds_stats_add(s_recv_rdma_bytes, rm->rdma.op_bytes);
+-	}
+-
+-	/* If anyone waited for this message to get flushed out, wake
+-	 * them up now */
+-	rds_message_unmapped(rm);
+-
+-	rds_message_put(rm);
+-	send->s_rm = NULL;
+-}
+-
+-void rds_iw_send_init_ring(struct rds_iw_connection *ic)
+-{
+-	struct rds_iw_send_work *send;
+-	u32 i;
+-
+-	for (i = 0, send = ic->i_sends; i < ic->i_send_ring.w_nr; i++, send++) {
+-		struct ib_sge *sge;
+-
+-		send->s_rm = NULL;
+-		send->s_op = NULL;
+-		send->s_mapping = NULL;
+-
+-		send->s_send_wr.next = NULL;
+-		send->s_send_wr.wr_id = i;
+-		send->s_send_wr.sg_list = send->s_sge;
+-		send->s_send_wr.num_sge = 1;
+-		send->s_send_wr.opcode = IB_WR_SEND;
+-		send->s_send_wr.send_flags = 0;
+-		send->s_send_wr.ex.imm_data = 0;
+-
+-		sge = rds_iw_data_sge(ic, send->s_sge);
+-		sge->lkey = 0;
+-
+-		sge = rds_iw_header_sge(ic, send->s_sge);
+-		sge->addr = ic->i_send_hdrs_dma + (i * sizeof(struct rds_header));
+-		sge->length = sizeof(struct rds_header);
+-		sge->lkey = 0;
+-
+-		send->s_mr = ib_alloc_mr(ic->i_pd, IB_MR_TYPE_MEM_REG,
+-					 fastreg_message_size);
+-		if (IS_ERR(send->s_mr)) {
+-			printk(KERN_WARNING "RDS/IW: ib_alloc_mr failed\n");
+-			break;
+-		}
+-	}
+-}
+-
+-void rds_iw_send_clear_ring(struct rds_iw_connection *ic)
+-{
+-	struct rds_iw_send_work *send;
+-	u32 i;
+-
+-	for (i = 0, send = ic->i_sends; i < ic->i_send_ring.w_nr; i++, send++) {
+-		BUG_ON(!send->s_mr);
+-		ib_dereg_mr(send->s_mr);
+-		if (send->s_send_wr.opcode == 0xdead)
+-			continue;
+-		if (send->s_rm)
+-			rds_iw_send_unmap_rm(ic, send, IB_WC_WR_FLUSH_ERR);
+-		if (send->s_op)
+-			rds_iw_send_unmap_rdma(ic, send->s_op);
+-	}
+-}
+-
+-/*
+- * The _oldest/_free ring operations here race cleanly with the alloc/unalloc
+- * operations performed in the send path.  As the sender allocs and potentially
+- * unallocs the next free entry in the ring it doesn't alter which is
+- * the next to be freed, which is what this is concerned with.
+- */
+-void rds_iw_send_cq_comp_handler(struct ib_cq *cq, void *context)
+-{
+-	struct rds_connection *conn = context;
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	struct ib_wc wc;
+-	struct rds_iw_send_work *send;
+-	u32 completed;
+-	u32 oldest;
+-	u32 i;
+-	int ret;
+-
+-	rdsdebug("cq %p conn %p\n", cq, conn);
+-	rds_iw_stats_inc(s_iw_tx_cq_call);
+-	ret = ib_req_notify_cq(cq, IB_CQ_NEXT_COMP);
+-	if (ret)
+-		rdsdebug("ib_req_notify_cq send failed: %d\n", ret);
+-
+-	while (ib_poll_cq(cq, 1, &wc) > 0) {
+-		rdsdebug("wc wr_id 0x%llx status %u byte_len %u imm_data %u\n",
+-			 (unsigned long long)wc.wr_id, wc.status, wc.byte_len,
+-			 be32_to_cpu(wc.ex.imm_data));
+-		rds_iw_stats_inc(s_iw_tx_cq_event);
+-
+-		if (wc.status != IB_WC_SUCCESS) {
+-			printk(KERN_ERR "WC Error:  status = %d opcode = %d\n", wc.status, wc.opcode);
+-			break;
+-		}
+-
+-		if (wc.opcode == IB_WC_LOCAL_INV && wc.wr_id == RDS_IW_LOCAL_INV_WR_ID) {
+-			ic->i_fastreg_posted = 0;
+-			continue;
+-		}
+-
+-		if (wc.opcode == IB_WC_REG_MR && wc.wr_id == RDS_IW_REG_WR_ID) {
+-			ic->i_fastreg_posted = 1;
+-			continue;
+-		}
+-
+-		if (wc.wr_id == RDS_IW_ACK_WR_ID) {
+-			if (time_after(jiffies, ic->i_ack_queued + HZ/2))
+-				rds_iw_stats_inc(s_iw_tx_stalled);
+-			rds_iw_ack_send_complete(ic);
+-			continue;
+-		}
+-
+-		oldest = rds_iw_ring_oldest(&ic->i_send_ring);
+-
+-		completed = rds_iw_ring_completed(&ic->i_send_ring, wc.wr_id, oldest);
+-
+-		for (i = 0; i < completed; i++) {
+-			send = &ic->i_sends[oldest];
+-
+-			/* In the error case, wc.opcode sometimes contains garbage */
+-			switch (send->s_send_wr.opcode) {
+-			case IB_WR_SEND:
+-				if (send->s_rm)
+-					rds_iw_send_unmap_rm(ic, send, wc.status);
+-				break;
+-			case IB_WR_REG_MR:
+-			case IB_WR_RDMA_WRITE:
+-			case IB_WR_RDMA_READ:
+-			case IB_WR_RDMA_READ_WITH_INV:
+-				/* Nothing to be done - the SG list will be unmapped
+-				 * when the SEND completes. */
+-				break;
+-			default:
+-				printk_ratelimited(KERN_NOTICE
+-						"RDS/IW: %s: unexpected opcode 0x%x in WR!\n",
+-						__func__, send->s_send_wr.opcode);
+-				break;
+-			}
+-
+-			send->s_send_wr.opcode = 0xdead;
+-			send->s_send_wr.num_sge = 1;
+-			if (time_after(jiffies, send->s_queued + HZ/2))
+-				rds_iw_stats_inc(s_iw_tx_stalled);
+-
+-			/* If a RDMA operation produced an error, signal this right
+-			 * away. If we don't, the subsequent SEND that goes with this
+-			 * RDMA will be canceled with ERR_WFLUSH, and the application
+-			 * never learn that the RDMA failed. */
+-			if (unlikely(wc.status == IB_WC_REM_ACCESS_ERR && send->s_op)) {
+-				struct rds_message *rm;
+-
+-				rm = rds_send_get_message(conn, send->s_op);
+-				if (rm)
+-					rds_iw_send_rdma_complete(rm, wc.status);
+-			}
+-
+-			oldest = (oldest + 1) % ic->i_send_ring.w_nr;
+-		}
+-
+-		rds_iw_ring_free(&ic->i_send_ring, completed);
+-
+-		if (test_and_clear_bit(RDS_LL_SEND_FULL, &conn->c_flags) ||
+-		    test_bit(0, &conn->c_map_queued))
+-			queue_delayed_work(rds_wq, &conn->c_send_w, 0);
+-
+-		/* We expect errors as the qp is drained during shutdown */
+-		if (wc.status != IB_WC_SUCCESS && rds_conn_up(conn)) {
+-			rds_iw_conn_error(conn,
+-				"send completion on %pI4 "
+-				"had status %u, disconnecting and reconnecting\n",
+-				&conn->c_faddr, wc.status);
+-		}
+-	}
+-}
+-
+-/*
+- * This is the main function for allocating credits when sending
+- * messages.
+- *
+- * Conceptually, we have two counters:
+- *  -	send credits: this tells us how many WRs we're allowed
+- *	to submit without overruning the receiver's queue. For
+- *	each SEND WR we post, we decrement this by one.
+- *
+- *  -	posted credits: this tells us how many WRs we recently
+- *	posted to the receive queue. This value is transferred
+- *	to the peer as a "credit update" in a RDS header field.
+- *	Every time we transmit credits to the peer, we subtract
+- *	the amount of transferred credits from this counter.
+- *
+- * It is essential that we avoid situations where both sides have
+- * exhausted their send credits, and are unable to send new credits
+- * to the peer. We achieve this by requiring that we send at least
+- * one credit update to the peer before exhausting our credits.
+- * When new credits arrive, we subtract one credit that is withheld
+- * until we've posted new buffers and are ready to transmit these
+- * credits (see rds_iw_send_add_credits below).
+- *
+- * The RDS send code is essentially single-threaded; rds_send_xmit
+- * grabs c_send_lock to ensure exclusive access to the send ring.
+- * However, the ACK sending code is independent and can race with
+- * message SENDs.
+- *
+- * In the send path, we need to update the counters for send credits
+- * and the counter of posted buffers atomically - when we use the
+- * last available credit, we cannot allow another thread to race us
+- * and grab the posted credits counter.  Hence, we have to use a
+- * spinlock to protect the credit counter, or use atomics.
+- *
+- * Spinlocks shared between the send and the receive path are bad,
+- * because they create unnecessary delays. An early implementation
+- * using a spinlock showed a 5% degradation in throughput at some
+- * loads.
+- *
+- * This implementation avoids spinlocks completely, putting both
+- * counters into a single atomic, and updating that atomic using
+- * atomic_add (in the receive path, when receiving fresh credits),
+- * and using atomic_cmpxchg when updating the two counters.
+- */
+-int rds_iw_send_grab_credits(struct rds_iw_connection *ic,
+-			     u32 wanted, u32 *adv_credits, int need_posted, int max_posted)
+-{
+-	unsigned int avail, posted, got = 0, advertise;
+-	long oldval, newval;
+-
+-	*adv_credits = 0;
+-	if (!ic->i_flowctl)
+-		return wanted;
+-
+-try_again:
+-	advertise = 0;
+-	oldval = newval = atomic_read(&ic->i_credits);
+-	posted = IB_GET_POST_CREDITS(oldval);
+-	avail = IB_GET_SEND_CREDITS(oldval);
+-
+-	rdsdebug("wanted=%u credits=%u posted=%u\n",
+-			wanted, avail, posted);
+-
+-	/* The last credit must be used to send a credit update. */
+-	if (avail && !posted)
+-		avail--;
+-
+-	if (avail < wanted) {
+-		struct rds_connection *conn = ic->i_cm_id->context;
+-
+-		/* Oops, there aren't that many credits left! */
+-		set_bit(RDS_LL_SEND_FULL, &conn->c_flags);
+-		got = avail;
+-	} else {
+-		/* Sometimes you get what you want, lalala. */
+-		got = wanted;
+-	}
+-	newval -= IB_SET_SEND_CREDITS(got);
+-
+-	/*
+-	 * If need_posted is non-zero, then the caller wants
+-	 * the posted regardless of whether any send credits are
+-	 * available.
+-	 */
+-	if (posted && (got || need_posted)) {
+-		advertise = min_t(unsigned int, posted, max_posted);
+-		newval -= IB_SET_POST_CREDITS(advertise);
+-	}
+-
+-	/* Finally bill everything */
+-	if (atomic_cmpxchg(&ic->i_credits, oldval, newval) != oldval)
+-		goto try_again;
+-
+-	*adv_credits = advertise;
+-	return got;
+-}
+-
+-void rds_iw_send_add_credits(struct rds_connection *conn, unsigned int credits)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-
+-	if (credits == 0)
+-		return;
+-
+-	rdsdebug("credits=%u current=%u%s\n",
+-			credits,
+-			IB_GET_SEND_CREDITS(atomic_read(&ic->i_credits)),
+-			test_bit(RDS_LL_SEND_FULL, &conn->c_flags) ? ", ll_send_full" : "");
+-
+-	atomic_add(IB_SET_SEND_CREDITS(credits), &ic->i_credits);
+-	if (test_and_clear_bit(RDS_LL_SEND_FULL, &conn->c_flags))
+-		queue_delayed_work(rds_wq, &conn->c_send_w, 0);
+-
+-	WARN_ON(IB_GET_SEND_CREDITS(credits) >= 16384);
+-
+-	rds_iw_stats_inc(s_iw_rx_credit_updates);
+-}
+-
+-void rds_iw_advertise_credits(struct rds_connection *conn, unsigned int posted)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-
+-	if (posted == 0)
+-		return;
+-
+-	atomic_add(IB_SET_POST_CREDITS(posted), &ic->i_credits);
+-
+-	/* Decide whether to send an update to the peer now.
+-	 * If we would send a credit update for every single buffer we
+-	 * post, we would end up with an ACK storm (ACK arrives,
+-	 * consumes buffer, we refill the ring, send ACK to remote
+-	 * advertising the newly posted buffer... ad inf)
+-	 *
+-	 * Performance pretty much depends on how often we send
+-	 * credit updates - too frequent updates mean lots of ACKs.
+-	 * Too infrequent updates, and the peer will run out of
+-	 * credits and has to throttle.
+-	 * For the time being, 16 seems to be a good compromise.
+-	 */
+-	if (IB_GET_POST_CREDITS(atomic_read(&ic->i_credits)) >= 16)
+-		set_bit(IB_ACK_REQUESTED, &ic->i_ack_flags);
+-}
+-
+-static inline void
+-rds_iw_xmit_populate_wr(struct rds_iw_connection *ic,
+-		struct rds_iw_send_work *send, unsigned int pos,
+-		unsigned long buffer, unsigned int length,
+-		int send_flags)
+-{
+-	struct ib_sge *sge;
+-
+-	WARN_ON(pos != send - ic->i_sends);
+-
+-	send->s_send_wr.send_flags = send_flags;
+-	send->s_send_wr.opcode = IB_WR_SEND;
+-	send->s_send_wr.num_sge = 2;
+-	send->s_send_wr.next = NULL;
+-	send->s_queued = jiffies;
+-	send->s_op = NULL;
+-
+-	if (length != 0) {
+-		sge = rds_iw_data_sge(ic, send->s_sge);
+-		sge->addr = buffer;
+-		sge->length = length;
+-		sge->lkey = rds_iw_local_dma_lkey(ic);
+-
+-		sge = rds_iw_header_sge(ic, send->s_sge);
+-	} else {
+-		/* We're sending a packet with no payload. There is only
+-		 * one SGE */
+-		send->s_send_wr.num_sge = 1;
+-		sge = &send->s_sge[0];
+-	}
+-
+-	sge->addr = ic->i_send_hdrs_dma + (pos * sizeof(struct rds_header));
+-	sge->length = sizeof(struct rds_header);
+-	sge->lkey = rds_iw_local_dma_lkey(ic);
+-}
+-
+-/*
+- * This can be called multiple times for a given message.  The first time
+- * we see a message we map its scatterlist into the IB device so that
+- * we can provide that mapped address to the IB scatter gather entries
+- * in the IB work requests.  We translate the scatterlist into a series
+- * of work requests that fragment the message.  These work requests complete
+- * in order so we pass ownership of the message to the completion handler
+- * once we send the final fragment.
+- *
+- * The RDS core uses the c_send_lock to only enter this function once
+- * per connection.  This makes sure that the tx ring alloc/unalloc pairs
+- * don't get out of sync and confuse the ring.
+- */
+-int rds_iw_xmit(struct rds_connection *conn, struct rds_message *rm,
+-		unsigned int hdr_off, unsigned int sg, unsigned int off)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	struct ib_device *dev = ic->i_cm_id->device;
+-	struct rds_iw_send_work *send = NULL;
+-	struct rds_iw_send_work *first;
+-	struct rds_iw_send_work *prev;
+-	struct ib_send_wr *failed_wr;
+-	struct scatterlist *scat;
+-	u32 pos;
+-	u32 i;
+-	u32 work_alloc;
+-	u32 credit_alloc;
+-	u32 posted;
+-	u32 adv_credits = 0;
+-	int send_flags = 0;
+-	int sent;
+-	int ret;
+-	int flow_controlled = 0;
+-
+-	BUG_ON(off % RDS_FRAG_SIZE);
+-	BUG_ON(hdr_off != 0 && hdr_off != sizeof(struct rds_header));
+-
+-	/* Fastreg support */
+-	if (rds_rdma_cookie_key(rm->m_rdma_cookie) && !ic->i_fastreg_posted) {
+-		ret = -EAGAIN;
+-		goto out;
+-	}
+-
+-	/* FIXME we may overallocate here */
+-	if (be32_to_cpu(rm->m_inc.i_hdr.h_len) == 0)
+-		i = 1;
+-	else
+-		i = ceil(be32_to_cpu(rm->m_inc.i_hdr.h_len), RDS_FRAG_SIZE);
+-
+-	work_alloc = rds_iw_ring_alloc(&ic->i_send_ring, i, &pos);
+-	if (work_alloc == 0) {
+-		set_bit(RDS_LL_SEND_FULL, &conn->c_flags);
+-		rds_iw_stats_inc(s_iw_tx_ring_full);
+-		ret = -ENOMEM;
+-		goto out;
+-	}
+-
+-	credit_alloc = work_alloc;
+-	if (ic->i_flowctl) {
+-		credit_alloc = rds_iw_send_grab_credits(ic, work_alloc, &posted, 0, RDS_MAX_ADV_CREDIT);
+-		adv_credits += posted;
+-		if (credit_alloc < work_alloc) {
+-			rds_iw_ring_unalloc(&ic->i_send_ring, work_alloc - credit_alloc);
+-			work_alloc = credit_alloc;
+-			flow_controlled++;
+-		}
+-		if (work_alloc == 0) {
+-			set_bit(RDS_LL_SEND_FULL, &conn->c_flags);
+-			rds_iw_stats_inc(s_iw_tx_throttle);
+-			ret = -ENOMEM;
+-			goto out;
+-		}
+-	}
+-
+-	/* map the message the first time we see it */
+-	if (!ic->i_rm) {
+-		/*
+-		printk(KERN_NOTICE "rds_iw_xmit prep msg dport=%u flags=0x%x len=%d\n",
+-				be16_to_cpu(rm->m_inc.i_hdr.h_dport),
+-				rm->m_inc.i_hdr.h_flags,
+-				be32_to_cpu(rm->m_inc.i_hdr.h_len));
+-		   */
+-		if (rm->data.op_nents) {
+-			rm->data.op_count = ib_dma_map_sg(dev,
+-							  rm->data.op_sg,
+-							  rm->data.op_nents,
+-							  DMA_TO_DEVICE);
+-			rdsdebug("ic %p mapping rm %p: %d\n", ic, rm, rm->data.op_count);
+-			if (rm->data.op_count == 0) {
+-				rds_iw_stats_inc(s_iw_tx_sg_mapping_failure);
+-				rds_iw_ring_unalloc(&ic->i_send_ring, work_alloc);
+-				ret = -ENOMEM; /* XXX ? */
+-				goto out;
+-			}
+-		} else {
+-			rm->data.op_count = 0;
+-		}
+-
+-		ic->i_unsignaled_wrs = rds_iw_sysctl_max_unsig_wrs;
+-		ic->i_unsignaled_bytes = rds_iw_sysctl_max_unsig_bytes;
+-		rds_message_addref(rm);
+-		rm->data.op_dmasg = 0;
+-		rm->data.op_dmaoff = 0;
+-		ic->i_rm = rm;
+-
+-		/* Finalize the header */
+-		if (test_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags))
+-			rm->m_inc.i_hdr.h_flags |= RDS_FLAG_ACK_REQUIRED;
+-		if (test_bit(RDS_MSG_RETRANSMITTED, &rm->m_flags))
+-			rm->m_inc.i_hdr.h_flags |= RDS_FLAG_RETRANSMITTED;
+-
+-		/* If it has a RDMA op, tell the peer we did it. This is
+-		 * used by the peer to release use-once RDMA MRs. */
+-		if (rm->rdma.op_active) {
+-			struct rds_ext_header_rdma ext_hdr;
+-
+-			ext_hdr.h_rdma_rkey = cpu_to_be32(rm->rdma.op_rkey);
+-			rds_message_add_extension(&rm->m_inc.i_hdr,
+-					RDS_EXTHDR_RDMA, &ext_hdr, sizeof(ext_hdr));
+-		}
+-		if (rm->m_rdma_cookie) {
+-			rds_message_add_rdma_dest_extension(&rm->m_inc.i_hdr,
+-					rds_rdma_cookie_key(rm->m_rdma_cookie),
+-					rds_rdma_cookie_offset(rm->m_rdma_cookie));
+-		}
+-
+-		/* Note - rds_iw_piggyb_ack clears the ACK_REQUIRED bit, so
+-		 * we should not do this unless we have a chance of at least
+-		 * sticking the header into the send ring. Which is why we
+-		 * should call rds_iw_ring_alloc first. */
+-		rm->m_inc.i_hdr.h_ack = cpu_to_be64(rds_iw_piggyb_ack(ic));
+-		rds_message_make_checksum(&rm->m_inc.i_hdr);
+-
+-		/*
+-		 * Update adv_credits since we reset the ACK_REQUIRED bit.
+-		 */
+-		rds_iw_send_grab_credits(ic, 0, &posted, 1, RDS_MAX_ADV_CREDIT - adv_credits);
+-		adv_credits += posted;
+-		BUG_ON(adv_credits > 255);
+-	}
+-
+-	send = &ic->i_sends[pos];
+-	first = send;
+-	prev = NULL;
+-	scat = &rm->data.op_sg[rm->data.op_dmasg];
+-	sent = 0;
+-	i = 0;
+-
+-	/* Sometimes you want to put a fence between an RDMA
+-	 * READ and the following SEND.
+-	 * We could either do this all the time
+-	 * or when requested by the user. Right now, we let
+-	 * the application choose.
+-	 */
+-	if (rm->rdma.op_active && rm->rdma.op_fence)
+-		send_flags = IB_SEND_FENCE;
+-
+-	/*
+-	 * We could be copying the header into the unused tail of the page.
+-	 * That would need to be changed in the future when those pages might
+-	 * be mapped userspace pages or page cache pages.  So instead we always
+-	 * use a second sge and our long-lived ring of mapped headers.  We send
+-	 * the header after the data so that the data payload can be aligned on
+-	 * the receiver.
+-	 */
+-
+-	/* handle a 0-len message */
+-	if (be32_to_cpu(rm->m_inc.i_hdr.h_len) == 0) {
+-		rds_iw_xmit_populate_wr(ic, send, pos, 0, 0, send_flags);
+-		goto add_header;
+-	}
+-
+-	/* if there's data reference it with a chain of work reqs */
+-	for (; i < work_alloc && scat != &rm->data.op_sg[rm->data.op_count]; i++) {
+-		unsigned int len;
+-
+-		send = &ic->i_sends[pos];
+-
+-		len = min(RDS_FRAG_SIZE,
+-			  ib_sg_dma_len(dev, scat) - rm->data.op_dmaoff);
+-		rds_iw_xmit_populate_wr(ic, send, pos,
+-			ib_sg_dma_address(dev, scat) + rm->data.op_dmaoff, len,
+-			send_flags);
+-
+-		/*
+-		 * We want to delay signaling completions just enough to get
+-		 * the batching benefits but not so much that we create dead time
+-		 * on the wire.
+-		 */
+-		if (ic->i_unsignaled_wrs-- == 0) {
+-			ic->i_unsignaled_wrs = rds_iw_sysctl_max_unsig_wrs;
+-			send->s_send_wr.send_flags |= IB_SEND_SIGNALED | IB_SEND_SOLICITED;
+-		}
+-
+-		ic->i_unsignaled_bytes -= len;
+-		if (ic->i_unsignaled_bytes <= 0) {
+-			ic->i_unsignaled_bytes = rds_iw_sysctl_max_unsig_bytes;
+-			send->s_send_wr.send_flags |= IB_SEND_SIGNALED | IB_SEND_SOLICITED;
+-		}
+-
+-		/*
+-		 * Always signal the last one if we're stopping due to flow control.
+-		 */
+-		if (flow_controlled && i == (work_alloc-1))
+-			send->s_send_wr.send_flags |= IB_SEND_SIGNALED | IB_SEND_SOLICITED;
+-
+-		rdsdebug("send %p wr %p num_sge %u next %p\n", send,
+-			 &send->s_send_wr, send->s_send_wr.num_sge, send->s_send_wr.next);
+-
+-		sent += len;
+-		rm->data.op_dmaoff += len;
+-		if (rm->data.op_dmaoff == ib_sg_dma_len(dev, scat)) {
+-			scat++;
+-			rm->data.op_dmaoff = 0;
+-			rm->data.op_dmasg++;
+-		}
+-
+-add_header:
+-		/* Tack on the header after the data. The header SGE should already
+-		 * have been set up to point to the right header buffer. */
+-		memcpy(&ic->i_send_hdrs[pos], &rm->m_inc.i_hdr, sizeof(struct rds_header));
+-
+-		if (0) {
+-			struct rds_header *hdr = &ic->i_send_hdrs[pos];
+-
+-			printk(KERN_NOTICE "send WR dport=%u flags=0x%x len=%d\n",
+-				be16_to_cpu(hdr->h_dport),
+-				hdr->h_flags,
+-				be32_to_cpu(hdr->h_len));
+-		}
+-		if (adv_credits) {
+-			struct rds_header *hdr = &ic->i_send_hdrs[pos];
+-
+-			/* add credit and redo the header checksum */
+-			hdr->h_credit = adv_credits;
+-			rds_message_make_checksum(hdr);
+-			adv_credits = 0;
+-			rds_iw_stats_inc(s_iw_tx_credit_updates);
+-		}
+-
+-		if (prev)
+-			prev->s_send_wr.next = &send->s_send_wr;
+-		prev = send;
+-
+-		pos = (pos + 1) % ic->i_send_ring.w_nr;
+-	}
+-
+-	/* Account the RDS header in the number of bytes we sent, but just once.
+-	 * The caller has no concept of fragmentation. */
+-	if (hdr_off == 0)
+-		sent += sizeof(struct rds_header);
+-
+-	/* if we finished the message then send completion owns it */
+-	if (scat == &rm->data.op_sg[rm->data.op_count]) {
+-		prev->s_rm = ic->i_rm;
+-		prev->s_send_wr.send_flags |= IB_SEND_SIGNALED | IB_SEND_SOLICITED;
+-		ic->i_rm = NULL;
+-	}
+-
+-	if (i < work_alloc) {
+-		rds_iw_ring_unalloc(&ic->i_send_ring, work_alloc - i);
+-		work_alloc = i;
+-	}
+-	if (ic->i_flowctl && i < credit_alloc)
+-		rds_iw_send_add_credits(conn, credit_alloc - i);
+-
+-	/* XXX need to worry about failed_wr and partial sends. */
+-	failed_wr = &first->s_send_wr;
+-	ret = ib_post_send(ic->i_cm_id->qp, &first->s_send_wr, &failed_wr);
+-	rdsdebug("ic %p first %p (wr %p) ret %d wr %p\n", ic,
+-		 first, &first->s_send_wr, ret, failed_wr);
+-	BUG_ON(failed_wr != &first->s_send_wr);
+-	if (ret) {
+-		printk(KERN_WARNING "RDS/IW: ib_post_send to %pI4 "
+-		       "returned %d\n", &conn->c_faddr, ret);
+-		rds_iw_ring_unalloc(&ic->i_send_ring, work_alloc);
+-		if (prev->s_rm) {
+-			ic->i_rm = prev->s_rm;
+-			prev->s_rm = NULL;
+-		}
+-		goto out;
+-	}
+-
+-	ret = sent;
+-out:
+-	BUG_ON(adv_credits);
+-	return ret;
+-}
+-
+-static int rds_iw_build_send_reg(struct rds_iw_send_work *send,
+-				 struct scatterlist *sg,
+-				 int sg_nents)
+-{
+-	int n;
+-
+-	n = ib_map_mr_sg(send->s_mr, sg, sg_nents, PAGE_SIZE);
+-	if (unlikely(n != sg_nents))
+-		return n < 0 ? n : -EINVAL;
+-
+-	send->s_reg_wr.wr.opcode = IB_WR_REG_MR;
+-	send->s_reg_wr.wr.wr_id = 0;
+-	send->s_reg_wr.wr.num_sge = 0;
+-	send->s_reg_wr.mr = send->s_mr;
+-	send->s_reg_wr.key = send->s_mr->rkey;
+-	send->s_reg_wr.access = IB_ACCESS_REMOTE_WRITE;
+-
+-	ib_update_fast_reg_key(send->s_mr, send->s_remap_count++);
+-
+-	return 0;
+-}
+-
+-int rds_iw_xmit_rdma(struct rds_connection *conn, struct rm_rdma_op *op)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-	struct rds_iw_send_work *send = NULL;
+-	struct rds_iw_send_work *first;
+-	struct rds_iw_send_work *prev;
+-	struct ib_send_wr *failed_wr;
+-	struct rds_iw_device *rds_iwdev;
+-	struct scatterlist *scat;
+-	unsigned long len;
+-	u64 remote_addr = op->op_remote_addr;
+-	u32 pos, fr_pos;
+-	u32 work_alloc;
+-	u32 i;
+-	u32 j;
+-	int sent;
+-	int ret;
+-	int num_sge;
+-	int sg_nents;
+-
+-	rds_iwdev = ib_get_client_data(ic->i_cm_id->device, &rds_iw_client);
+-
+-	/* map the message the first time we see it */
+-	if (!op->op_mapped) {
+-		op->op_count = ib_dma_map_sg(ic->i_cm_id->device,
+-					     op->op_sg, op->op_nents, (op->op_write) ?
+-					     DMA_TO_DEVICE : DMA_FROM_DEVICE);
+-		rdsdebug("ic %p mapping op %p: %d\n", ic, op, op->op_count);
+-		if (op->op_count == 0) {
+-			rds_iw_stats_inc(s_iw_tx_sg_mapping_failure);
+-			ret = -ENOMEM; /* XXX ? */
+-			goto out;
+-		}
+-
+-		op->op_mapped = 1;
+-	}
+-
+-	if (!op->op_write) {
+-		/* Alloc space on the send queue for the fastreg */
+-		work_alloc = rds_iw_ring_alloc(&ic->i_send_ring, 1, &fr_pos);
+-		if (work_alloc != 1) {
+-			rds_iw_ring_unalloc(&ic->i_send_ring, work_alloc);
+-			rds_iw_stats_inc(s_iw_tx_ring_full);
+-			ret = -ENOMEM;
+-			goto out;
+-		}
+-	}
+-
+-	/*
+-	 * Instead of knowing how to return a partial rdma read/write we insist that there
+-	 * be enough work requests to send the entire message.
+-	 */
+-	i = ceil(op->op_count, rds_iwdev->max_sge);
+-
+-	work_alloc = rds_iw_ring_alloc(&ic->i_send_ring, i, &pos);
+-	if (work_alloc != i) {
+-		rds_iw_ring_unalloc(&ic->i_send_ring, work_alloc);
+-		rds_iw_stats_inc(s_iw_tx_ring_full);
+-		ret = -ENOMEM;
+-		goto out;
+-	}
+-
+-	send = &ic->i_sends[pos];
+-	if (!op->op_write) {
+-		first = prev = &ic->i_sends[fr_pos];
+-	} else {
+-		first = send;
+-		prev = NULL;
+-	}
+-	scat = &op->op_sg[0];
+-	sent = 0;
+-	num_sge = op->op_count;
+-	sg_nents = 0;
+-
+-	for (i = 0; i < work_alloc && scat != &op->op_sg[op->op_count]; i++) {
+-		send->s_rdma_wr.wr.send_flags = 0;
+-		send->s_queued = jiffies;
+-
+-		/*
+-		 * We want to delay signaling completions just enough to get
+-		 * the batching benefits but not so much that we create dead time on the wire.
+-		 */
+-		if (ic->i_unsignaled_wrs-- == 0) {
+-			ic->i_unsignaled_wrs = rds_iw_sysctl_max_unsig_wrs;
+-			send->s_rdma_wr.wr.send_flags = IB_SEND_SIGNALED;
+-		}
+-
+-		/* To avoid the need to have the plumbing to invalidate the fastreg_mr used
+-		 * for local access after RDS is finished with it, using
+-		 * IB_WR_RDMA_READ_WITH_INV will invalidate it after the read has completed.
+-		 */
+-		if (op->op_write)
+-			send->s_rdma_wr.wr.opcode = IB_WR_RDMA_WRITE;
+-		else
+-			send->s_rdma_wr.wr.opcode = IB_WR_RDMA_READ_WITH_INV;
+-
+-		send->s_rdma_wr.remote_addr = remote_addr;
+-		send->s_rdma_wr.rkey = op->op_rkey;
+-		send->s_op = op;
+-
+-		if (num_sge > rds_iwdev->max_sge) {
+-			send->s_rdma_wr.wr.num_sge = rds_iwdev->max_sge;
+-			num_sge -= rds_iwdev->max_sge;
+-		} else
+-			send->s_rdma_wr.wr.num_sge = num_sge;
+-
+-		send->s_rdma_wr.wr.next = NULL;
+-
+-		if (prev)
+-			prev->s_send_wr.next = &send->s_rdma_wr.wr;
+-
+-		for (j = 0; j < send->s_rdma_wr.wr.num_sge &&
+-		     scat != &op->op_sg[op->op_count]; j++) {
+-			len = ib_sg_dma_len(ic->i_cm_id->device, scat);
+-
+-			if (send->s_rdma_wr.wr.opcode == IB_WR_RDMA_READ_WITH_INV)
+-				sg_nents++;
+-			else {
+-				send->s_sge[j].addr = ib_sg_dma_address(ic->i_cm_id->device, scat);
+-				send->s_sge[j].length = len;
+-				send->s_sge[j].lkey = rds_iw_local_dma_lkey(ic);
+-			}
+-
+-			sent += len;
+-			rdsdebug("ic %p sent %d remote_addr %llu\n", ic, sent, remote_addr);
+-			remote_addr += len;
+-
+-			scat++;
+-		}
+-
+-		if (send->s_rdma_wr.wr.opcode == IB_WR_RDMA_READ_WITH_INV) {
+-			send->s_rdma_wr.wr.num_sge = 1;
+-			send->s_sge[0].addr = conn->c_xmit_rm->m_rs->rs_user_addr;
+-			send->s_sge[0].length = conn->c_xmit_rm->m_rs->rs_user_bytes;
+-			send->s_sge[0].lkey = ic->i_sends[fr_pos].s_mr->lkey;
+-		}
+-
+-		rdsdebug("send %p wr %p num_sge %u next %p\n", send,
+-			&send->s_rdma_wr,
+-			send->s_rdma_wr.wr.num_sge,
+-			send->s_rdma_wr.wr.next);
+-
+-		prev = send;
+-		if (++send == &ic->i_sends[ic->i_send_ring.w_nr])
+-			send = ic->i_sends;
+-	}
+-
+-	/* if we finished the message then send completion owns it */
+-	if (scat == &op->op_sg[op->op_count])
+-		first->s_rdma_wr.wr.send_flags = IB_SEND_SIGNALED;
+-
+-	if (i < work_alloc) {
+-		rds_iw_ring_unalloc(&ic->i_send_ring, work_alloc - i);
+-		work_alloc = i;
+-	}
+-
+-	/* On iWARP, local memory access by a remote system (ie, RDMA Read) is not
+-	 * recommended.  Putting the lkey on the wire is a security hole, as it can
+-	 * allow for memory access to all of memory on the remote system.  Some
+-	 * adapters do not allow using the lkey for this at all.  To bypass this use a
+-	 * fastreg_mr (or possibly a dma_mr)
+-	 */
+-	if (!op->op_write) {
+-		ret = rds_iw_build_send_reg(&ic->i_sends[fr_pos],
+-					    &op->op_sg[0], sg_nents);
+-		if (ret) {
+-			printk(KERN_WARNING "RDS/IW: failed to reg send mem\n");
+-			goto out;
+-		}
+-		work_alloc++;
+-	}
+-
+-	failed_wr = &first->s_rdma_wr.wr;
+-	ret = ib_post_send(ic->i_cm_id->qp, &first->s_rdma_wr.wr, &failed_wr);
+-	rdsdebug("ic %p first %p (wr %p) ret %d wr %p\n", ic,
+-		 first, &first->s_rdma_wr, ret, failed_wr);
+-	BUG_ON(failed_wr != &first->s_rdma_wr.wr);
+-	if (ret) {
+-		printk(KERN_WARNING "RDS/IW: rdma ib_post_send to %pI4 "
+-		       "returned %d\n", &conn->c_faddr, ret);
+-		rds_iw_ring_unalloc(&ic->i_send_ring, work_alloc);
+-		goto out;
+-	}
+-
+-out:
+-	return ret;
+-}
+-
+-void rds_iw_xmit_complete(struct rds_connection *conn)
+-{
+-	struct rds_iw_connection *ic = conn->c_transport_data;
+-
+-	/* We may have a pending ACK or window update we were unable
+-	 * to send previously (due to flow control). Try again. */
+-	rds_iw_attempt_ack(ic);
+-}
+diff --git a/net/rds/iw_stats.c b/net/rds/iw_stats.c
+deleted file mode 100644
+index 5fe67f6a1d80..000000000000
+--- a/net/rds/iw_stats.c
++++ /dev/null
+@@ -1,95 +0,0 @@
+-/*
+- * Copyright (c) 2006 Oracle.  All rights reserved.
+- *
+- * This software is available to you under a choice of one of two
+- * licenses.  You may choose to be licensed under the terms of the GNU
+- * General Public License (GPL) Version 2, available from the file
+- * COPYING in the main directory of this source tree, or the
+- * OpenIB.org BSD license below:
+- *
+- *     Redistribution and use in source and binary forms, with or
+- *     without modification, are permitted provided that the following
+- *     conditions are met:
+- *
+- *      - Redistributions of source code must retain the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer.
+- *
+- *      - Redistributions in binary form must reproduce the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer in the documentation and/or other materials
+- *        provided with the distribution.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+- * SOFTWARE.
+- *
+- */
+-#include <linux/percpu.h>
+-#include <linux/seq_file.h>
+-#include <linux/proc_fs.h>
+-
+-#include "rds.h"
+-#include "iw.h"
+-
+-DEFINE_PER_CPU_SHARED_ALIGNED(struct rds_iw_statistics, rds_iw_stats);
+-
+-static const char *const rds_iw_stat_names[] = {
+-	"iw_connect_raced",
+-	"iw_listen_closed_stale",
+-	"iw_tx_cq_call",
+-	"iw_tx_cq_event",
+-	"iw_tx_ring_full",
+-	"iw_tx_throttle",
+-	"iw_tx_sg_mapping_failure",
+-	"iw_tx_stalled",
+-	"iw_tx_credit_updates",
+-	"iw_rx_cq_call",
+-	"iw_rx_cq_event",
+-	"iw_rx_ring_empty",
+-	"iw_rx_refill_from_cq",
+-	"iw_rx_refill_from_thread",
+-	"iw_rx_alloc_limit",
+-	"iw_rx_credit_updates",
+-	"iw_ack_sent",
+-	"iw_ack_send_failure",
+-	"iw_ack_send_delayed",
+-	"iw_ack_send_piggybacked",
+-	"iw_ack_received",
+-	"iw_rdma_mr_alloc",
+-	"iw_rdma_mr_free",
+-	"iw_rdma_mr_used",
+-	"iw_rdma_mr_pool_flush",
+-	"iw_rdma_mr_pool_wait",
+-	"iw_rdma_mr_pool_depleted",
+-};
+-
+-unsigned int rds_iw_stats_info_copy(struct rds_info_iterator *iter,
+-				    unsigned int avail)
+-{
+-	struct rds_iw_statistics stats = {0, };
+-	uint64_t *src;
+-	uint64_t *sum;
+-	size_t i;
+-	int cpu;
+-
+-	if (avail < ARRAY_SIZE(rds_iw_stat_names))
+-		goto out;
+-
+-	for_each_online_cpu(cpu) {
+-		src = (uint64_t *)&(per_cpu(rds_iw_stats, cpu));
+-		sum = (uint64_t *)&stats;
+-		for (i = 0; i < sizeof(stats) / sizeof(uint64_t); i++)
+-			*(sum++) += *(src++);
+-	}
+-
+-	rds_stats_info_copy(iter, (uint64_t *)&stats, rds_iw_stat_names,
+-			    ARRAY_SIZE(rds_iw_stat_names));
+-out:
+-	return ARRAY_SIZE(rds_iw_stat_names);
+-}
+diff --git a/net/rds/iw_sysctl.c b/net/rds/iw_sysctl.c
+deleted file mode 100644
+index 139239d2cb22..000000000000
+--- a/net/rds/iw_sysctl.c
++++ /dev/null
+@@ -1,123 +0,0 @@
+-/*
+- * Copyright (c) 2006 Oracle.  All rights reserved.
+- *
+- * This software is available to you under a choice of one of two
+- * licenses.  You may choose to be licensed under the terms of the GNU
+- * General Public License (GPL) Version 2, available from the file
+- * COPYING in the main directory of this source tree, or the
+- * OpenIB.org BSD license below:
+- *
+- *     Redistribution and use in source and binary forms, with or
+- *     without modification, are permitted provided that the following
+- *     conditions are met:
+- *
+- *      - Redistributions of source code must retain the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer.
+- *
+- *      - Redistributions in binary form must reproduce the above
+- *        copyright notice, this list of conditions and the following
+- *        disclaimer in the documentation and/or other materials
+- *        provided with the distribution.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+- * SOFTWARE.
+- *
+- */
+-#include <linux/kernel.h>
+-#include <linux/sysctl.h>
+-#include <linux/proc_fs.h>
+-
+-#include "iw.h"
+-
+-static struct ctl_table_header *rds_iw_sysctl_hdr;
+-
+-unsigned long rds_iw_sysctl_max_send_wr = RDS_IW_DEFAULT_SEND_WR;
+-unsigned long rds_iw_sysctl_max_recv_wr = RDS_IW_DEFAULT_RECV_WR;
+-unsigned long rds_iw_sysctl_max_recv_allocation = (128 * 1024 * 1024) / RDS_FRAG_SIZE;
+-static unsigned long rds_iw_sysctl_max_wr_min = 1;
+-/* hardware will fail CQ creation long before this */
+-static unsigned long rds_iw_sysctl_max_wr_max = (u32)~0;
+-
+-unsigned long rds_iw_sysctl_max_unsig_wrs = 16;
+-static unsigned long rds_iw_sysctl_max_unsig_wr_min = 1;
+-static unsigned long rds_iw_sysctl_max_unsig_wr_max = 64;
+-
+-unsigned long rds_iw_sysctl_max_unsig_bytes = (16 << 20);
+-static unsigned long rds_iw_sysctl_max_unsig_bytes_min = 1;
+-static unsigned long rds_iw_sysctl_max_unsig_bytes_max = ~0UL;
+-
+-unsigned int rds_iw_sysctl_flow_control = 1;
+-
+-static struct ctl_table rds_iw_sysctl_table[] = {
+-	{
+-		.procname       = "max_send_wr",
+-		.data		= &rds_iw_sysctl_max_send_wr,
+-		.maxlen         = sizeof(unsigned long),
+-		.mode           = 0644,
+-		.proc_handler   = proc_doulongvec_minmax,
+-		.extra1		= &rds_iw_sysctl_max_wr_min,
+-		.extra2		= &rds_iw_sysctl_max_wr_max,
+-	},
+-	{
+-		.procname       = "max_recv_wr",
+-		.data		= &rds_iw_sysctl_max_recv_wr,
+-		.maxlen         = sizeof(unsigned long),
+-		.mode           = 0644,
+-		.proc_handler   = proc_doulongvec_minmax,
+-		.extra1		= &rds_iw_sysctl_max_wr_min,
+-		.extra2		= &rds_iw_sysctl_max_wr_max,
+-	},
+-	{
+-		.procname       = "max_unsignaled_wr",
+-		.data		= &rds_iw_sysctl_max_unsig_wrs,
+-		.maxlen         = sizeof(unsigned long),
+-		.mode           = 0644,
+-		.proc_handler   = proc_doulongvec_minmax,
+-		.extra1		= &rds_iw_sysctl_max_unsig_wr_min,
+-		.extra2		= &rds_iw_sysctl_max_unsig_wr_max,
+-	},
+-	{
+-		.procname       = "max_unsignaled_bytes",
+-		.data		= &rds_iw_sysctl_max_unsig_bytes,
+-		.maxlen         = sizeof(unsigned long),
+-		.mode           = 0644,
+-		.proc_handler   = proc_doulongvec_minmax,
+-		.extra1		= &rds_iw_sysctl_max_unsig_bytes_min,
+-		.extra2		= &rds_iw_sysctl_max_unsig_bytes_max,
+-	},
+-	{
+-		.procname       = "max_recv_allocation",
+-		.data		= &rds_iw_sysctl_max_recv_allocation,
+-		.maxlen         = sizeof(unsigned long),
+-		.mode           = 0644,
+-		.proc_handler   = proc_doulongvec_minmax,
+-	},
+-	{
+-		.procname	= "flow_control",
+-		.data		= &rds_iw_sysctl_flow_control,
+-		.maxlen		= sizeof(rds_iw_sysctl_flow_control),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
+-	},
+-	{ }
+-};
+-
+-void rds_iw_sysctl_exit(void)
+-{
+-	unregister_net_sysctl_table(rds_iw_sysctl_hdr);
+-}
+-
+-int rds_iw_sysctl_init(void)
+-{
+-	rds_iw_sysctl_hdr = register_net_sysctl(&init_net, "net/rds/iw", rds_iw_sysctl_table);
+-	if (!rds_iw_sysctl_hdr)
+-		return -ENOMEM;
+-	return 0;
+-}
+diff --git a/net/rds/rdma_transport.c b/net/rds/rdma_transport.c
+index 9c1fed81bf0f..4f4b3d88319d 100644
+--- a/net/rds/rdma_transport.c
++++ b/net/rds/rdma_transport.c
+@@ -49,9 +49,7 @@ int rds_rdma_cm_event_handler(struct rdma_cm_id *cm_id,
+ 	rdsdebug("conn %p id %p handling event %u (%s)\n", conn, cm_id,
+ 		 event->event, rdma_event_msg(event->event));
+ 
+-	if (cm_id->device->node_type == RDMA_NODE_RNIC)
+-		trans = &rds_iw_transport;
+-	else
++	if (cm_id->device->node_type == RDMA_NODE_IB_CA)
+ 		trans = &rds_ib_transport;
+ 
+ 	/* Prevent shutdown from tearing down the connection
+@@ -200,10 +198,6 @@ static int rds_rdma_init(void)
+ 	if (ret)
+ 		goto out;
+ 
+-	ret = rds_iw_init();
+-	if (ret)
+-		goto err_iw_init;
+-
+ 	ret = rds_ib_init();
+ 	if (ret)
+ 		goto err_ib_init;
+@@ -211,8 +205,6 @@ static int rds_rdma_init(void)
+ 	goto out;
+ 
+ err_ib_init:
+-	rds_iw_exit();
+-err_iw_init:
+ 	rds_rdma_listen_stop();
+ out:
+ 	return ret;
+@@ -224,11 +216,10 @@ static void rds_rdma_exit(void)
+ 	/* stop listening first to ensure no new connections are attempted */
+ 	rds_rdma_listen_stop();
+ 	rds_ib_exit();
+-	rds_iw_exit();
+ }
+ module_exit(rds_rdma_exit);
+ 
+ MODULE_AUTHOR("Oracle Corporation <rds-devel@oss.oracle.com>");
+-MODULE_DESCRIPTION("RDS: IB/iWARP transport");
++MODULE_DESCRIPTION("RDS: IB transport");
+ MODULE_LICENSE("Dual BSD/GPL");
+ 
+diff --git a/net/rds/rdma_transport.h b/net/rds/rdma_transport.h
+index faba4e382695..ff2010e9d20c 100644
+--- a/net/rds/rdma_transport.h
++++ b/net/rds/rdma_transport.h
+@@ -16,9 +16,4 @@ extern struct rds_transport rds_ib_transport;
+ int rds_ib_init(void);
+ void rds_ib_exit(void);
+ 
+-/* from iw.c */
+-extern struct rds_transport rds_iw_transport;
+-int rds_iw_init(void);
+-void rds_iw_exit(void);
+-
+ #endif
+-- 
+2.17.1
+

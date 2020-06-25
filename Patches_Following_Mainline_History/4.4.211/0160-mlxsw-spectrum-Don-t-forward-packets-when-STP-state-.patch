@@ -1,4 +1,4 @@
-From ddf7952a28dbf6eb1c6483ba7755a95ed276d635 Mon Sep 17 00:00:00 2001
+From ee3367827a8e306aac3b6ba2082b7205b486cb96 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:19 +0100
 Subject: mlxsw: spectrum: Don't forward packets when STP state is DISABLED

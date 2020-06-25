@@ -1,4 +1,4 @@
-From 84f05016b348d70b09086e9e98450f7a2a4e3512 Mon Sep 17 00:00:00 2001
+From ff326d050917c9e812885fcc2153dc04ef762f27 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:25:57 +0200
 Subject: net/mlx5_core: Introduce flow steering autogrouped flow table

@@ -1,0 +1,66 @@
+From 6827f39eea3617ce74a43bcf6b5dce704952bdd4 Mon Sep 17 00:00:00 2001
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
+Date: Thu, 30 Jun 2016 17:34:39 +0300
+Subject: net/mlx5: Avoid calling sleeping function by the health poll thread
+Reply-To: joseph.salisbury@microsoft.com
+
+In internal error state the health poll thread will eventually call
+synchronize_irq() (to safely trigger command completions) which might
+sleep, so we are calling sleeping function from atomic context which is
+invalid.
+Here we move trigger_cmd_completions(dev) to enter error state which is
+the earliest stage in error state handling.
+This way we won't need to wait for next health poll to trigger command
+completions and will solve the scheduling while atomic issue.
+mlx5_enter_error_state can be called from two contexts, protect it with
+dev->intf_state_lock
+
+Fixes: 89d44f0a6c73 ('net/mlx5_core: Add pci error handlers to mlx5_core driver')
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit c1d4d2e92ad670168a17a57dfa182a5a5baa72d4)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/health.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+index f5deb642d0d6..94594d47cae6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+@@ -108,15 +108,21 @@ static int in_fatal(struct mlx5_core_dev *dev)
+ 
+ void mlx5_enter_error_state(struct mlx5_core_dev *dev)
+ {
++	mutex_lock(&dev->intf_state_mutex);
+ 	if (dev->state == MLX5_DEVICE_STATE_INTERNAL_ERROR)
+-		return;
++		goto unlock;
+ 
+ 	mlx5_core_err(dev, "start\n");
+-	if (pci_channel_offline(dev->pdev) || in_fatal(dev))
++	if (pci_channel_offline(dev->pdev) || in_fatal(dev)) {
+ 		dev->state = MLX5_DEVICE_STATE_INTERNAL_ERROR;
++		trigger_cmd_completions(dev);
++	}
+ 
+ 	mlx5_core_event(dev, MLX5_DEV_EVENT_SYS_ERROR, 0);
+ 	mlx5_core_err(dev, "end\n");
++
++unlock:
++	mutex_unlock(&dev->intf_state_mutex);
+ }
+ 
+ static void mlx5_handle_bad_state(struct mlx5_core_dev *dev)
+@@ -245,7 +251,6 @@ static void poll_health(unsigned long data)
+ 	u32 count;
+ 
+ 	if (dev->state == MLX5_DEVICE_STATE_INTERNAL_ERROR) {
+-		trigger_cmd_completions(dev);
+ 		mod_timer(&health->timer, get_next_poll_jiffies());
+ 		return;
+ 	}
+-- 
+2.17.1
+

@@ -1,0 +1,378 @@
+From 59aed23b627d88f3236b60faec35245a84c3571f Mon Sep 17 00:00:00 2001
+From: Amir Vadai <amirva@mellanox.com>
+Date: Fri, 13 May 2016 12:55:41 +0000
+Subject: net/mlx5_core: Flow counters infrastructure
+Reply-To: joseph.salisbury@microsoft.com
+
+If a counter has the aging flag set when created, it is added to a list
+of counters that will be queried periodically from a workqueue.  query
+result and last use timestamp are cached.
+add/del counter must be very efficient since thousands of such
+operations might be issued in a second.
+There is only a single reference to counters without aging, therefore
+no need for locks.
+But, counters with aging enabled are stored in a list. In order to make
+code as lockless as possible, all the list manipulation and access to
+hardware is done from a single context - the periodic counters query
+thread.
+
+The hardware supports multiple counters per FTE, however currently we
+are using one counter for each FTE.
+
+Signed-off-by: Amir Vadai <amirva@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 43a335e055bb7ebdc8a68ce7362ef26ef5bda92b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/Makefile  |   2 +-
+ .../net/ethernet/mellanox/mlx5/core/fs_core.c |   7 +-
+ .../net/ethernet/mellanox/mlx5/core/fs_core.h |   3 +
+ .../ethernet/mellanox/mlx5/core/fs_counters.c | 226 ++++++++++++++++++
+ include/linux/mlx5/driver.h                   |  14 ++
+ include/linux/mlx5/fs.h                       |   5 +
+ 6 files changed, 255 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 679e18ffb3a6..b0b9856ed387 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -2,7 +2,7 @@ obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
+ 
+ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o   \
+-		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o
++		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o fs_counters.o
+ 
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
+ 		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 579da2ce099d..aaf21ba6e2ea 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1751,6 +1751,7 @@ void mlx5_cleanup_fs(struct mlx5_core_dev *dev)
+ 	cleanup_single_prio_root_ns(dev, dev->priv.fdb_root_ns);
+ 	cleanup_single_prio_root_ns(dev, dev->priv.esw_egress_root_ns);
+ 	cleanup_single_prio_root_ns(dev, dev->priv.esw_ingress_root_ns);
++	mlx5_cleanup_fc_stats(dev);
+ }
+ 
+ static int init_fdb_root_ns(struct mlx5_core_dev *dev)
+@@ -1807,10 +1808,14 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
+ {
+ 	int err = 0;
+ 
++	err = mlx5_init_fc_stats(dev);
++	if (err)
++		return err;
++
+ 	if (MLX5_CAP_GEN(dev, nic_flow_table)) {
+ 		err = init_root_ns(dev);
+ 		if (err)
+-			return err;
++			goto err;
+ 	}
+ 	if (MLX5_CAP_GEN(dev, eswitch_flow_table)) {
+ 		err = init_fdb_root_ns(dev);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+index c6ab6075491e..3927f71fe42e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+@@ -168,6 +168,9 @@ struct mlx5_flow_root_namespace {
+ 	struct mutex			chain_lock;
+ };
+ 
++int mlx5_init_fc_stats(struct mlx5_core_dev *dev);
++void mlx5_cleanup_fc_stats(struct mlx5_core_dev *dev);
++
+ int mlx5_init_fs(struct mlx5_core_dev *dev);
+ void mlx5_cleanup_fs(struct mlx5_core_dev *dev);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
+new file mode 100644
+index 000000000000..164dc37fda72
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
+@@ -0,0 +1,226 @@
++/*
++ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/mlx5/driver.h>
++#include <linux/mlx5/fs.h>
++#include "mlx5_core.h"
++#include "fs_core.h"
++#include "fs_cmd.h"
++
++#define MLX5_FC_STATS_PERIOD msecs_to_jiffies(1000)
++
++/* locking scheme:
++ *
++ * It is the responsibility of the user to prevent concurrent calls or bad
++ * ordering to mlx5_fc_create(), mlx5_fc_destroy() and accessing a reference
++ * to struct mlx5_fc.
++ * e.g en_tc.c is protected by RTNL lock of its caller, and will never call a
++ * dump (access to struct mlx5_fc) after a counter is destroyed.
++ *
++ * access to counter list:
++ * - create (user context)
++ *   - mlx5_fc_create() only adds to an addlist to be used by
++ *     mlx5_fc_stats_query_work(). addlist is protected by a spinlock.
++ *   - spawn thread to do the actual destroy
++ *
++ * - destroy (user context)
++ *   - mark a counter as deleted
++ *   - spawn thread to do the actual del
++ *
++ * - dump (user context)
++ *   user should not call dump after destroy
++ *
++ * - query (single thread workqueue context)
++ *   destroy/dump - no conflict (see destroy)
++ *   query/dump - packets and bytes might be inconsistent (since update is not
++ *                atomic)
++ *   query/create - no conflict (see create)
++ *   since every create/destroy spawn the work, only after necessary time has
++ *   elapsed, the thread will actually query the hardware.
++ */
++
++static void mlx5_fc_stats_work(struct work_struct *work)
++{
++	struct mlx5_core_dev *dev = container_of(work, struct mlx5_core_dev,
++						 priv.fc_stats.work.work);
++	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
++	unsigned long now = jiffies;
++	struct mlx5_fc *counter;
++	struct mlx5_fc *tmp;
++	int err = 0;
++
++	spin_lock(&fc_stats->addlist_lock);
++
++	list_splice_tail_init(&fc_stats->addlist, &fc_stats->list);
++
++	if (!list_empty(&fc_stats->list))
++		queue_delayed_work(fc_stats->wq, &fc_stats->work, MLX5_FC_STATS_PERIOD);
++
++	spin_unlock(&fc_stats->addlist_lock);
++
++	list_for_each_entry_safe(counter, tmp, &fc_stats->list, list) {
++		struct mlx5_fc_cache *c = &counter->cache;
++		u64 packets;
++		u64 bytes;
++
++		if (counter->deleted) {
++			list_del(&counter->list);
++
++			mlx5_cmd_fc_free(dev, counter->id);
++
++			kfree(counter);
++			continue;
++		}
++
++		if (time_before(now, fc_stats->next_query))
++			continue;
++
++		err = mlx5_cmd_fc_query(dev, counter->id, &packets, &bytes);
++		if (err) {
++			pr_err("Error querying stats for counter id %d\n",
++			       counter->id);
++			continue;
++		}
++
++		if (packets == c->packets)
++			continue;
++
++		c->lastuse = jiffies;
++		c->packets = packets;
++		c->bytes   = bytes;
++	}
++
++	if (time_after_eq(now, fc_stats->next_query))
++		fc_stats->next_query = now + MLX5_FC_STATS_PERIOD;
++}
++
++struct mlx5_fc *mlx5_fc_create(struct mlx5_core_dev *dev, bool aging)
++{
++	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
++	struct mlx5_fc *counter;
++	int err;
++
++	counter = kzalloc(sizeof(*counter), GFP_KERNEL);
++	if (!counter)
++		return ERR_PTR(-ENOMEM);
++
++	err = mlx5_cmd_fc_alloc(dev, &counter->id);
++	if (err)
++		goto err_out;
++
++	if (aging) {
++		counter->aging = true;
++
++		spin_lock(&fc_stats->addlist_lock);
++		list_add(&counter->list, &fc_stats->addlist);
++		spin_unlock(&fc_stats->addlist_lock);
++
++		mod_delayed_work(fc_stats->wq, &fc_stats->work, 0);
++	}
++
++	return counter;
++
++err_out:
++	kfree(counter);
++
++	return ERR_PTR(err);
++}
++
++void mlx5_fc_destroy(struct mlx5_core_dev *dev, struct mlx5_fc *counter)
++{
++	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
++
++	if (!counter)
++		return;
++
++	if (counter->aging) {
++		counter->deleted = true;
++		mod_delayed_work(fc_stats->wq, &fc_stats->work, 0);
++		return;
++	}
++
++	mlx5_cmd_fc_free(dev, counter->id);
++	kfree(counter);
++}
++
++int mlx5_init_fc_stats(struct mlx5_core_dev *dev)
++{
++	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
++
++	INIT_LIST_HEAD(&fc_stats->list);
++	INIT_LIST_HEAD(&fc_stats->addlist);
++	spin_lock_init(&fc_stats->addlist_lock);
++
++	fc_stats->wq = create_singlethread_workqueue("mlx5_fc");
++	if (!fc_stats->wq)
++		return -ENOMEM;
++
++	INIT_DELAYED_WORK(&fc_stats->work, mlx5_fc_stats_work);
++
++	return 0;
++}
++
++void mlx5_cleanup_fc_stats(struct mlx5_core_dev *dev)
++{
++	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
++	struct mlx5_fc *counter;
++	struct mlx5_fc *tmp;
++
++	cancel_delayed_work_sync(&dev->priv.fc_stats.work);
++	destroy_workqueue(dev->priv.fc_stats.wq);
++	dev->priv.fc_stats.wq = NULL;
++
++	list_splice_tail_init(&fc_stats->addlist, &fc_stats->list);
++
++	list_for_each_entry_safe(counter, tmp, &fc_stats->list, list) {
++		list_del(&counter->list);
++
++		mlx5_cmd_fc_free(dev, counter->id);
++
++		kfree(counter);
++	}
++}
++
++void mlx5_fc_query_cached(struct mlx5_fc *counter,
++			  u64 *bytes, u64 *packets, u64 *lastuse)
++{
++	struct mlx5_fc_cache c;
++
++	c = counter->cache;
++
++	*bytes = c.bytes - counter->lastbytes;
++	*packets = c.packets - counter->lastpackets;
++	*lastuse = c.lastuse;
++
++	counter->lastbytes = c.bytes;
++	counter->lastpackets = c.packets;
++}
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index b90d6e595bd2..a3e27e3b54cc 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -41,6 +41,7 @@
+ #include <linux/slab.h>
+ #include <linux/vmalloc.h>
+ #include <linux/radix-tree.h>
++#include <linux/workqueue.h>
+ 
+ #include <linux/mlx5/device.h>
+ #include <linux/mlx5/doorbell.h>
+@@ -452,6 +453,17 @@ struct mlx5_irq_info {
+ 	char name[MLX5_MAX_IRQ_NAME];
+ };
+ 
++struct mlx5_fc_stats {
++	struct list_head list;
++	struct list_head addlist;
++	/* protect addlist add/splice operations */
++	spinlock_t addlist_lock;
++
++	struct workqueue_struct *wq;
++	struct delayed_work work;
++	unsigned long next_query;
++};
++
+ struct mlx5_eswitch;
+ 
+ struct mlx5_priv {
+@@ -515,6 +527,8 @@ struct mlx5_priv {
+ 	struct mlx5_flow_root_namespace *fdb_root_ns;
+ 	struct mlx5_flow_root_namespace *esw_egress_root_ns;
+ 	struct mlx5_flow_root_namespace *esw_ingress_root_ns;
++
++	struct mlx5_fc_stats		fc_stats;
+ };
+ 
+ enum mlx5_device_state {
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index 09848c4000f6..0968f8a79059 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -121,4 +121,9 @@ int mlx5_modify_rule_destination(struct mlx5_flow_rule *rule,
+ 				 struct mlx5_flow_destination *dest);
+ 
+ struct mlx5_fc *mlx5_flow_rule_counter(struct mlx5_flow_rule *rule);
++struct mlx5_fc *mlx5_fc_create(struct mlx5_core_dev *dev, bool aging);
++void mlx5_fc_destroy(struct mlx5_core_dev *dev, struct mlx5_fc *counter);
++void mlx5_fc_query_cached(struct mlx5_fc *counter,
++			  u64 *bytes, u64 *packets, u64 *lastuse);
++
+ #endif
+-- 
+2.17.1
+

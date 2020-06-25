@@ -1,4 +1,4 @@
-From 5cfe27dd9f3d51611f07c82288d1563596aa7439 Mon Sep 17 00:00:00 2001
+From 02d27a5f7e49a19f2dd1b56cfcc1bb397c803e23 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Thu, 10 Dec 2015 17:12:43 +0200
 Subject: net/mlx5_core: Flow steering tree initialization

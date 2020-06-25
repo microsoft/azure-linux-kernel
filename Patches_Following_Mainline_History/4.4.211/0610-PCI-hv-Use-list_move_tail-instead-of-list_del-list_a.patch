@@ -1,0 +1,34 @@
+From 173c64cf7d8e9023363e328d81c8914ce2ce5a8d Mon Sep 17 00:00:00 2001
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Thu, 28 Jul 2016 16:16:48 +0000
+Subject: PCI: hv: Use list_move_tail() instead of list_del() + list_add_tail()
+Reply-To: joseph.salisbury@microsoft.com
+
+Use list_move_tail() instead of list_del() + list_add_tail().  No
+functional change intended
+
+Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+(cherry picked from commit 4f1cb01a7892582d18483986fbc268cdef1b1dee)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/pci/host/pci-hyperv.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/pci/host/pci-hyperv.c b/drivers/pci/host/pci-hyperv.c
+index ed651baa7c50..9377f859579f 100644
+--- a/drivers/pci/host/pci-hyperv.c
++++ b/drivers/pci/host/pci-hyperv.c
+@@ -1450,8 +1450,7 @@ static void pci_devices_present_work(struct work_struct *work)
+ 			if (hpdev->reported_missing) {
+ 				found = true;
+ 				put_pcichild(hpdev, hv_pcidev_ref_childlist);
+-				list_del(&hpdev->list_entry);
+-				list_add_tail(&hpdev->list_entry, &removed);
++				list_move_tail(&hpdev->list_entry, &removed);
+ 				break;
+ 			}
+ 		}
+-- 
+2.17.1
+

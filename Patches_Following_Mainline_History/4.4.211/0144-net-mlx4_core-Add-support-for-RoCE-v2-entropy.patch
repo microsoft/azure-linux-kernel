@@ -1,4 +1,4 @@
-From 32c44cbb3fda5dc03e123b9db561101dbb09b6be Mon Sep 17 00:00:00 2001
+From d27dbdf814aacafa1d6d9e8f2dd6a507250f06bc Mon Sep 17 00:00:00 2001
 From: Moni Shoua <monis@mellanox.com>
 Date: Thu, 14 Jan 2016 17:50:37 +0200
 Subject: net/mlx4_core: Add support for RoCE v2 entropy

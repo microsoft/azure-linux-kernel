@@ -1,4 +1,4 @@
-From 47e2a14ef1a5b1d816b3c23fb772ddb30781788a Mon Sep 17 00:00:00 2001
+From 89bb15335b352892c925a1a82f2d82a65ee7b1cd Mon Sep 17 00:00:00 2001
 From: Daniel Jurgens <danielj@mellanox.com>
 Date: Wed, 17 Feb 2016 17:24:25 +0200
 Subject: net/mlx4_core: Do not BUG_ON during reset when PCI is offline

@@ -1,4 +1,4 @@
-From 398393bcd1527138512d6e3719cc3f37abd26b22 Mon Sep 17 00:00:00 2001
+From e6c1872a8497c3fffb87f40b6f8ffdd4b037b99c Mon Sep 17 00:00:00 2001
 From: Eric Dumazet <edumazet@google.com>
 Date: Wed, 18 Nov 2015 06:31:02 -0800
 Subject: net: napi_hash_del() returns a boolean status

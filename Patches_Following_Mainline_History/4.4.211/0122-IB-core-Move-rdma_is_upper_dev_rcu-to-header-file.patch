@@ -1,4 +1,4 @@
-From fa4ec85cefa75f87d21a132e180893f3c6461939 Mon Sep 17 00:00:00 2001
+From 28fd7cceddb4df36642065cb2d6a3ad8239e3ef6 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Wed, 23 Dec 2015 14:56:52 +0200
 Subject: IB/core: Move rdma_is_upper_dev_rcu to header file

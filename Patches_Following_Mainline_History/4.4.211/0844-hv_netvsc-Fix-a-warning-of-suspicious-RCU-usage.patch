@@ -1,0 +1,52 @@
+From 89c08d25128a9561a7aebd930df608190721b745 Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Fri, 9 Aug 2019 01:58:08 +0000
+Subject: hv_netvsc: Fix a warning of suspicious RCU usage
+Reply-To: joseph.salisbury@microsoft.com
+
+This fixes a warning of "suspicious rcu_dereference_check() usage"
+when nload runs.
+
+Fixes: 776e726bfb34 ("netvsc: fix RCU warning in get_stats")
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 6d0d779dca73cd5acb649c54f81401f93098b298)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 5bc6d807c5c1..899bb20b35af 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1177,12 +1177,15 @@ static void netvsc_get_stats64(struct net_device *net,
+ 			       struct rtnl_link_stats64 *t)
+ {
+ 	struct net_device_context *ndev_ctx = netdev_priv(net);
+-	struct netvsc_device *nvdev = rcu_dereference_rtnl(ndev_ctx->nvdev);
++	struct netvsc_device *nvdev;
+ 	struct netvsc_vf_pcpu_stats vf_tot;
+ 	int i;
+ 
++	rcu_read_lock();
++
++	nvdev = rcu_dereference(ndev_ctx->nvdev);
+ 	if (!nvdev)
+-		return;
++		goto out;
+ 
+ 	netdev_stats_to_stats64(t, &net->stats);
+ 
+@@ -1221,6 +1224,8 @@ static void netvsc_get_stats64(struct net_device *net,
+ 		t->rx_packets	+= packets;
+ 		t->multicast	+= multicast;
+ 	}
++out:
++	rcu_read_unlock();
+ }
+ 
+ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
+-- 
+2.17.1
+

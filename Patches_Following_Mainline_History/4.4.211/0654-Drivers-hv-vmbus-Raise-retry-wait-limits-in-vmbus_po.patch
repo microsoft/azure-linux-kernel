@@ -1,0 +1,203 @@
+From 83c80d6d5bead636d3fe469945ebfe540d9f77b9 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 7 Dec 2016 01:16:24 -0800
+Subject: Drivers: hv: vmbus: Raise retry/wait limits in vmbus_post_msg()
+Reply-To: joseph.salisbury@microsoft.com
+
+DoS protection conditions were altered in WS2016 and now it's easy to get
+-EAGAIN returned from vmbus_post_msg() (e.g. when we try changing MTU on a
+netvsc device in a loop). All vmbus_post_msg() callers don't retry the
+operation and we usually end up with a non-functional device or crash.
+
+While host's DoS protection conditions are unknown to me my tests show that
+it can take up to 10 seconds before the message is sent so doing udelay()
+is not an option, we really need to sleep. Almost all vmbus_post_msg()
+callers are ready to sleep but there is one special case:
+vmbus_initiate_unload() which can be called from interrupt/NMI context and
+we can't sleep there. I'm also not sure about the lonely
+vmbus_send_tl_connect_request() which has no in-tree users but its external
+users are most likely waiting for the host to reply so sleeping there is
+also appropriate.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit c0bb03924f1a80e7f65900e36c8e6b3dc167c5f8)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel.c      | 23 ++++++++++++-----------
+ drivers/hv/channel_mgmt.c | 10 ++++++----
+ drivers/hv/connection.c   | 17 ++++++++++++-----
+ drivers/hv/hyperv_vmbus.h |  2 +-
+ 4 files changed, 31 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index 72444c6437e0..4c64387be416 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -176,7 +176,7 @@ int vmbus_open(struct vmbus_channel *newchannel, u32 send_ringbuffer_size,
+ 	spin_unlock_irqrestore(&vmbus_connection.channelmsg_lock, flags);
+ 
+ 	ret = vmbus_post_msg(open_msg,
+-			       sizeof(struct vmbus_channel_open_channel));
++			     sizeof(struct vmbus_channel_open_channel), true);
+ 
+ 	if (ret != 0) {
+ 		err = ret;
+@@ -228,7 +228,7 @@ int vmbus_send_tl_connect_request(const uuid_le *shv_guest_servie_id,
+ 	conn_msg.guest_endpoint_id = *shv_guest_servie_id;
+ 	conn_msg.host_service_id = *shv_host_servie_id;
+ 
+-	return vmbus_post_msg(&conn_msg, sizeof(conn_msg));
++	return vmbus_post_msg(&conn_msg, sizeof(conn_msg), true);
+ }
+ EXPORT_SYMBOL_GPL(vmbus_send_tl_connect_request);
+ 
+@@ -417,7 +417,7 @@ int vmbus_establish_gpadl(struct vmbus_channel *channel, void *kbuffer,
+ 	spin_unlock_irqrestore(&vmbus_connection.channelmsg_lock, flags);
+ 
+ 	ret = vmbus_post_msg(gpadlmsg, msginfo->msgsize -
+-			       sizeof(*msginfo));
++			     sizeof(*msginfo), true);
+ 	if (ret != 0)
+ 		goto cleanup;
+ 
+@@ -432,11 +432,11 @@ int vmbus_establish_gpadl(struct vmbus_channel *channel, void *kbuffer,
+ 				CHANNELMSG_GPADL_BODY;
+ 			gpadl_body->gpadl = next_gpadl_handle;
+ 
+-			ret = vmbus_post_msg(gpadl_body,
+-					       submsginfo->msgsize -
+-					       sizeof(*submsginfo));
+-			if (ret != 0)
+-				goto cleanup;
++		ret = vmbus_post_msg(gpadl_body,
++				     submsginfo->msgsize - sizeof(*submsginfo),
++				     true);
++		if (ret != 0)
++			goto cleanup;
+ 
+ 		}
+ 	}
+@@ -489,8 +489,8 @@ int vmbus_teardown_gpadl(struct vmbus_channel *channel, u32 gpadl_handle)
+ 	list_add_tail(&info->msglistentry,
+ 		      &vmbus_connection.chn_msg_list);
+ 	spin_unlock_irqrestore(&vmbus_connection.channelmsg_lock, flags);
+-	ret = vmbus_post_msg(msg,
+-			       sizeof(struct vmbus_channel_gpadl_teardown));
++	ret = vmbus_post_msg(msg, sizeof(struct vmbus_channel_gpadl_teardown),
++			     true);
+ 
+ 	if (ret)
+ 		goto post_msg_err;
+@@ -563,7 +563,8 @@ static int vmbus_close_internal(struct vmbus_channel *channel)
+ 	msg->header.msgtype = CHANNELMSG_CLOSECHANNEL;
+ 	msg->child_relid = channel->offermsg.child_relid;
+ 
+-	ret = vmbus_post_msg(msg, sizeof(struct vmbus_channel_close_channel));
++	ret = vmbus_post_msg(msg, sizeof(struct vmbus_channel_close_channel),
++			     true);
+ 
+ 	if (ret) {
+ 		pr_err("Close failed: close post msg return is %d\n", ret);
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index f94f9c36a8de..61afe69dd999 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -322,7 +322,8 @@ static void vmbus_release_relid(u32 relid)
+ 	memset(&msg, 0, sizeof(struct vmbus_channel_relid_released));
+ 	msg.child_relid = relid;
+ 	msg.header.msgtype = CHANNELMSG_RELID_RELEASED;
+-	vmbus_post_msg(&msg, sizeof(struct vmbus_channel_relid_released));
++	vmbus_post_msg(&msg, sizeof(struct vmbus_channel_relid_released),
++		       true);
+ }
+ 
+ void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid)
+@@ -706,7 +707,8 @@ void vmbus_initiate_unload(bool crash)
+ 	init_completion(&vmbus_connection.unload_event);
+ 	memset(&hdr, 0, sizeof(struct vmbus_channel_message_header));
+ 	hdr.msgtype = CHANNELMSG_UNLOAD;
+-	vmbus_post_msg(&hdr, sizeof(struct vmbus_channel_message_header));
++	vmbus_post_msg(&hdr, sizeof(struct vmbus_channel_message_header),
++		       !crash);
+ 
+ 	/*
+ 	 * vmbus_initiate_unload() is also called on crash and the crash can be
+@@ -1094,8 +1096,8 @@ int vmbus_request_offers(void)
+ 	msg->msgtype = CHANNELMSG_REQUESTOFFERS;
+ 
+ 
+-	ret = vmbus_post_msg(msg,
+-			       sizeof(struct vmbus_channel_message_header));
++	ret = vmbus_post_msg(msg, sizeof(struct vmbus_channel_message_header),
++			     true);
+ 	if (ret != 0) {
+ 		pr_err("Unable to request offers - %d\n", ret);
+ 
+diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
+index a514377b278f..50c77d9d6bd2 100644
+--- a/drivers/hv/connection.c
++++ b/drivers/hv/connection.c
+@@ -99,7 +99,8 @@ static int vmbus_negotiate_version(struct vmbus_channel_msginfo *msginfo,
+ 	spin_unlock_irqrestore(&vmbus_connection.channelmsg_lock, flags);
+ 
+ 	ret = vmbus_post_msg(msg,
+-			       sizeof(struct vmbus_channel_initiate_contact));
++			     sizeof(struct vmbus_channel_initiate_contact),
++			     true);
+ 	if (ret != 0) {
+ 		spin_lock_irqsave(&vmbus_connection.channelmsg_lock, flags);
+ 		list_del(&msginfo->msglistentry);
+@@ -423,7 +424,7 @@ void vmbus_on_event(unsigned long data)
+ /*
+  * vmbus_post_msg - Send a msg on the vmbus's message connection
+  */
+-int vmbus_post_msg(void *buffer, size_t buflen)
++int vmbus_post_msg(void *buffer, size_t buflen, bool can_sleep)
+ {
+ 	union hv_connection_id conn_id;
+ 	int ret = 0;
+@@ -438,7 +439,7 @@ int vmbus_post_msg(void *buffer, size_t buflen)
+ 	 * insufficient resources. Retry the operation a couple of
+ 	 * times before giving up.
+ 	 */
+-	while (retries < 20) {
++	while (retries < 100) {
+ 		ret = hv_post_message(conn_id, 1, buffer, buflen);
+ 
+ 		switch (ret) {
+@@ -461,8 +462,14 @@ int vmbus_post_msg(void *buffer, size_t buflen)
+ 		}
+ 
+ 		retries++;
+-		udelay(usec);
+-		if (usec < 2048)
++		if (can_sleep && usec > 1000)
++			msleep(usec / 1000);
++		else if (usec < MAX_UDELAY_MS * 1000)
++			udelay(usec);
++		else
++			mdelay(usec / 1000);
++
++		if (usec < 256000)
+ 			usec *= 2;
+ 	}
+ 	return ret;
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 91aa81225818..9c6f2b476faf 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -698,7 +698,7 @@ void vmbus_free_channels(void);
+ int vmbus_connect(void);
+ void vmbus_disconnect(void);
+ 
+-int vmbus_post_msg(void *buffer, size_t buflen);
++int vmbus_post_msg(void *buffer, size_t buflen, bool can_sleep);
+ 
+ void vmbus_on_event(unsigned long data);
+ void vmbus_on_msg_dpc(unsigned long data);
+-- 
+2.17.1
+

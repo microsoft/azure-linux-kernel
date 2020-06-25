@@ -1,4 +1,4 @@
-From 9337fca1e4e11dfef1819f33c1ca53bd3349137f Mon Sep 17 00:00:00 2001
+From 1b8d08c01d24dc22a0bc85eee82deca6694255dd Mon Sep 17 00:00:00 2001
 From: Tom Herbert <tom@herbertland.com>
 Date: Mon, 14 Dec 2015 11:19:44 -0800
 Subject: net: Eliminate NETIF_F_GEN_CSUM and NETIF_F_V[46]_CSUM

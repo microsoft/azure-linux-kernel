@@ -1,0 +1,60 @@
+From 786308f9a3f0ad008ba3ce9d873964caef6e4151 Mon Sep 17 00:00:00 2001
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu, 14 Jul 2016 10:32:39 +0300
+Subject: net/mlx5e: Offload TC flow counters only when supported
+Reply-To: joseph.salisbury@microsoft.com
+
+Currenly, the code that programs the flow actions into the firmware
+doesn't check if was actually asked to offload the statistics, fix that.
+
+Fixes: aad7e08d39bd ('net/mlx5e: Hardware offloaded flower filter statistics support')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 55130287875c96b1e4669ee9713621e7d7f055b2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 12 ++++++++++++
+ include/linux/mlx5/fs.h                         |  3 ++-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index bcf30e9180e1..fb5733cc5bd4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -56,6 +56,18 @@ static struct mlx5_flow_rule *mlx5e_tc_add_flow(struct mlx5e_priv *priv,
+ 	struct mlx5_flow_rule *rule;
+ 	bool table_created = false;
+ 
++	if (action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
++		dest.type = MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE;
++		dest.ft = priv->fs.vlan.ft.t;
++	} else if (action & MLX5_FLOW_CONTEXT_ACTION_COUNT) {
++		counter = mlx5_fc_create(dev, true);
++		if (IS_ERR(counter))
++			return ERR_CAST(counter);
++
++		dest.type = MLX5_FLOW_DESTINATION_TYPE_COUNTER;
++		dest.counter = counter;
++	}
++
+ 	if (IS_ERR_OR_NULL(priv->fs.tc.t)) {
+ 		priv->fs.tc.t =
+ 			mlx5_create_auto_grouped_flow_table(priv->fs.ns,
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index 0df13c5be168..b91a645478d6 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -90,7 +90,8 @@ struct mlx5_flow_table *
+ mlx5_create_auto_grouped_flow_table(struct mlx5_flow_namespace *ns,
+ 				    int prio,
+ 				    int num_flow_table_entries,
+-				    int max_num_groups);
++				    int max_num_groups,
++				    u32 level);
+ 
+ struct mlx5_flow_table *
+ mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
+-- 
+2.17.1
+

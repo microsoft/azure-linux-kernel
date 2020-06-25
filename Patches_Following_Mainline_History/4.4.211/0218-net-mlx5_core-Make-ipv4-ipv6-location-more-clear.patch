@@ -1,4 +1,4 @@
-From 30738f9ca18741ef09eb9c931b62ccbd5eb30e19 Mon Sep 17 00:00:00 2001
+From 3650f91ca82fbcfa84e1ef72e81739548574936f Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:26:05 +0200
 Subject: net/mlx5_core: Make ipv4/ipv6 location more clear

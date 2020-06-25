@@ -1,4 +1,4 @@
-From 373da6e8a3ae08a706d67a4711285be25ab4d1f4 Mon Sep 17 00:00:00 2001
+From 3848b5d88e61f334b5be29b789953215f8610252 Mon Sep 17 00:00:00 2001
 From: Eran Ben Elisha <eranbe@mellanox.com>
 Date: Mon, 14 Dec 2015 16:34:09 +0200
 Subject: net/mlx5_core: Add setting ATOMIC endian mode

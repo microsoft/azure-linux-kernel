@@ -1,4 +1,4 @@
-From bd02a8c6ab7b8ea4e8421f7bb5ca466cc4fae3c8 Mon Sep 17 00:00:00 2001
+From 8e95e0b89dc5f6f1f69afb1bbfefbbfa44a4d24d Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 7 Jan 2016 11:50:29 +0100
 Subject: mlxsw: spectrum: pass local_port to mlxsw_sp_port_fdb_uc_op

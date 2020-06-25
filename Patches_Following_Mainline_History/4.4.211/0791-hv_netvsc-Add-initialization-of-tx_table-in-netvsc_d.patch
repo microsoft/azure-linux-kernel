@@ -1,0 +1,41 @@
+From 09ce00c1b1d3c673055b1d5ad0b3c36500f81730 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 13 Oct 2017 12:28:05 -0700
+Subject: hv_netvsc: Add initialization of tx_table in netvsc_device_add()
+Reply-To: joseph.salisbury@microsoft.com
+
+tx_table is part of the private data of kernel net_device. It is only
+zero-ed out when allocating net_device.
+
+We may recreate netvsc_device w/o recreating net_device, so the private
+netdev data, including tx_table, are not zeroed. It may contain channel
+numbers for the older netvsc_device.
+
+This patch adds initialization of tx_table each time we recreate
+netvsc_device.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 6b0cbe315868d613123cf387052ccda5f09d49ea)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index d70a628b7fe2..bc515fdb23f5 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1255,6 +1255,9 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 	if (!net_device)
+ 		return ERR_PTR(-ENOMEM);
+ 
++	for (i = 0; i < VRSS_SEND_TAB_SIZE; i++)
++		net_device_ctx->tx_table[i] = 0;
++
+ 	net_device->ring_size = ring_size;
+ 
+ 	/* Because the device uses NAPI, all the interrupt batching and
+-- 
+2.17.1
+

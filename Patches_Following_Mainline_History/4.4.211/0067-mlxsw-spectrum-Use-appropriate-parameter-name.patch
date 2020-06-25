@@ -1,4 +1,4 @@
-From db402a9bf91f66e6574e3518f42355b9e1b84658 Mon Sep 17 00:00:00 2001
+From 1780efc567d1d5672144b65d70f7f8b213b29e56 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:38 +0100
 Subject: mlxsw: spectrum: Use appropriate parameter name

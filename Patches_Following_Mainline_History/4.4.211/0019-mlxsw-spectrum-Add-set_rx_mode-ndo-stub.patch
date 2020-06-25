@@ -1,4 +1,4 @@
-From 52c7365540e79cb8fba1c92eff69a114946f4c1d Mon Sep 17 00:00:00 2001
+From a71eee2b2212df025486fd21cf77bc09906cad05 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 12:12:22 +0100
 Subject: mlxsw: spectrum: Add set_rx_mode ndo stub

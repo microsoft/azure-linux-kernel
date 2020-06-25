@@ -1,4 +1,4 @@
-From 16947de9da6af7dd6814f5390164b5c6a2ca6dce Mon Sep 17 00:00:00 2001
+From 793e63bc69986ee5c0ac8a4aaead92afd807ec91 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Fri, 11 Dec 2015 16:10:39 +0100
 Subject: mlxsw: reg: Fix max temperature getting

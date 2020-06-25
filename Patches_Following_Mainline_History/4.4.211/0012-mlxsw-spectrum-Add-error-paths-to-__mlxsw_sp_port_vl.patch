@@ -1,4 +1,4 @@
-From 97954c067a1e89f14453babe540b4a19c356d1a5 Mon Sep 17 00:00:00 2001
+From 58a9084faf1ae30c53b10baa6bb3c6f803e26ea9 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Thu, 19 Nov 2015 12:27:40 +0100
 Subject: mlxsw: spectrum: Add error paths to __mlxsw_sp_port_vlans_add

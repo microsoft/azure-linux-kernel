@@ -1,0 +1,66 @@
+From c9af84e9593cdbfa9557b6e96cee35ad0c321205 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 22 Mar 2017 14:51:05 -0700
+Subject: netvsc: fix and cleanup rndis_filter_set_packet_filter
+Reply-To: joseph.salisbury@microsoft.com
+
+Fix warning from unused set_complete variable. And rearrange code
+to eliminate unnecessary goto's.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit ce12b81061a0a2647ca90c04d131d90edd5c5063)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/rndis_filter.c | 21 ++++++---------------
+ 1 file changed, 6 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 332547f6ec4e..2b53d6167bef 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -823,17 +823,14 @@ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter)
+ {
+ 	struct rndis_request *request;
+ 	struct rndis_set_request *set;
+-	struct rndis_set_complete *set_complete;
+-	u32 status;
+ 	int ret;
+ 
+ 	request = get_rndis_request(dev, RNDIS_MSG_SET,
+ 			RNDIS_MESSAGE_SIZE(struct rndis_set_request) +
+ 			sizeof(u32));
+-	if (!request) {
+-		ret = -ENOMEM;
+-		goto cleanup;
+-	}
++	if (!request)
++		return -ENOMEM;
++
+ 
+ 	/* Setup the rndis set */
+ 	set = &request->request_msg.msg.set_req;
+@@ -845,17 +842,11 @@ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter)
+ 	       &new_filter, sizeof(u32));
+ 
+ 	ret = rndis_filter_send_request(dev, request);
+-	if (ret != 0)
+-		goto cleanup;
++	if (ret == 0)
++		wait_for_completion(&request->wait_event);
+ 
+-	wait_for_completion(&request->wait_event);
++	put_rndis_request(dev, request);
+ 
+-	set_complete = &request->response_msg.msg.set_complete;
+-	status = set_complete->status;
+-
+-cleanup:
+-	if (request)
+-		put_rndis_request(dev, request);
+ 	return ret;
+ }
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,247 @@
+From bb3b7bb093f3cdbbb532c0f64c4300e96fab48b6 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Wed, 18 Jan 2017 16:45:02 -0700
+Subject: Drivers: hv vmbus: Move Hypercall page setup out of common code
+Reply-To: joseph.salisbury@microsoft.com
+
+As part of the effort to separate out architecture specific code, move the
+hypercall page setup to an architecture specific file.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 8730046c1498e8fb8c9a124789893944e8ce8220)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ MAINTAINERS                     |  1 +
+ arch/x86/Kbuild                 |  3 ++
+ arch/x86/hyperv/Makefile        |  1 +
+ arch/x86/hyperv/hv_init.c       | 62 +++++++++++++++++++++++++++++++++
+ arch/x86/include/asm/mshyperv.h |  5 +++
+ arch/x86/kernel/cpu/mshyperv.c  |  7 ++++
+ drivers/hv/hv.c                 | 45 ++----------------------
+ 7 files changed, 82 insertions(+), 42 deletions(-)
+ create mode 100644 arch/x86/hyperv/Makefile
+ create mode 100644 arch/x86/hyperv/hv_init.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 22a0c057e5b5..86a09e1e78b0 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5125,6 +5125,7 @@ S:	Maintained
+ F:	arch/x86/include/asm/mshyperv.h
+ F:	arch/x86/include/uapi/asm/hyperv.h
+ F:	arch/x86/kernel/cpu/mshyperv.c
++F:	arch/x86/hyperv
+ F:	drivers/hid/hid-hyperv.c
+ F:	drivers/hv/
+ F:	drivers/input/serio/hyperv-keyboard.c
+diff --git a/arch/x86/Kbuild b/arch/x86/Kbuild
+index 1538562cc720..a2052549ef9a 100644
+--- a/arch/x86/Kbuild
++++ b/arch/x86/Kbuild
+@@ -6,6 +6,9 @@ obj-$(CONFIG_KVM) += kvm/
+ # Xen paravirtualization support
+ obj-$(CONFIG_XEN) += xen/
+ 
++# Hyper-V paravirtualization support
++obj-$(CONFIG_HYPERVISOR_GUEST) += hyperv/
++
+ # lguest paravirtualization support
+ obj-$(CONFIG_LGUEST_GUEST) += lguest/
+ 
+diff --git a/arch/x86/hyperv/Makefile b/arch/x86/hyperv/Makefile
+new file mode 100644
+index 000000000000..171ae09864d7
+--- /dev/null
++++ b/arch/x86/hyperv/Makefile
+@@ -0,0 +1 @@
++obj-y		:= hv_init.o
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+new file mode 100644
+index 000000000000..3206bfda586d
+--- /dev/null
++++ b/arch/x86/hyperv/hv_init.c
+@@ -0,0 +1,62 @@
++/*
++ * X86 specific Hyper-V initialization code.
++ *
++ * Copyright (C) 2016, Microsoft, Inc.
++ *
++ * Author : K. Y. Srinivasan <kys@microsoft.com>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++ * NON INFRINGEMENT.  See the GNU General Public License for more
++ * details.
++ *
++ */
++
++#include <linux/types.h>
++#include <asm/hypervisor.h>
++#include <asm/hyperv.h>
++#include <asm/mshyperv.h>
++#include <linux/version.h>
++#include <linux/vmalloc.h>
++#include <linux/mm.h>
++
++void *hv_hypercall_pg;
++/*
++ * This function is to be invoked early in the boot sequence after the
++ * hypervisor has been detected.
++ *
++ * 1. Setup the hypercall page.
++ */
++void hyperv_init(void)
++{
++	u64 guest_id;
++	union hv_x64_msr_hypercall_contents hypercall_msr;
++
++	if (x86_hyper != &x86_hyper_ms_hyperv)
++		return;
++
++	/*
++	 * Setup the hypercall page and enable hypercalls.
++	 * 1. Register the guest ID
++	 * 2. Enable the hypercall and register the hypercall page
++	 */
++	guest_id = generate_guest_id(0, LINUX_VERSION_CODE, 0);
++	wrmsrl(HV_X64_MSR_GUEST_OS_ID, guest_id);
++
++	hv_hypercall_pg  = __vmalloc(PAGE_SIZE, GFP_KERNEL, PAGE_KERNEL_EXEC);
++	if (hv_hypercall_pg == NULL) {
++		wrmsrl(HV_X64_MSR_GUEST_OS_ID, 0);
++		return;
++	}
++
++	rdmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
++	hypercall_msr.enable = 1;
++	hypercall_msr.guest_physical_address = vmalloc_to_pfn(hv_hypercall_pg);
++	wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
++}
++EXPORT_SYMBOL_GPL(hv_hypercall_pg);
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index 15a0c275c82e..e5f57e15a507 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -80,4 +80,9 @@ void hv_setup_kexec_handler(void (*handler)(void));
+ void hv_remove_kexec_handler(void);
+ void hv_setup_crash_handler(void (*handler)(struct pt_regs *regs));
+ void hv_remove_crash_handler(void);
++
++#if IS_ENABLED(CONFIG_HYPERV)
++void hyperv_init(void);
++extern void *hv_hypercall_pg;
++#endif
+ #endif
+diff --git a/arch/x86/kernel/cpu/mshyperv.c b/arch/x86/kernel/cpu/mshyperv.c
+index 83b5f7a323a9..b744cacfab58 100644
+--- a/arch/x86/kernel/cpu/mshyperv.c
++++ b/arch/x86/kernel/cpu/mshyperv.c
+@@ -227,6 +227,13 @@ static void __init ms_hyperv_init_platform(void)
+ 	 */
+ 	if (efi_enabled(EFI_BOOT))
+ 		x86_platform.get_nmi_reason = hv_get_nmi_reason;
++
++#if IS_ENABLED(CONFIG_HYPERV)
++	/*
++	 * Setup the hook to get control post apic initialization.
++	 */
++	x86_platform.apic_post_init = hyperv_init;
++#endif
+ }
+ 
+ const __refconst struct hypervisor_x86 x86_hyper_ms_hyperv = {
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index 70a2ce7be4e3..f55a1d1449c3 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -196,7 +196,6 @@ int hv_init(void)
+ {
+ 	int max_leaf;
+ 	union hv_x64_msr_hypercall_contents hypercall_msr;
+-	void *virtaddr = NULL;
+ 
+ 	memset(hv_context.synic_event_page, 0, sizeof(void *) * NR_CPUS);
+ 	memset(hv_context.synic_message_page, 0,
+@@ -214,33 +213,15 @@ int hv_init(void)
+ 
+ 	max_leaf = query_hypervisor_info();
+ 
+-	/*
+-	 * Write our OS ID.
+-	 */
+-	hv_context.guestid = generate_guest_id(0, LINUX_VERSION_CODE, 0);
+-	wrmsrl(HV_X64_MSR_GUEST_OS_ID, hv_context.guestid);
+ 
+ 	/* See if the hypercall page is already set */
+-	rdmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+-
+-	virtaddr = __vmalloc(PAGE_SIZE, GFP_KERNEL, PAGE_KERNEL_RX);
+-
+-	if (!virtaddr)
+-		goto cleanup;
+-
+-	hypercall_msr.enable = 1;
+-
+-	hypercall_msr.guest_physical_address = vmalloc_to_pfn(virtaddr);
+-	wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+-
+-	/* Confirm that hypercall page did get setup. */
+ 	hypercall_msr.as_uint64 = 0;
+ 	rdmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+ 
+ 	if (!hypercall_msr.enable)
+-		goto cleanup;
++		return -ENOTSUPP;
+ 
+-	hv_context.hypercall_page = virtaddr;
++	hv_context.hypercall_page = hv_hypercall_pg;
+ 
+ #ifdef CONFIG_X86_64
+ 	if (ms_hyperv.features & HV_X64_MSR_REFERENCE_TSC_AVAILABLE) {
+@@ -264,15 +245,6 @@ int hv_init(void)
+ 	return 0;
+ 
+ cleanup:
+-	if (virtaddr) {
+-		if (hypercall_msr.enable) {
+-			hypercall_msr.as_uint64 = 0;
+-			wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+-		}
+-
+-		vfree(virtaddr);
+-	}
+-
+ 	return -ENOTSUPP;
+ }
+ 
+@@ -283,20 +255,9 @@ cleanup:
+  */
+ void hv_cleanup(bool crash)
+ {
+-	union hv_x64_msr_hypercall_contents hypercall_msr;
+-
+-	/* Reset our OS id */
+-	wrmsrl(HV_X64_MSR_GUEST_OS_ID, 0);
+-
+-	if (hv_context.hypercall_page) {
+-		hypercall_msr.as_uint64 = 0;
+-		wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+-		if (!crash)
+-			vfree(hv_context.hypercall_page);
+-		hv_context.hypercall_page = NULL;
+-	}
+ 
+ #ifdef CONFIG_X86_64
++	union hv_x64_msr_hypercall_contents hypercall_msr;
+ 	/*
+ 	 * Cleanup the TSC page based CS.
+ 	 */
+-- 
+2.17.1
+

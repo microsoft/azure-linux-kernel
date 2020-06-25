@@ -1,4 +1,4 @@
-From 61bab47c5aefc82328e321dad95c5c7a8d78066a Mon Sep 17 00:00:00 2001
+From ac3e595e48d7ed6c597e2a8f3e87e2f1b2d16aca Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Wed, 23 Dec 2015 18:47:21 +0200
 Subject: IB/mlx5: Extend query_device/port to support RoCE

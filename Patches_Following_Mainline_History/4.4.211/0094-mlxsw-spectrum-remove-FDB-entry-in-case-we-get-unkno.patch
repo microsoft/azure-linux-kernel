@@ -1,4 +1,4 @@
-From 6ff59e9c6c4956461b7bac6729612efa8ded9ec2 Mon Sep 17 00:00:00 2001
+From f922677557278ee735f6cd026039e949fdc9e945 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 7 Jan 2016 11:50:30 +0100
 Subject: mlxsw: spectrum: remove FDB entry in case we get unknown object

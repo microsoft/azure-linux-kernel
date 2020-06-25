@@ -1,0 +1,73 @@
+From 4bdc799361ed5ea58eb9b3a59291036681c267ff Mon Sep 17 00:00:00 2001
+From: Aviv Heller <avivh@mellanox.com>
+Date: Mon, 9 May 2016 11:06:44 +0000
+Subject: net/mlx5: Get RoCE netdev
+Reply-To: joseph.salisbury@microsoft.com
+
+Used by IB driver for determining the IB bond
+device's netdev, when LAG is active.
+
+Returns PF0's netdev if mode is not active-backup,
+or the PF netdev of the active slave when mode is
+active-backup.
+
+Signed-off-by: Aviv Heller <avivh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+(backported from commit 6a32047a441b870dd2570fe0831dada5e9ce40f6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/lag.c | 27 +++++++++++++++++++
+ include/linux/mlx5/driver.h                   |  1 +
+ 2 files changed, 28 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lag.c b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+index c3ac3e1a75f5..c75653e50af4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/lag.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+@@ -527,3 +527,30 @@ bool mlx5_lag_is_active(struct mlx5_core_dev *dev)
+ 	return res;
+ }
+ EXPORT_SYMBOL(mlx5_lag_is_active);
++
++struct net_device *mlx5_lag_get_roce_netdev(struct mlx5_core_dev *dev)
++{
++	struct net_device *ndev = NULL;
++	struct mlx5_lag *ldev;
++
++	mutex_lock(&lag_mutex);
++	ldev = mlx5_lag_dev_get(dev);
++
++	if (!(ldev && mlx5_lag_is_bonded(ldev)))
++		goto unlock;
++
++	if (ldev->tracker.tx_type == NETDEV_LAG_TX_TYPE_ACTIVEBACKUP) {
++		ndev = ldev->tracker.netdev_state[0].tx_enabled ?
++		       ldev->pf[0].netdev : ldev->pf[1].netdev;
++	} else {
++		ndev = ldev->pf[0].netdev;
++	}
++	if (ndev)
++		dev_hold(ndev);
++
++unlock:
++	mutex_unlock(&lag_mutex);
++
++	return ndev;
++}
++EXPORT_SYMBOL(mlx5_lag_get_roce_netdev);
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 1998acd64c31..2607e81715e0 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -930,6 +930,7 @@ void mlx5_unregister_interface(struct mlx5_interface *intf);
+ int mlx5_core_query_vendor_id(struct mlx5_core_dev *mdev, u32 *vendor_id);
+ 
+ bool mlx5_lag_is_active(struct mlx5_core_dev *dev);
++struct net_device *mlx5_lag_get_roce_netdev(struct mlx5_core_dev *dev);
+ 
+ struct mlx5_profile {
+ 	u64	mask;
+-- 
+2.17.1
+

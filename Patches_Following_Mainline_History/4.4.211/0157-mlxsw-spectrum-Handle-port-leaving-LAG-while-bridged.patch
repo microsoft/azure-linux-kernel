@@ -1,4 +1,4 @@
-From 6d8bd21a03ba2da316c93812194ab829c3ff2e3d Mon Sep 17 00:00:00 2001
+From 36602b19791e280b4401f6b8a91a747ec3fa31d8 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:16 +0100
 Subject: mlxsw: spectrum: Handle port leaving LAG while bridged

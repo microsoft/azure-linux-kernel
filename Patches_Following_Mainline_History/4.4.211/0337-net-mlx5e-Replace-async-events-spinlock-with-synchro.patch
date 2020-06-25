@@ -1,0 +1,123 @@
+From cff07f311dbcce6aae60814a3e06cd2d186ab736 Mon Sep 17 00:00:00 2001
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Wed, 2 Mar 2016 00:13:32 +0200
+Subject: net/mlx5e: Replace async events spinlock with synchronize_irq()
+Reply-To: joseph.salisbury@microsoft.com
+
+We only need to flush the irq handler to make sure it does not
+queue a work into the global work queue after we start to flush it.
+So using synchronize_irq() is more appropriate than a spin lock.
+
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit daa21560a29673f63263e907045f513a8d66dc33)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h  |  1 -
+ .../net/ethernet/mellanox/mlx5/core/en_main.c | 24 +++++++------------
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c  |  5 ++++
+ .../ethernet/mellanox/mlx5/core/mlx5_core.h   |  1 +
+ 4 files changed, 14 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index a1d45794bb93..d7802f4384d3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -556,7 +556,6 @@ struct mlx5e_priv {
+ 	struct mlx5e_vxlan_db      vxlan;
+ 
+ 	struct mlx5e_params        params;
+-	spinlock_t                 async_events_spinlock; /* sync hw events */
+ 	struct work_struct         update_carrier_work;
+ 	struct work_struct         set_rx_mode_work;
+ 	struct delayed_work        update_stats_work;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index c7ec20e20c76..ecaaf03fe224 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -270,9 +270,14 @@ static void mlx5e_update_stats_work(struct work_struct *work)
+ 	mutex_unlock(&priv->state_lock);
+ }
+ 
+-static void __mlx5e_async_event(struct mlx5e_priv *priv,
+-				enum mlx5_dev_event event)
++static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
++			      enum mlx5_dev_event event, unsigned long param)
+ {
++	struct mlx5e_priv *priv = vpriv;
++
++	if (!test_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state))
++		return;
++
+ 	switch (event) {
+ 	case MLX5_DEV_EVENT_PORT_UP:
+ 	case MLX5_DEV_EVENT_PORT_DOWN:
+@@ -284,17 +289,6 @@ static void __mlx5e_async_event(struct mlx5e_priv *priv,
+ 	}
+ }
+ 
+-static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
+-			      enum mlx5_dev_event event, unsigned long param)
+-{
+-	struct mlx5e_priv *priv = vpriv;
+-
+-	spin_lock(&priv->async_events_spinlock);
+-	if (test_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state))
+-		__mlx5e_async_event(priv, event);
+-	spin_unlock(&priv->async_events_spinlock);
+-}
+-
+ static void mlx5e_enable_async_events(struct mlx5e_priv *priv)
+ {
+ 	set_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state);
+@@ -302,9 +296,8 @@ static void mlx5e_enable_async_events(struct mlx5e_priv *priv)
+ 
+ static void mlx5e_disable_async_events(struct mlx5e_priv *priv)
+ {
+-	spin_lock_irq(&priv->async_events_spinlock);
+ 	clear_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state);
+-	spin_unlock_irq(&priv->async_events_spinlock);
++	synchronize_irq(mlx5_get_msix_vec(priv->mdev, MLX5_EQ_VEC_ASYNC));
+ }
+ 
+ #define MLX5E_HW2SW_MTU(hwmtu) (hwmtu - (ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN))
+@@ -2320,7 +2313,6 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
+ 	mlx5e_ets_init(priv);
+ #endif
+ 
+-	spin_lock_init(&priv->async_events_spinlock);
+ 	mutex_init(&priv->state_lock);
+ 
+ 	INIT_WORK(&priv->update_carrier_work, mlx5e_update_carrier_work);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+index 647a3ca2c2a9..18fccec72c5d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+@@ -442,6 +442,11 @@ int mlx5_destroy_unmap_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
+ }
+ EXPORT_SYMBOL_GPL(mlx5_destroy_unmap_eq);
+ 
++u32 mlx5_get_msix_vec(struct mlx5_core_dev *dev, int vecidx)
++{
++	return dev->priv.msix_arr[MLX5_EQ_VEC_ASYNC].vector;
++}
++
+ int mlx5_eq_init(struct mlx5_core_dev *dev)
+ {
+ 	int err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index 0336847ec9a1..0b0b226c789e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -99,6 +99,7 @@ int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_wait_for_vf_pages(struct mlx5_core_dev *dev);
+ cycle_t mlx5_read_internal_timer(struct mlx5_core_dev *dev);
++u32 mlx5_get_msix_vec(struct mlx5_core_dev *dev, int vecidx);
+ 
+ void mlx5e_init(void);
+ void mlx5e_cleanup(void);
+-- 
+2.17.1
+

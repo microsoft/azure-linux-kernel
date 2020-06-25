@@ -1,4 +1,4 @@
-From 80843578ab0401a170d4d4144d9e9dfb091fb7e2 Mon Sep 17 00:00:00 2001
+From ccfc05ad80053febb4b7c4573ee8c3362c9235ed Mon Sep 17 00:00:00 2001
 From: KY Srinivasan <kys@microsoft.com>
 Date: Tue, 1 Dec 2015 16:43:15 -0800
 Subject: hv_netvsc: Eliminate is_data_pkt from struct hv_netvsc_packet

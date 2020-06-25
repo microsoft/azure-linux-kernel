@@ -1,0 +1,35 @@
+From c1a73a4e7170e39a98188a9904e8c86ebe0e2f76 Mon Sep 17 00:00:00 2001
+From: Amir Vadai <amir@vadai.me>
+Date: Tue, 8 Mar 2016 12:42:34 +0200
+Subject: net/mlx5e: Relax ndo_setup_tc handle restriction
+Reply-To: joseph.salisbury@microsoft.com
+
+Restricting handle to TC_H_ROOT breaks the old instantiation of mqprio
+to setup a hardware qdisc. This patch relaxes the test, to only check the
+type.
+
+Fixes: 08fb1da ("net/mlx5e: Support DCBNL IEEE ETS")
+Signed-off-by: Amir Vadai <amir@vadai.me>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 67ba422e95edfbd42f1d9782868880b364eea173)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 498f8eec9924..045ab94db3c2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1887,7 +1887,7 @@ static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
+ static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
+ 			      __be16 proto, struct tc_to_netdev *tc)
+ {
+-	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
++	if (tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+ 	return mlx5e_setup_tc(dev, tc->tc);
+-- 
+2.17.1
+

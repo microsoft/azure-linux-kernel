@@ -1,4 +1,4 @@
-From 1385619e037ae2ae6231320ca17c7daf4ba6f4f6 Mon Sep 17 00:00:00 2001
+From 465bcb60cb18dfbcd7248ff9b57287337a92f2dc Mon Sep 17 00:00:00 2001
 From: KY Srinivasan <kys@microsoft.com>
 Date: Tue, 1 Dec 2015 16:43:10 -0800
 Subject: hv_netvsc: Don't ask for additional head room in the skb

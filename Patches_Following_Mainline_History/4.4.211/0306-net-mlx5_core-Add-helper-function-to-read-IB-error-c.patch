@@ -1,0 +1,146 @@
+From 7017d3a2c5426c679db9d49d24d4ea21b5cd1a9b Mon Sep 17 00:00:00 2001
+From: Meny Yossefi <menyy@mellanox.com>
+Date: Thu, 18 Feb 2016 18:15:00 +0200
+Subject: net/mlx5_core: Add helper function to read IB error counters
+Reply-To: joseph.salisbury@microsoft.com
+
+Added helper function to read IB standard error counters
+via the PPCNT register.
+
+The PPCNT register read command provides the 32-bit error counters
+of both IB/RoCE link layer and transport layer.
+
+Signed-off-by: Meny Yossefi <menyy@mellanox.com>
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 1c64bf6f291cae7cbe779e407db9477378bb4e7d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/port.c    | 23 +++++++++++++
+ include/linux/mlx5/device.h                   |  3 +-
+ include/linux/mlx5/driver.h                   |  2 ++
+ include/linux/mlx5/mlx5_ifc.h                 | 32 +++++++++++++++++++
+ 4 files changed, 59 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 829faaa01fa0..35b97162f247 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -325,6 +325,29 @@ int mlx5_query_port_vl_hw_cap(struct mlx5_core_dev *dev,
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_vl_hw_cap);
+ 
++int mlx5_core_query_ib_ppcnt(struct mlx5_core_dev *dev,
++			     u8 port_num, void *out, size_t sz)
++{
++	u32 *in;
++	int err;
++
++	in  = mlx5_vzalloc(sz);
++	if (!in) {
++		err = -ENOMEM;
++		return err;
++	}
++
++	MLX5_SET(ppcnt_reg, in, local_port, port_num);
++
++	MLX5_SET(ppcnt_reg, in, grp, MLX5_INFINIBAND_PORT_COUNTERS_GROUP);
++	err = mlx5_core_access_reg(dev, in, sz, out,
++				   sz, MLX5_REG_PPCNT, 0, 0);
++
++	kvfree(in);
++	return err;
++}
++EXPORT_SYMBOL_GPL(mlx5_core_query_ib_ppcnt);
++
+ int mlx5_set_port_pause(struct mlx5_core_dev *dev, u32 rx_pause, u32 tx_pause)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(pfcc_reg)];
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 67ec238ac952..12dacbe69fa6 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -1318,7 +1318,8 @@ enum {
+ 	MLX5_RFC_3635_COUNTERS_GROUP	      = 0x3,
+ 	MLX5_ETHERNET_EXTENDED_COUNTERS_GROUP = 0x5,
+ 	MLX5_PER_PRIORITY_COUNTERS_GROUP      = 0x10,
+-	MLX5_PER_TRAFFIC_CLASS_COUNTERS_GROUP = 0x11
++	MLX5_PER_TRAFFIC_CLASS_COUNTERS_GROUP = 0x11,
++	MLX5_INFINIBAND_PORT_COUNTERS_GROUP   = 0x20,
+ };
+ 
+ static inline u16 mlx5_to_sw_pkey_sz(int pkey_sz)
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 60fa8bea9fdb..f9d4b738d40e 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -813,6 +813,8 @@ int mlx5_core_destroy_psv(struct mlx5_core_dev *dev, int psv_num);
+ void mlx5_core_put_rsc(struct mlx5_core_rsc_common *common);
+ int mlx5_query_odp_caps(struct mlx5_core_dev *dev,
+ 			struct mlx5_odp_caps *odp_caps);
++int mlx5_core_query_ib_ppcnt(struct mlx5_core_dev *dev,
++			     u8 port_num, void *out, size_t sz);
+ 
+ static inline int fw_initializing(struct mlx5_core_dev *dev)
+ {
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index a5959941b739..856a973263e5 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -1222,6 +1222,36 @@ struct mlx5_ifc_phys_layer_cntrs_bits {
+ 	u8         reserved_at_640[0x180];
+ };
+ 
++struct mlx5_ifc_ib_port_cntrs_grp_data_layout_bits {
++	u8	   symbol_error_counter[0x10];
++
++	u8         link_error_recovery_counter[0x8];
++
++	u8         link_downed_counter[0x8];
++
++	u8         port_rcv_errors[0x10];
++
++	u8         port_rcv_remote_physical_errors[0x10];
++
++	u8         port_rcv_switch_relay_errors[0x10];
++
++	u8         port_xmit_discards[0x10];
++
++	u8         port_xmit_constraint_errors[0x8];
++
++	u8         port_rcv_constraint_errors[0x8];
++
++	u8         reserved_at_70[0x8];
++
++	u8         link_overrun_errors[0x8];
++
++	u8	   reserved_at_80[0x10];
++
++	u8         vl_15_dropped[0x10];
++
++	u8	   reserved_at_a0[0xa0];
++};
++
+ struct mlx5_ifc_eth_per_traffic_grp_data_layout_bits {
+ 	u8         transmit_queue_high[0x20];
+ 
+@@ -2632,6 +2662,7 @@ union mlx5_ifc_eth_cntrs_grp_data_layout_auto_bits {
+ 	struct mlx5_ifc_eth_extended_cntrs_grp_data_layout_bits eth_extended_cntrs_grp_data_layout;
+ 	struct mlx5_ifc_eth_per_prio_grp_data_layout_bits eth_per_prio_grp_data_layout;
+ 	struct mlx5_ifc_eth_per_traffic_grp_data_layout_bits eth_per_traffic_grp_data_layout;
++	struct mlx5_ifc_ib_port_cntrs_grp_data_layout_bits ib_port_cntrs_grp_data_layout;
+ 	struct mlx5_ifc_phys_layer_cntrs_bits phys_layer_cntrs;
+ 	u8         reserved_at_0[0x7c0];
+ };
+@@ -7019,6 +7050,7 @@ union mlx5_ifc_ports_control_registers_document_bits {
+ 	struct mlx5_ifc_peir_reg_bits peir_reg;
+ 	struct mlx5_ifc_pelc_reg_bits pelc_reg;
+ 	struct mlx5_ifc_pfcc_reg_bits pfcc_reg;
++	struct mlx5_ifc_ib_port_cntrs_grp_data_layout_bits ib_port_cntrs_grp_data_layout;
+ 	struct mlx5_ifc_phys_layer_cntrs_bits phys_layer_cntrs;
+ 	struct mlx5_ifc_pifr_reg_bits pifr_reg;
+ 	struct mlx5_ifc_pipg_reg_bits pipg_reg;
+-- 
+2.17.1
+

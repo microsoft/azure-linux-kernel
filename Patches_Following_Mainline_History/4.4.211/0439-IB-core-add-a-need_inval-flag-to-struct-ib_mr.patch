@@ -1,0 +1,56 @@
+From 4fbc9f0d72b10e654c12137e3ff76587b15a8bb8 Mon Sep 17 00:00:00 2001
+From: Steve Wise <swise@chelsio.com>
+Date: Tue, 3 May 2016 18:01:08 +0200
+Subject: IB/core: add a need_inval flag to struct ib_mr
+Reply-To: joseph.salisbury@microsoft.com
+
+This is the first step toward moving MR invalidation decisions
+to the core.  It will be needed by the upcoming RW API.
+
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Reviewed-by: Bart Van Assche <bart.vanassche@sandisk.com>
+Reviewed-by: Sagi Grimberg <sagi@grimberg.me>
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit d4a85c309b33f93cb211f2fa9d26fa77d0bb7b5e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/core/verbs.c | 2 ++
+ include/rdma/ib_verbs.h         | 1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/infiniband/core/verbs.c b/drivers/infiniband/core/verbs.c
+index e7db4de25d70..c89616cf9370 100644
+--- a/drivers/infiniband/core/verbs.c
++++ b/drivers/infiniband/core/verbs.c
+@@ -1361,6 +1361,7 @@ struct ib_mr *ib_get_dma_mr(struct ib_pd *pd, int mr_access_flags)
+ 		mr->pd      = pd;
+ 		mr->uobject = NULL;
+ 		atomic_inc(&pd->usecnt);
++		mr->need_inval = false;
+ 	}
+ 
+ 	return mr;
+@@ -1414,6 +1415,7 @@ struct ib_mr *ib_alloc_mr(struct ib_pd *pd,
+ 		mr->pd      = pd;
+ 		mr->uobject = NULL;
+ 		atomic_inc(&pd->usecnt);
++		mr->need_inval = false;
+ 	}
+ 
+ 	return mr;
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index ce1fe8f900a6..4cb8cee9734f 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -1438,6 +1438,7 @@ struct ib_mr {
+ 	u64		   iova;
+ 	u32		   length;
+ 	unsigned int	   page_size;
++	bool		   need_inval;
+ 	union {
+ 		struct ib_uobject	*uobject;	/* user */
+ 		struct list_head	qp_entry;	/* FR */
+-- 
+2.17.1
+

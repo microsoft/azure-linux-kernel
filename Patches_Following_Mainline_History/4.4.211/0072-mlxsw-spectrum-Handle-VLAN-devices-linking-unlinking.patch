@@ -1,4 +1,4 @@
-From 0277ddb820f43d57860fc9237af96afc2bd110ee Mon Sep 17 00:00:00 2001
+From 868cede00f8c1ad724db360ce51253225c92ca34 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:43 +0100
 Subject: mlxsw: spectrum: Handle VLAN devices linking / unlinking

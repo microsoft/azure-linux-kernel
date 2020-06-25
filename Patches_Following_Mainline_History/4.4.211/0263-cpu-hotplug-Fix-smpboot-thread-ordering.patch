@@ -1,0 +1,58 @@
+From 5822f5f67a22fa992aba66923b6db1e75bc48770 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Thu, 10 Mar 2016 20:42:08 +0100
+Subject: cpu/hotplug: Fix smpboot thread ordering
+Reply-To: joseph.salisbury@microsoft.com
+
+Commit 931ef163309e moved the smpboot thread park/unpark invocation to the
+state machine. The move of the unpark invocation was premature as it depends
+on work in progress patches.
+
+As a result cpu down can fail, because rcu synchronization in takedown_cpu()
+eventually requires a functional softirq thread. I never encountered the
+problem in testing, but 0day testing managed to provide a reliable reproducer.
+
+Remove the smpboot_threads_park() call from the state machine for now and put
+it back into the original place after the rcu synchronization.
+
+I'm embarrassed as I knew about the dependency and still managed to get it
+wrong. Hotplug induced brain melt seems to be the only sensible explanation
+for that.
+
+Fixes: 931ef163309e "cpu/hotplug: Unpark smpboot threads from the state machine"
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: Peter Zijlstra <peterz@infradead.org>
+(cherry picked from commit 2a58c527bb566b7abad96289fa5b973040c33c82)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ kernel/cpu.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index d0fb7e080a6f..e7abf689a64d 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -726,8 +726,9 @@ static int takedown_cpu(unsigned int cpu)
+ 	else
+ 		synchronize_rcu();
+ 
+-	/* Park the hotplug thread */
++	/* Park the smpboot threads */
+ 	kthread_park(per_cpu_ptr(&cpuhp_state, cpu)->thread);
++	smpboot_park_threads(cpu);
+ 
+ 	/*
+ 	 * Prevent irq alloc/free while the dying cpu reorganizes the
+@@ -1213,7 +1214,7 @@ static struct cpuhp_step cpuhp_ap_states[] = {
+ 	[CPUHP_AP_SMPBOOT_THREADS] = {
+ 		.name			= "smpboot:threads",
+ 		.startup		= smpboot_unpark_threads,
+-		.teardown		= smpboot_park_threads,
++		.teardown		= NULL,
+ 	},
+ 	[CPUHP_AP_NOTIFY_ONLINE] = {
+ 		.name			= "notify:online",
+-- 
+2.17.1
+

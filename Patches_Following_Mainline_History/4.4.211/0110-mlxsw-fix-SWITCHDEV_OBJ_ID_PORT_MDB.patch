@@ -1,4 +1,4 @@
-From d664d0d815757b1f0ee3ed18662f54fa77ebbc27 Mon Sep 17 00:00:00 2001
+From a8a78e88e428693b474f073aa4cc22c35112059c Mon Sep 17 00:00:00 2001
 From: Dan Carpenter <dan.carpenter@oracle.com>
 Date: Wed, 13 Jan 2016 15:28:23 +0300
 Subject: mlxsw: fix SWITCHDEV_OBJ_ID_PORT_MDB

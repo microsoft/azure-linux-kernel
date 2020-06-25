@@ -1,0 +1,152 @@
+From 07b75db45056bc0c06ad354338115629ac0a7bd4 Mon Sep 17 00:00:00 2001
+From: Gal Pressman <galp@mellanox.com>
+Date: Thu, 23 Jun 2016 17:02:39 +0300
+Subject: net/mlx5e: Introduce net device priv flags infrastructure
+Reply-To: joseph.salisbury@microsoft.com
+
+Introduce an infrastructure for getting/setting private net device
+flags.
+
+Currently a 'nop' priv flag is added, following patches will override
+the flag will actual feature specific flags.
+
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 4e59e288813901815b39c82fc00d4e9fe78ce16b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h  | 17 ++++++
+ .../ethernet/mellanox/mlx5/core/en_ethtool.c  | 59 +++++++++++++++++++
+ 2 files changed, 76 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index b90e8e0079aa..60fd38d07365 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -144,6 +144,22 @@ struct mlx5e_umr_wqe {
+ 	struct mlx5_wqe_data_seg       data;
+ };
+ 
++static const char mlx5e_priv_flags[][ETH_GSTRING_LEN] = {
++	"nop",
++};
++
++enum mlx5e_priv_flag {
++	MLX5E_PFLAG_NOP = (1 << 0),
++};
++
++#define MLX5E_SET_PRIV_FLAG(priv, pflag, enable)    \
++	do {                                        \
++		if (enable)                         \
++			priv->pflags |= pflag;      \
++		else                                \
++			priv->pflags &= ~pflag;     \
++	} while (0)
++
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+ #define MLX5E_MAX_BW_ALLOC 100 /* Max percentage of BW allocation */
+ #define MLX5E_MIN_BW_ALLOC 1   /* Min percentage of BW allocation */
+@@ -542,6 +558,7 @@ struct mlx5e_priv {
+ 	struct work_struct         set_rx_mode_work;
+ 	struct delayed_work        update_stats_work;
+ 
++	u32                        pflags;
+ 	struct mlx5_core_dev      *mdev;
+ 	struct net_device         *netdev;
+ 	struct mlx5e_stats         stats;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index d5945bc7bcf0..903d6565183e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -200,6 +200,8 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+ 		       MLX5E_NUM_RQ_STATS(priv) +
+ 		       MLX5E_NUM_SQ_STATS(priv) +
+ 		       MLX5E_NUM_PFC_COUNTERS(priv);
++	case ETH_SS_PRIV_FLAGS:
++		return ARRAY_SIZE(mlx5e_priv_flags);
+ 	/* fallthrough */
+ 	default:
+ 		return -EOPNOTSUPP;
+@@ -272,9 +274,12 @@ static void mlx5e_get_strings(struct net_device *dev,
+ 			      uint32_t stringset, uint8_t *data)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
++	int i;
+ 
+ 	switch (stringset) {
+ 	case ETH_SS_PRIV_FLAGS:
++		for (i = 0; i < ARRAY_SIZE(mlx5e_priv_flags); i++)
++			strcpy(data + i * ETH_GSTRING_LEN, mlx5e_priv_flags[i]);
+ 		break;
+ 
+ 	case ETH_SS_TEST:
+@@ -1275,6 +1280,58 @@ static int mlx5e_get_module_eeprom(struct net_device *netdev,
+ 	return 0;
+ }
+ 
++typedef int (*mlx5e_pflag_handler)(struct net_device *netdev, bool enable);
++
++static int set_pflag_nop(struct net_device *netdev, bool enable)
++{
++	return 0;
++}
++
++static int mlx5e_handle_pflag(struct net_device *netdev,
++			      u32 wanted_flags,
++			      enum mlx5e_priv_flag flag,
++			      mlx5e_pflag_handler pflag_handler)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	bool enable = !!(wanted_flags & flag);
++	u32 changes = wanted_flags ^ priv->pflags;
++	int err;
++
++	if (!(changes & flag))
++		return 0;
++
++	err = pflag_handler(netdev, enable);
++	if (err) {
++		netdev_err(netdev, "%s private flag 0x%x failed err %d\n",
++			   enable ? "Enable" : "Disable", flag, err);
++		return err;
++	}
++
++	MLX5E_SET_PRIV_FLAG(priv, flag, enable);
++	return 0;
++}
++
++static int mlx5e_set_priv_flags(struct net_device *netdev, u32 pflags)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	int err;
++
++	mutex_lock(&priv->state_lock);
++
++	err = mlx5e_handle_pflag(netdev, pflags, MLX5E_PFLAG_NOP,
++				 set_pflag_nop);
++
++	mutex_unlock(&priv->state_lock);
++	return err ? -EINVAL : 0;
++}
++
++static u32 mlx5e_get_priv_flags(struct net_device *netdev)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++
++	return priv->pflags;
++}
++
+ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.get_drvinfo       = mlx5e_get_drvinfo,
+ 	.get_link          = ethtool_op_get_link,
+@@ -1304,4 +1361,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.set_wol	   = mlx5e_set_wol,
+ 	.get_module_info   = mlx5e_get_module_info,
+ 	.get_module_eeprom = mlx5e_get_module_eeprom,
++	.get_priv_flags    = mlx5e_get_priv_flags,
++	.set_priv_flags    = mlx5e_set_priv_flags
+ };
+-- 
+2.17.1
+

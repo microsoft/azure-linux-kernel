@@ -1,4 +1,4 @@
-From 2178e86e5f912329cc9669ccab566153d8e4d365 Mon Sep 17 00:00:00 2001
+From c9ca7d6e5daf2f6e9eae24cd9372f0006089aabe Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Mon, 15 Feb 2016 13:19:53 +0100
 Subject: mlxsw: Treat local port 64 as valid

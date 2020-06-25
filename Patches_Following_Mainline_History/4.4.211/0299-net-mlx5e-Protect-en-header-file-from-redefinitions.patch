@@ -1,0 +1,46 @@
+From 7dfccdbd228ca24b6d008da87eb30de5b483fa20 Mon Sep 17 00:00:00 2001
+From: Matthew Finlay <matt@mellanox.com>
+Date: Mon, 22 Feb 2016 18:17:31 +0200
+Subject: net/mlx5e: Protect en header file from redefinitions
+Reply-To: joseph.salisbury@microsoft.com
+
+add ifndef to en.h. needed for upcoming vxlan patchset.
+
+Signed-off-by: Matthew Finlay <matt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 1afff42c062fe1d1f8d99423dddfb8ca5f100574)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 63164a649870..8494bb61a361 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2015-2016, Mellanox Technologies. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+@@ -29,6 +29,8 @@
+  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  * SOFTWARE.
+  */
++#ifndef __MLX5_EN_H__
++#define __MLX5_EN_H__
+ 
+ #include <linux/if_vlan.h>
+ #include <linux/etherdevice.h>
+@@ -683,3 +685,5 @@ int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets);
+ #endif
+ 
+ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev);
++
++#endif /* __MLX5_EN_H__ */
+-- 
+2.17.1
+

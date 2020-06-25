@@ -1,0 +1,51 @@
+From 7954c2f515285d17f0712409d960b98774f0a7e9 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 11 Jan 2017 09:16:32 -0800
+Subject: netvsc: add rcu_read locking to netvsc callback
+Reply-To: joseph.salisbury@microsoft.com
+
+The receive callback (in tasklet context) is using RCU to get reference
+to associated VF network device but this is not safe. RCU read lock
+needs to be held. Found by running with full lockdep debugging
+enabled.
+
+Fixes: f207c10d9823 ("hv_netvsc: use RCU to protect vf_netdev")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 0719e72ccb801829a3d735d187ca8417f0930459)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 369cb57c1836..069e3145b2b8 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -640,6 +640,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	 * policy filters on the host). Deliver these via the VF
+ 	 * interface in the guest.
+ 	 */
++	rcu_read_lock();
+ 	vf_netdev = rcu_dereference(net_device_ctx->vf_netdev);
+ 	if (vf_netdev && (vf_netdev->flags & IFF_UP))
+ 		net = vf_netdev;
+@@ -648,6 +649,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	skb = netvsc_alloc_recv_skb(net, packet, csum_info, *data, vlan_tci);
+ 	if (unlikely(!skb)) {
+ 		++net->stats.rx_dropped;
++		rcu_read_unlock();
+ 		return NVSP_STAT_FAIL;
+ 	}
+ 
+@@ -677,6 +679,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	 * TODO - use NAPI?
+ 	 */
+ 	netif_rx(skb);
++	rcu_read_unlock();
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+

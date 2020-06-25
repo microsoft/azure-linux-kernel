@@ -1,0 +1,46 @@
+From e76f71c186d99344ee55bf470f92cb5ce308e088 Mon Sep 17 00:00:00 2001
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 21 Dec 2015 09:22:18 +0200
+Subject: x86: reuse asm-generic/barrier.h
+Reply-To: joseph.salisbury@microsoft.com
+
+As on most architectures, on x86 read_barrier_depends and
+smp_read_barrier_depends are empty.  Drop the local definitions and pull
+the generic ones from asm-generic/barrier.h instead: they are identical.
+
+This is in preparation to refactoring this code area.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+(cherry picked from commit 300b06d4555305dc227748674f75970f2f84c224)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/include/asm/barrier.h | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/arch/x86/include/asm/barrier.h b/arch/x86/include/asm/barrier.h
+index b2a5bef74282..64d64361e11f 100644
+--- a/arch/x86/include/asm/barrier.h
++++ b/arch/x86/include/asm/barrier.h
+@@ -71,9 +71,6 @@ static inline unsigned long array_index_mask_nospec(unsigned long index,
+ #define smp_store_mb(var, value) do { WRITE_ONCE(var, value); barrier(); } while (0)
+ #endif /* SMP */
+ 
+-#define read_barrier_depends()		do { } while (0)
+-#define smp_read_barrier_depends()	do { } while (0)
+-
+ #if defined(CONFIG_X86_PPRO_FENCE)
+ 
+ /*
+@@ -119,4 +116,6 @@ do {									\
+ #define smp_mb__before_atomic()	do { } while (0)
+ #define smp_mb__after_atomic()	do { } while (0)
+ 
++#include <asm-generic/barrier.h>
++
+ #endif /* _ASM_X86_BARRIER_H */
+-- 
+2.17.1
+
