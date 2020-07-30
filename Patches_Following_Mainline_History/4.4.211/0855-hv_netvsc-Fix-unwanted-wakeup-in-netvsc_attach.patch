@@ -1,4 +1,4 @@
-From 17e18df17fe821caf613669c922174ce13129dd7 Mon Sep 17 00:00:00 2001
+From 3d2e85395275bc7263f32f7f1689d13352a0b53b Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 21 Feb 2020 08:32:18 -0800
 Subject: hv_netvsc: Fix unwanted wakeup in netvsc_attach()

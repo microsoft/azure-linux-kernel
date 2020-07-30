@@ -1,4 +1,4 @@
-From 516557d2320e7715eef9b8be24fb53ed41565da6 Mon Sep 17 00:00:00 2001
+From 84bdb63feef828e3b5425e6d4efcc944bdd36a16 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Tue, 15 Jan 2019 00:51:43 +0000
 Subject: hv_netvsc: Refactor assignments of struct netvsc_device_info

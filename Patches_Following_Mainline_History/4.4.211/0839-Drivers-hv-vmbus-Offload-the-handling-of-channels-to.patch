@@ -1,15 +1,49 @@
-From c3f883494a9226e26682ae76f96d0f256aa6e549 Mon Sep 17 00:00:00 2001
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 14 Sep 2018 09:10:15 -0700
-Subject: vmbus: pass channel to hv_process_channel_removal
+From e8dc3ad96fc6ed6d641e9e86f58f2940106b10e5 Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Mon, 3 Dec 2018 00:54:35 +0000
+Subject: Drivers: hv: vmbus: Offload the handling of channels to two
+ workqueues
 Reply-To: joseph.salisbury@microsoft.com
 
-Rather than passing relid and then looking up the channel.
-Pass the channel directly, since caller already knows it.
+vmbus_process_offer() mustn't call channel->sc_creation_callback()
+directly for sub-channels, because sc_creation_callback() ->
+vmbus_open() may never get the host's response to the
+OPEN_CHANNEL message (the host may rescind a channel at any time,
+e.g. in the case of hot removing a NIC), and vmbus_onoffer_rescind()
+may not wake up the vmbus_open() as it's blocked due to a non-zero
+vmbus_connection.offer_in_progress, and finally we have a deadlock.
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+The above is also true for primary channels, if the related device
+drivers use sync probing mode by default.
+
+And, usually the handling of primary channels and sub-channels can
+depend on each other, so we should offload them to different
+workqueues to avoid possible deadlock, e.g. in sync-probing mode,
+NIC1's netvsc_subchan_work() can race with NIC2's netvsc_probe() ->
+rtnl_lock(), and causes deadlock: the former gets the rtnl_lock
+and waits for all the sub-channels to appear, but the latter
+can't get the rtnl_lock and this blocks the handling of sub-channels.
+
+The patch can fix the multiple-NIC deadlock described above for
+v3.x kernels (e.g. RHEL 7.x) which don't support async-probing
+of devices, and v4.4, v4.9, v4.14 and v4.18 which support async-probing
+but don't enable async-probing for Hyper-V drivers (yet).
+
+The patch can also fix the hang issue in sub-channel's handling described
+above for all versions of kernels, including v4.19 and v4.20-rc4.
+
+So actually the patch should be applied to all the existing kernels,
+not only the kernels that have 8195b1396ec8.
+
+Fixes: 8195b1396ec8 ("hv_netvsc: fix deadlock on hotplug")
+Cc: stable@vger.kernel.org
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-(backported from commit 800b932969c53c4044ff9f9fd1ee793a87fa8ef0)
+(backported from commit 37c2578c0c40e286bc0d30bdc05290b2058cf66e)
 Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
 ---
  drivers/hv/channel_mgmt.c | 193 +++++++++++++++++++++++++-------------

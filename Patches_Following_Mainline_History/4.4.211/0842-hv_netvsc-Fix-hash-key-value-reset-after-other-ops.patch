@@ -1,4 +1,4 @@
-From eb698eefda38d72302b7f895971871b4781f5aad Mon Sep 17 00:00:00 2001
+From 9b1e80b46f9e13617580c0cdfbb49908e0908306 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Tue, 15 Jan 2019 00:51:44 +0000
 Subject: hv_netvsc: Fix hash key value reset after other ops

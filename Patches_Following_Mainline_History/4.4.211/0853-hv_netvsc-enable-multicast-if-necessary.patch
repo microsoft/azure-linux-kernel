@@ -1,4 +1,4 @@
-From 65b384bac9af2966832e6cddff9c9fc0575d24e5 Mon Sep 17 00:00:00 2001
+From 3951dfd2a3f9bf540873732e8d104fd0425607ae Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 27 Mar 2018 11:28:48 -0700
 Subject: hv_netvsc: enable multicast if necessary

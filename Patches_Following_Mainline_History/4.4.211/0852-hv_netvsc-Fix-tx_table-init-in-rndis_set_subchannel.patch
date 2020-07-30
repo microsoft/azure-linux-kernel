@@ -1,4 +1,4 @@
-From 15a13e9716316dec80257f50b42de4d031b122b3 Mon Sep 17 00:00:00 2001
+From e7f504f6348a4e51a46e033ab2c022e7cc07c14a Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Wed, 11 Dec 2019 14:26:27 -0800
 Subject: hv_netvsc: Fix tx_table init in rndis_set_subchannel()
