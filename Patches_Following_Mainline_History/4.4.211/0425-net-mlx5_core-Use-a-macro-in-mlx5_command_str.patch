@@ -1,4 +1,4 @@
-From 0e95b7201a872868d6d8dfd0b17cd6131e778166 Mon Sep 17 00:00:00 2001
+From 0a8e0c09fad9752f3d8b5edb3fc6d3df0d195f23 Mon Sep 17 00:00:00 2001
 From: Amir Vadai <amirva@mellanox.com>
 Date: Fri, 13 May 2016 12:55:38 +0000
 Subject: net/mlx5_core: Use a macro in mlx5_command_str()

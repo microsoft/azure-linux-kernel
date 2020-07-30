@@ -1,4 +1,4 @@
-From 14065969b7850e6fae2b23179f24ed6cfbbc419f Mon Sep 17 00:00:00 2001
+From ed9518edc9f78fd6772916b0073de183add72247 Mon Sep 17 00:00:00 2001
 From: Artemy Kovalyov <artemyko@mellanox.com>
 Date: Fri, 17 Jun 2016 15:33:32 +0300
 Subject: {net, IB}/mlx5: Refactor internal SRQ API

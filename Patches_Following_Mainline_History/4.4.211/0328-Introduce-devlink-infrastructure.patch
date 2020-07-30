@@ -1,4 +1,4 @@
-From ec6f8e2e1dccec24019d19f674b98fd4ea6c586d Mon Sep 17 00:00:00 2001
+From e2dff5f454aa5651f5074db39d505f03909cf994 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Fri, 26 Feb 2016 17:32:23 +0100
 Subject: Introduce devlink infrastructure

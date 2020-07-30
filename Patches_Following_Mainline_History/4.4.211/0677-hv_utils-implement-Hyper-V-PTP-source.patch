@@ -1,4 +1,4 @@
-From cc7d1fd449ca47c039cbd8da6e09443220a39f6d Mon Sep 17 00:00:00 2001
+From dbfe8d5f552af2f839bcfc4e635f3f703a8789b7 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sat, 4 Feb 2017 09:57:14 -0700
 Subject: hv_utils: implement Hyper-V PTP source

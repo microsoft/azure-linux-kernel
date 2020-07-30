@@ -1,4 +1,4 @@
-From 9d2874341adc383800bb72e845abb44612f94955 Mon Sep 17 00:00:00 2001
+From 6c960c1dd1045fc98e1f8ee2fadd5ef9254a1bf1 Mon Sep 17 00:00:00 2001
 From: Shahar Klein <shahark@mellanox.com>
 Date: Fri, 10 Jun 2016 00:07:30 +0300
 Subject: net/mlx5: Fix MLX5_CMD_OP_MAX to be defined correctly

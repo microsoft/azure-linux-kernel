@@ -1,4 +1,4 @@
-From 89b0c949a17f9ac83aaeb654d9b12f572a6c6d91 Mon Sep 17 00:00:00 2001
+From c03b451e125ecd4caaa6bae7bb07edbca84951d2 Mon Sep 17 00:00:00 2001
 From: Haggai Eran <haggaie@mellanox.com>
 Date: Mon, 29 Feb 2016 15:45:09 +0200
 Subject: IB/mlx5: Reorder GSI completions

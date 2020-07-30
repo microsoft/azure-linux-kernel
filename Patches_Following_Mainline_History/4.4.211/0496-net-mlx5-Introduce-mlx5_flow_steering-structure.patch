@@ -1,4 +1,4 @@
-From 872556284c289e7fe1be3362bf92f8718ba550df Mon Sep 17 00:00:00 2001
+From 462998aa0a8e946b1f67a01493446023cf6d5294 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 4 Jul 2016 17:23:06 +0300
 Subject: net/mlx5: Introduce mlx5_flow_steering structure

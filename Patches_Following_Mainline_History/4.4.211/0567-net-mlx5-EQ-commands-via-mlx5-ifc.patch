@@ -1,4 +1,4 @@
-From cfd628f376e904b431de5541404248acca6887b2 Mon Sep 17 00:00:00 2001
+From 3be33204c1b6bbf775a8aaee70d23fd7a0fdcce3 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Sat, 16 Jul 2016 03:26:15 +0300
 Subject: net/mlx5: EQ commands via mlx5 ifc

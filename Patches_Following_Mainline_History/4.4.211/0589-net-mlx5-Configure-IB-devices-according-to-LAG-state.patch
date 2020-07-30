@@ -1,4 +1,4 @@
-From 6360a65d50c77f17405163e4419fdd5842856ac8 Mon Sep 17 00:00:00 2001
+From c9dfb7560eed2499be803aba33e740c2cd62e63f Mon Sep 17 00:00:00 2001
 From: Aviv Heller <avivh@mellanox.com>
 Date: Mon, 30 May 2016 18:32:32 +0300
 Subject: net/mlx5: Configure IB devices according to LAG state

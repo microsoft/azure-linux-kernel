@@ -1,4 +1,4 @@
-From 011f5829db6b225ed266d02057f5ed214c9c284f Mon Sep 17 00:00:00 2001
+From 26f7841cdd1a72ceaf265cf03aa59fd8235a71f3 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Mon, 11 Jun 2018 12:44:54 -0700
 Subject: hv_netvsc: drop common code until callback model fixed

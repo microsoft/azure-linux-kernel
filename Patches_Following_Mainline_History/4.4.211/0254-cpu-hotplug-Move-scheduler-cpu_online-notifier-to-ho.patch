@@ -1,4 +1,4 @@
-From 966cf04bbc34eeb03118baa02e326be748b04b94 Mon Sep 17 00:00:00 2001
+From 41c7e365de9b7a437215dffddead5a2ad4f27a36 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:35 +0000
 Subject: cpu/hotplug: Move scheduler cpu_online notifier to hotplug core

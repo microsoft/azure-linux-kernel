@@ -1,4 +1,4 @@
-From d1af038ddb1c8d645831575d2344a6c5d6fd0754 Mon Sep 17 00:00:00 2001
+From 355e76a8ce3dfa7d3eadf169bb85962990e56ced Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Tue, 21 Mar 2017 15:59:18 +0200
 Subject: net/mlx5e: Count GSO packets correctly

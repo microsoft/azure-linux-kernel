@@ -1,4 +1,4 @@
-From 84da5f1dc6320a29552c34ad21c74ca8e585eb0d Mon Sep 17 00:00:00 2001
+From d142e5a446249c3eb0bf42ee388b0a95d644bb7b Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:11 -0800
 Subject: netvsc: eliminate per-device outstanding send counter

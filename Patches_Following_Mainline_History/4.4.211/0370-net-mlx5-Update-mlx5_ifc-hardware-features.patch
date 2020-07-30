@@ -1,4 +1,4 @@
-From 1a7465b31463c9cf8b1df8b6a7bc239037eae2dc Mon Sep 17 00:00:00 2001
+From 37166515d7c446931b06bb2157fd0fc9cb1281f5 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Mon, 11 Apr 2016 23:10:22 +0300
 Subject: net/mlx5: Update mlx5_ifc hardware features

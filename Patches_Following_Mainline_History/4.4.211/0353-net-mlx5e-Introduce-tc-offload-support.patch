@@ -1,4 +1,4 @@
-From 9b53c040da84ead45c79eb7c0aa5c2ae7e000bd2 Mon Sep 17 00:00:00 2001
+From 21998fcc1ce46a2ed317421d0d82cb1d66878ee0 Mon Sep 17 00:00:00 2001
 From: Amir Vadai <amir@vadai.me>
 Date: Tue, 8 Mar 2016 12:42:36 +0200
 Subject: net/mlx5e: Introduce tc offload support

@@ -1,4 +1,4 @@
-From a7d1959878352c4ee53eecc08e2c6d3a7b76f0b7 Mon Sep 17 00:00:00 2001
+From 19a48b3ea8c3eb14095413265dc5c1417f5ec059 Mon Sep 17 00:00:00 2001
 From: Elad Raz <eladr@mellanox.com>
 Date: Sun, 10 Jan 2016 21:06:28 +0100
 Subject: mlxsw: Adding layer 2 multicast support

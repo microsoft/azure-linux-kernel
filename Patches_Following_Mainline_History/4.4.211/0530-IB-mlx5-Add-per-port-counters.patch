@@ -1,4 +1,4 @@
-From 462e0f2bb979d053966d38e459b83ceb4344892f Mon Sep 17 00:00:00 2001
+From 6ea0db93456018fce25ac1acb118b388dbdd3a12 Mon Sep 17 00:00:00 2001
 From: Mark Bloch <markb@mellanox.com>
 Date: Fri, 17 Jun 2016 15:10:55 +0300
 Subject: IB/mlx5: Add per port counters

@@ -1,4 +1,4 @@
-From 2f1059755fc3ee9d91de0a394a8f4d810d638471 Mon Sep 17 00:00:00 2001
+From c76deeb23276555bed490289838764bb2ec059ec Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Mon, 21 Aug 2017 19:22:38 -0700
 Subject: hv_netvsc: Clean up unused parameter from netvsc_get_rss_hash_opts()

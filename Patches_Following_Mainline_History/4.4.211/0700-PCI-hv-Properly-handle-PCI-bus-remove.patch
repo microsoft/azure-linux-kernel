@@ -1,4 +1,4 @@
-From 462041b2db0638a68f7d10b30376c8129383813e Mon Sep 17 00:00:00 2001
+From 4067157503f1d421b69276d894c5eaa60246362c Mon Sep 17 00:00:00 2001
 From: Long Li <longli@microsoft.com>
 Date: Thu, 23 Mar 2017 14:58:10 -0700
 Subject: PCI: hv: Properly handle PCI bus remove

@@ -1,4 +1,4 @@
-From 68308c0425cb75e53179c8333ec02b5b42d5a374 Mon Sep 17 00:00:00 2001
+From 406f6a438e25dbffa392f1f6c29f942e7b40b9de Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 20 Apr 2016 22:02:14 +0300
 Subject: net/mlx5e: Added ICO SQs

@@ -1,4 +1,4 @@
-From 59aed23b627d88f3236b60faec35245a84c3571f Mon Sep 17 00:00:00 2001
+From bb7e8673cc5bb12bcb800c404209332a974d47fe Mon Sep 17 00:00:00 2001
 From: Amir Vadai <amirva@mellanox.com>
 Date: Fri, 13 May 2016 12:55:41 +0000
 Subject: net/mlx5_core: Flow counters infrastructure

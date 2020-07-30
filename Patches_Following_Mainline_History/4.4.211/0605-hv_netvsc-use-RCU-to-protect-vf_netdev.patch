@@ -1,4 +1,4 @@
-From 77d0b3accdbe8cc2d8ec332712aea8cd8e3e05c6 Mon Sep 17 00:00:00 2001
+From 5d5b81aac01798ff4662801b4d8849c114c9300b Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Thu, 22 Sep 2016 16:56:33 -0700
 Subject: hv_netvsc: use RCU to protect vf_netdev

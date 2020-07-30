@@ -1,4 +1,4 @@
-From 75782c66d97597b0fc7a6892601860d51449f5ae Mon Sep 17 00:00:00 2001
+From bd5821339e28d031ec3c0397bf57e6ca1656c3b0 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 4 Jul 2016 17:23:05 +0300
 Subject: net/mlx5: Refactor mlx5_add_flow_rule

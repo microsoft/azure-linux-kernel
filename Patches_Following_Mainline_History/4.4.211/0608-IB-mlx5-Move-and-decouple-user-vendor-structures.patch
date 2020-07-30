@@ -1,4 +1,4 @@
-From 4c73d4aec29ac36e811d56a6170fb5a91f2e3b57 Mon Sep 17 00:00:00 2001
+From 628571fd3a22e1d3b3ac197f2d25c27399b119dc Mon Sep 17 00:00:00 2001
 From: Leon Romanovsky <leon@kernel.org>
 Date: Thu, 22 Sep 2016 17:31:11 +0300
 Subject: IB/mlx5: Move and decouple user vendor structures

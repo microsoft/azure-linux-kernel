@@ -1,4 +1,4 @@
-From 43d050de7965c52f44ea3de3cb7700d92bf93251 Mon Sep 17 00:00:00 2001
+From 15a13e9716316dec80257f50b42de4d031b122b3 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Wed, 11 Dec 2019 14:26:27 -0800
 Subject: hv_netvsc: Fix tx_table init in rndis_set_subchannel()
@@ -51,7 +51,7 @@ index 1b1ae8993bf3..10a222b75540 100644
  
  static void netvsc_send_vf(struct net_device *ndev,
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index cf81643f698f..c02ec42477d6 100644
+index e9433e0e528e..48ab2db4f19a 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
 @@ -130,7 +130,7 @@ static int netvsc_open(struct net_device *net)

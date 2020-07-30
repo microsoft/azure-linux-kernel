@@ -1,4 +1,4 @@
-From 4c8400debda111107e1c1478f4f047ca47865911 Mon Sep 17 00:00:00 2001
+From 71a845b29af9df79497177c1daac2b769ea4fc5f Mon Sep 17 00:00:00 2001
 From: Jork Loeser <jloeser@microsoft.com>
 Date: Wed, 24 May 2017 13:41:25 -0700
 Subject: PCI: hv: Use page allocation for hbus structure

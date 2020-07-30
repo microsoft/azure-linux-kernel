@@ -1,4 +1,4 @@
-From a7e7eb4c62536ea8cabd0b93f7af38805e795f57 Mon Sep 17 00:00:00 2001
+From 2261d8a771c579a9684f0c1bbe16be3ac893b63d Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Thu, 9 Jun 2016 15:11:34 +0300
 Subject: {net,IB}/mlx5: mlx5_ifc updates

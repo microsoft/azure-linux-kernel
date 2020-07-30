@@ -1,4 +1,4 @@
-From b9bf3c3671a57df7af04577e790cb55d2d703f4d Mon Sep 17 00:00:00 2001
+From b1c3ee28c7af3938703ae3d95354531170ece072 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Thu, 23 Jun 2016 17:02:43 +0300
 Subject: ethtool: Add 50G baseSR2 link mode

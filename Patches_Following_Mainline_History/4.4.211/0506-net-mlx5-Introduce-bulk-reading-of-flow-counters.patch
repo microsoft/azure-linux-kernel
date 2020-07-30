@@ -1,4 +1,4 @@
-From 250e08fa93e1c4a86e537aa156f8850003cda1c3 Mon Sep 17 00:00:00 2001
+From ec8b3130bab9092321de16a523b0f8e2c0f8b207 Mon Sep 17 00:00:00 2001
 From: Amir Vadai <amir@vadai.me>
 Date: Thu, 14 Jul 2016 10:32:38 +0300
 Subject: net/mlx5: Introduce bulk reading of flow counters

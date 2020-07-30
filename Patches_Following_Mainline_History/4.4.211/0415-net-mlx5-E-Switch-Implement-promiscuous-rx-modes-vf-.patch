@@ -1,4 +1,4 @@
-From f8684f4119fe49df475017a749b499d702bcce1d Mon Sep 17 00:00:00 2001
+From 6a8e1dba682d48f71f323d2538d4938f021de58c Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Tue, 3 May 2016 17:14:03 +0300
 Subject: net/mlx5: E-Switch, Implement promiscuous rx modes vf request

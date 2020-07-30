@@ -1,4 +1,4 @@
-From 9339ff8c3b7d61f2daa7893f12c19861b8524d16 Mon Sep 17 00:00:00 2001
+From 13ca813883b6c2ebd7900399aefe14593431e9ee Mon Sep 17 00:00:00 2001
 From: Alex Ng <alexng@messages.microsoft.com>
 Date: Thu, 8 Sep 2016 05:24:12 -0700
 Subject: Drivers: hv: utils: Rename version definitions to reflect protocol

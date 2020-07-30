@@ -1,4 +1,4 @@
-From 5c45d0d1db1c891a086e9cd56c18c36403ec2d9e Mon Sep 17 00:00:00 2001
+From 9c9e9f5d6daeb26165a1b7056713e252f1146ba6 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 2 Sep 2016 05:58:21 -0700
 Subject: Drivers: hv: ring_buffer: use wrap around mappings in hv_copy{from,

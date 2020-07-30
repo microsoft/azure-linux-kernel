@@ -1,4 +1,4 @@
-From 289aaa70aa2b70253cdcdc6b8b6af87e60a313d7 Mon Sep 17 00:00:00 2001
+From 37a333339fd8e5aa0fb3c4856091646e55590248 Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Wed, 7 Sep 2016 05:39:34 -0700
 Subject: Drivers: hv: vmbus: suppress some "hv_vmbus: Unknown GUID" warnings

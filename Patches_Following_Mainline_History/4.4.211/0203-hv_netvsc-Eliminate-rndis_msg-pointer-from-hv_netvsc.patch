@@ -1,4 +1,4 @@
-From 9d38300b0d4f12e0d498ac0d77a06698935dd8d8 Mon Sep 17 00:00:00 2001
+From 1e8ef554356922f3249e2c0a74bc25c6671f069f Mon Sep 17 00:00:00 2001
 From: KY Srinivasan <kys@microsoft.com>
 Date: Tue, 1 Dec 2015 16:43:06 -0800
 Subject: hv_netvsc: Eliminate rndis_msg pointer from hv_netvsc_packet

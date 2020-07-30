@@ -1,4 +1,4 @@
-From 251e68ccaa8fdd277f826c8138816de4b4fcb48d Mon Sep 17 00:00:00 2001
+From 788dd5d403f7c12d95b0b41b149f56e95a834bd9 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Wed, 27 Jan 2016 22:29:44 -0800
 Subject: Drivers: hv: vmbus: Eliminate the spin lock on the read path

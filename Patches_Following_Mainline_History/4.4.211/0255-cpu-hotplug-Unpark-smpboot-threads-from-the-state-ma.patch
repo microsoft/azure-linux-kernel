@@ -1,4 +1,4 @@
-From ab33209f53496c651d2dce0c6d282610005ac0bc Mon Sep 17 00:00:00 2001
+From b6506ea58dc952a5f7fb9ba39f994f85567247cf Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:36 +0000
 Subject: cpu/hotplug: Unpark smpboot threads from the state machine

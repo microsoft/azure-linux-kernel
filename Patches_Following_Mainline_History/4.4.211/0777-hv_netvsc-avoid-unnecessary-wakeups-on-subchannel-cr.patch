@@ -1,4 +1,4 @@
-From 0474a8dc7bc0dc4e4548f54c3530b54581f92a91 Mon Sep 17 00:00:00 2001
+From 19166967d363990c7b3fec03e0ff4982071e44ad Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Wed, 6 Sep 2017 13:53:06 -0700
 Subject: hv_netvsc: avoid unnecessary wakeups on subchannel creation

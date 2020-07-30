@@ -1,4 +1,4 @@
-From 462d75431076d58e203ad5575985438c452651db Mon Sep 17 00:00:00 2001
+From 8d0511b2caea8814619f4e07f8c81b1e0a3162ee Mon Sep 17 00:00:00 2001
 From: Mohammed Gamal <mgamal@redhat.com>
 Date: Tue, 14 Jan 2020 15:09:50 +0200
 Subject: hv_netvsc: Fix memory leak when removing rndis device

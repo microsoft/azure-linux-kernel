@@ -1,4 +1,4 @@
-From c486b9fe0d4b3565599282e99da0678de262d19f Mon Sep 17 00:00:00 2001
+From dd3749061f76feb01b8a972c71d7ed791942d4ff Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Thu, 23 Jun 2016 17:02:44 +0300
 Subject: net/mlx5e: Add missing 50G baseSR2 link mode

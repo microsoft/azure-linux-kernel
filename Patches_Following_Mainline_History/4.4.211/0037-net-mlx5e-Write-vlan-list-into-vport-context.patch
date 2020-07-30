@@ -1,4 +1,4 @@
-From 12b7ae3dc4433a9e380007b19cc0ae6cd37ea201 Mon Sep 17 00:00:00 2001
+From 5011a0d16cb74b39ab980778c2e8e4469080cb82 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:17 +0200
 Subject: net/mlx5e: Write vlan list into vport context

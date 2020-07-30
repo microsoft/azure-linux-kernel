@@ -1,4 +1,4 @@
-From 3ebd474fa1ec3951a224e94d0bccc3edfcb74416 Mon Sep 17 00:00:00 2001
+From 18d21ef096c3f2b123849f4e8eb04cff70ff5e74 Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Fri, 1 Jul 2016 14:51:01 +0300
 Subject: net/devlink: Add E-Switch mode control

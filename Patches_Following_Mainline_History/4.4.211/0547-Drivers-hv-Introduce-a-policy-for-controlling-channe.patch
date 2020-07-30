@@ -1,4 +1,4 @@
-From afdaff7415e28aa5d7bd49014aaa0baeb25cf0c6 Mon Sep 17 00:00:00 2001
+From b12157212961c466b62573cea0fc018ef67fbe8d Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@exchange.microsoft.com>
 Date: Fri, 2 Sep 2016 05:58:23 -0700
 Subject: Drivers: hv: Introduce a policy for controlling channel affinity

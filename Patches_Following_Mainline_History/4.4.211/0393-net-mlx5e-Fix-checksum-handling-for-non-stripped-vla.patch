@@ -1,4 +1,4 @@
-From 1f80efb1ddefc060d6da05206ce25d56f640616f Mon Sep 17 00:00:00 2001
+From 7c0c13aa8124b675d9782364c4f7b5357d816f49 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Sun, 24 Apr 2016 22:51:56 +0300
 Subject: net/mlx5e: Fix checksum handling for non-stripped vlan packets

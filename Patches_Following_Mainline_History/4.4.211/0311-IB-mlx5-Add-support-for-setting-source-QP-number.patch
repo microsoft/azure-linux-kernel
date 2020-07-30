@@ -1,4 +1,4 @@
-From 9a4cc0146bb227d47e890512793090645522f975 Mon Sep 17 00:00:00 2001
+From a73a866b04871a7ed92ecf45c8d70f3efa37f2bc Mon Sep 17 00:00:00 2001
 From: Haggai Eran <haggaie@mellanox.com>
 Date: Mon, 29 Feb 2016 15:45:03 +0200
 Subject: IB/mlx5: Add support for setting source QP number

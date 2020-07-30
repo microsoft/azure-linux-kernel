@@ -1,4 +1,4 @@
-From 741d8921ea93f862c122542fbe78cb2147a0fad1 Mon Sep 17 00:00:00 2001
+From b67042a1e41f9cb081abf9faf42aec299d1541dd Mon Sep 17 00:00:00 2001
 From: Haggai Eran <haggaie@mellanox.com>
 Date: Mon, 29 Feb 2016 15:45:05 +0200
 Subject: IB/mlx5: Add GSI QP wrapper

@@ -1,4 +1,4 @@
-From dcd0a00596e6d24cd0cb9d684499b6e5281cccd4 Mon Sep 17 00:00:00 2001
+From 125335084d8cdc1c7ed89b99ff15b32bc0eb753b Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Thu, 23 Jun 2016 17:02:46 +0300
 Subject: net/mlx5e: Report correct auto negotiation and allow toggling

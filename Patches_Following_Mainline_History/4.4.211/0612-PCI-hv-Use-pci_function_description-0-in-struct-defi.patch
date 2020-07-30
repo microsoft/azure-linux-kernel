@@ -1,4 +1,4 @@
-From daadff509123902a2d6b79d24fcfc196d21e68a3 Mon Sep 17 00:00:00 2001
+From c91b742df10ae8ac9c2329b6c41b2b9725aa3163 Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Tue, 23 Aug 2016 04:46:39 +0000
 Subject: PCI: hv: Use pci_function_description[0] in struct definitions

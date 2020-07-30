@@ -1,4 +1,4 @@
-From 71772942e1319d5461824f41dc413b9937c4c33a Mon Sep 17 00:00:00 2001
+From dff1dcbdb5fe781064c5427832f46a3109f8b8e8 Mon Sep 17 00:00:00 2001
 From: "Keller, Jacob E" <jacob.e.keller@intel.com>
 Date: Mon, 8 Feb 2016 16:05:03 -0800
 Subject: ethtool: correctly ensure {GS}CHANNELS doesn't conflict with GS{RXFH}

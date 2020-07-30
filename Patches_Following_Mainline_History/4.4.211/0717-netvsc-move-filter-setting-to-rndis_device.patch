@@ -1,4 +1,4 @@
-From f0f5a19cbe7486ccbf7ff8fe66666f2879cc781d Mon Sep 17 00:00:00 2001
+From 017caa8ae1f2da7bcf8539606d772581bbbd87ab Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 7 Jun 2017 15:53:49 -0700
 Subject: netvsc: move filter setting to rndis_device

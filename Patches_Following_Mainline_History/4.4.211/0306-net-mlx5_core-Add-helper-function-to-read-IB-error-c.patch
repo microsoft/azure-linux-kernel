@@ -1,4 +1,4 @@
-From 7017d3a2c5426c679db9d49d24d4ea21b5cd1a9b Mon Sep 17 00:00:00 2001
+From 10dd1ff6fa1cf1640ddf158b17f9bfde97de592e Mon Sep 17 00:00:00 2001
 From: Meny Yossefi <menyy@mellanox.com>
 Date: Thu, 18 Feb 2016 18:15:00 +0200
 Subject: net/mlx5_core: Add helper function to read IB error counters

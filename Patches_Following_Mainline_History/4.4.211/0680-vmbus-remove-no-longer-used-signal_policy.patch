@@ -1,4 +1,4 @@
-From c20c1294ae9bdee5abe180826ab2fdf526c82835 Mon Sep 17 00:00:00 2001
+From f6a92a4512e69261dc0fe910c95f0645acd1a025 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sun, 5 Feb 2017 17:20:33 -0700
 Subject: vmbus: remove no longer used signal_policy

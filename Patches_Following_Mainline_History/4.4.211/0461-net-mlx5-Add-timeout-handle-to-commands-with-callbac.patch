@@ -1,4 +1,4 @@
-From dfb5169a72774696515a037109fc9e582306e6f1 Mon Sep 17 00:00:00 2001
+From 66858d65f7e4d1b981ccb228b443b9805baf2ddb Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Thu, 30 Jun 2016 17:34:43 +0300
 Subject: net/mlx5: Add timeout handle to commands with callback

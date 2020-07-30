@@ -1,4 +1,4 @@
-From 9c9b93b5036ae7060e07f33511e6d84152b4b7eb Mon Sep 17 00:00:00 2001
+From 0cd0f9b7c2b6f0de78d895ee0fd7b7aa1e51d215 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 22 Mar 2017 14:50:57 -0700
 Subject: netvsc: fix NAPI performance regression

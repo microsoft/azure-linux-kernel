@@ -1,4 +1,4 @@
-From 132e4fdaf70f86dda6b715c9fc15bf04f068dbf5 Mon Sep 17 00:00:00 2001
+From bd78998dbea9e85263853df47759db3b5bef48b7 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 22 Sep 2017 15:31:38 -0700
 Subject: hv_netvsc: Fix the real number of queues of non-vRSS cases

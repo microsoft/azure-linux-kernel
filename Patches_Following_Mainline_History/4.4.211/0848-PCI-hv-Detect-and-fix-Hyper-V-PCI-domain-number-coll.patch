@@ -1,4 +1,4 @@
-From b853636927b2c66c4aee2ef45d39acc38e12f52b Mon Sep 17 00:00:00 2001
+From 42a77de68fee042bd943004d8f7f8ca1abbd8ff8 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 15 Aug 2019 17:01:37 +0000
 Subject: PCI: hv: Detect and fix Hyper-V PCI domain number collision

@@ -1,4 +1,4 @@
-From 303533bc378e96d3f984d103731708799c943e19 Mon Sep 17 00:00:00 2001
+From 278b2b1918d46bbf3efad572e9fea47e35112c50 Mon Sep 17 00:00:00 2001
 From: Eli Cohen <eli@mellanox.com>
 Date: Fri, 11 Mar 2016 22:58:42 +0200
 Subject: IB/mlx5: Implement callbacks for manipulating VFs

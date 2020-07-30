@@ -1,4 +1,4 @@
-From fb07d41fbf15ceab67f7f38ea45f18224757abb2 Mon Sep 17 00:00:00 2001
+From 594b00d5a4fa6667d3d858775076d3f665ddad35 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Fri, 29 Apr 2016 01:36:34 +0300
 Subject: net/mlx5: Set number of allowed levels in priority

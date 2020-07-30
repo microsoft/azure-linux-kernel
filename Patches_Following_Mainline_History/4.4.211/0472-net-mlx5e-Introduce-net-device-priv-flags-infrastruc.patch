@@ -1,4 +1,4 @@
-From 07b75db45056bc0c06ad354338115629ac0a7bd4 Mon Sep 17 00:00:00 2001
+From 2443275bb3344f59978d11b796bcb4685c539121 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Thu, 23 Jun 2016 17:02:39 +0300
 Subject: net/mlx5e: Introduce net device priv flags infrastructure

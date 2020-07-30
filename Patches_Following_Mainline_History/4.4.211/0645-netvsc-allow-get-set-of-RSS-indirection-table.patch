@@ -1,4 +1,4 @@
-From b2596b4712a97acf102e70f14a15dc0cec396a04 Mon Sep 17 00:00:00 2001
+From 17aa13ee3ec766fbc16f5d1b5d5604f374f9c5df Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:04 -0800
 Subject: netvsc: allow get/set of RSS indirection table

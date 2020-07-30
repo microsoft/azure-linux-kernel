@@ -1,4 +1,4 @@
-From 3c6becb7eab041d71e6c74f0b26218b215cca301 Mon Sep 17 00:00:00 2001
+From 44cd565c1068818b9aa67da2355b97ee1d8cb068 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Mon, 27 Jun 2016 12:08:37 +0300
 Subject: net/mlx5e: Fix number of PFC counters reported to ethtool

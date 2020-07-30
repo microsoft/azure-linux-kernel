@@ -1,4 +1,4 @@
-From 1942c83d2c376abc082d0fdc64080a13905668bd Mon Sep 17 00:00:00 2001
+From 52072f090a1ec93e74be6d576a0c8d33cd550102 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Tue, 23 Aug 2016 12:17:51 -0700
 Subject: hv_netvsc: init completion during alloc

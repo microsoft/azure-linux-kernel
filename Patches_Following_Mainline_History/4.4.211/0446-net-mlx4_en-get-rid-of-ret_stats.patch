@@ -1,4 +1,4 @@
-From 99a0048dc749320808804d2d12170d5f12ca7cc4 Mon Sep 17 00:00:00 2001
+From 8cc6de20bdbf6990c1796eabed89b6ff09cc38e3 Mon Sep 17 00:00:00 2001
 From: Eric Dumazet <edumazet@google.com>
 Date: Wed, 25 May 2016 09:50:38 -0700
 Subject: net/mlx4_en: get rid of ret_stats

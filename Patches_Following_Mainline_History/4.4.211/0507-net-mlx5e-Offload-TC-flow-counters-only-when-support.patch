@@ -1,4 +1,4 @@
-From 786308f9a3f0ad008ba3ce9d873964caef6e4151 Mon Sep 17 00:00:00 2001
+From d687f7d908cd340907123f0b522408e4dad111d0 Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Thu, 14 Jul 2016 10:32:39 +0300
 Subject: net/mlx5e: Offload TC flow counters only when supported

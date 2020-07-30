@@ -1,4 +1,4 @@
-From 97d83b368c3560bddbe2a039b6bffa23c2004596 Mon Sep 17 00:00:00 2001
+From 8d25a99cdaa52a4bb50a182fb5e6f952821deb3e Mon Sep 17 00:00:00 2001
 From: Matthew Finlay <matt@mellanox.com>
 Date: Fri, 29 Apr 2016 01:36:31 +0300
 Subject: net/mlx5e: Call vxlan_get_rx_port() with rtnl lock

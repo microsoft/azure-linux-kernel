@@ -1,4 +1,4 @@
-From a779ff1d994bbed7ceb322190d3a95091738ec90 Mon Sep 17 00:00:00 2001
+From 1cb932f8e49b6e6df7f9b64190cc754f8ddb74bf Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 12 Dec 2017 16:48:38 -0800
 Subject: hv_netvsc: pass netvsc_device to receive callback

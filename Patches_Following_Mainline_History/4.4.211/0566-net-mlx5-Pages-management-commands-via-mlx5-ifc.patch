@@ -1,4 +1,4 @@
-From 186161fc9e686157fd35d5d48e1d41383d8bd797 Mon Sep 17 00:00:00 2001
+From a7c57d2bd66fbccdbd400fa86d5b8b8e94f3adbf Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Sun, 17 Jul 2016 13:27:25 +0300
 Subject: net/mlx5: Pages management commands via mlx5 ifc

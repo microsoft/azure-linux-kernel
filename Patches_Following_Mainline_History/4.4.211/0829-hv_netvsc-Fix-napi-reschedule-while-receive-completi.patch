@@ -1,4 +1,4 @@
-From d2510a87c4c330e76cc7b2cfe82f14de0417c16f Mon Sep 17 00:00:00 2001
+From 8ac7ce48807df21ba77d94b1b1776c89436534b3 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Tue, 17 Jul 2018 17:11:13 +0000
 Subject: hv_netvsc: Fix napi reschedule while receive completion is busy

@@ -1,4 +1,4 @@
-From a556c44df647660b8d55b0c29ea183caf5f42d00 Mon Sep 17 00:00:00 2001
+From 1f9825a09e9f3bbba4fe80b8b16a8d7d931772b2 Mon Sep 17 00:00:00 2001
 From: Eli Cohen <eli@mellanox.com>
 Date: Mon, 27 Jun 2016 12:08:32 +0300
 Subject: net/mlx5: Update command strings

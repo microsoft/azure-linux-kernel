@@ -1,4 +1,4 @@
-From 1e5076df2bd6c3c9cb53c94838d6b0cc7958929a Mon Sep 17 00:00:00 2001
+From a999b67740488efd0bf424cbc55afb6700aa51de Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 28 Mar 2019 19:40:36 +0000
 Subject: hv_netvsc: Fix unwanted wakeup after tx_disable
@@ -68,7 +68,7 @@ index 10525d20a2bc..1f10ed502c1a 100644
  			ndev_ctx->eth_stats.wake_queue++;
  			ret = -ENOSPC;
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index ecc2e2c3dca6..5bc6d807c5c1 100644
+index 9f38e6c2d502..69f8a0c4e372 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
 @@ -103,6 +103,15 @@ static void netvsc_set_rx_mode(struct net_device *net)
@@ -133,7 +133,7 @@ index ecc2e2c3dca6..5bc6d807c5c1 100644
  
  	/* No need to close rndis filter if it is removed already */
  	if (!nvdev)
-@@ -899,7 +921,7 @@ static int netvsc_detach(struct net_device *ndev,
+@@ -898,7 +920,7 @@ static int netvsc_detach(struct net_device *ndev,
  
  	/* If device was up (receiving) then shutdown */
  	if (netif_running(ndev)) {
@@ -142,7 +142,7 @@ index ecc2e2c3dca6..5bc6d807c5c1 100644
  
  		ret = rndis_filter_close(nvdev);
  		if (ret) {
-@@ -1748,7 +1770,7 @@ static void netvsc_link_change(struct work_struct *w)
+@@ -1746,7 +1768,7 @@ static void netvsc_link_change(struct work_struct *w)
  		if (rdev->link_state) {
  			rdev->link_state = false;
  			netif_carrier_on(net);
@@ -151,7 +151,7 @@ index ecc2e2c3dca6..5bc6d807c5c1 100644
  		} else {
  			notify = true;
  		}
-@@ -1758,7 +1780,7 @@ static void netvsc_link_change(struct work_struct *w)
+@@ -1756,7 +1778,7 @@ static void netvsc_link_change(struct work_struct *w)
  		if (!rdev->link_state) {
  			rdev->link_state = true;
  			netif_carrier_off(net);
@@ -160,7 +160,7 @@ index ecc2e2c3dca6..5bc6d807c5c1 100644
  		}
  		kfree(event);
  		break;
-@@ -1767,7 +1789,7 @@ static void netvsc_link_change(struct work_struct *w)
+@@ -1765,7 +1787,7 @@ static void netvsc_link_change(struct work_struct *w)
  		if (!rdev->link_state) {
  			rdev->link_state = true;
  			netif_carrier_off(net);

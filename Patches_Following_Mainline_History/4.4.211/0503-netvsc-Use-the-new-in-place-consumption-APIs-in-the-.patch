@@ -1,4 +1,4 @@
-From 7b5291f6dd99bb5e2b4e2ec4059f8aefa5fdce8c Mon Sep 17 00:00:00 2001
+From 55bad177a9c041c250f6679fae597eb551f7eb1a Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Tue, 5 Jul 2016 16:52:46 -0700
 Subject: netvsc: Use the new in-place consumption APIs in the rx path

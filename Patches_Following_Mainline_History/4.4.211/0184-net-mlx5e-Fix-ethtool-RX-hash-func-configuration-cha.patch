@@ -1,4 +1,4 @@
-From 0fb668196d0b420bba2d856a79473fd08e6c3ef4 Mon Sep 17 00:00:00 2001
+From 2da464f4737994c4dbdded9b8718a902c51259d1 Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Mon, 29 Feb 2016 21:17:12 +0200
 Subject: net/mlx5e: Fix ethtool RX hash func configuration change

@@ -1,4 +1,4 @@
-From 365b3a0b6694254d6ba35d27a419bb3a1f836f63 Mon Sep 17 00:00:00 2001
+From 256ae142e25ab6f6e895ffd5a4e29391718bee9d Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 20 Apr 2016 22:02:12 +0300
 Subject: net/mlx5e: Use function pointers for RX data path handling

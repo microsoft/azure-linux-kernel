@@ -1,4 +1,4 @@
-From 9c73bf31b67befdd3886fa34a20e5c8b14be31ac Mon Sep 17 00:00:00 2001
+From 48c91e0493a41aa1b6cd3c74e9cfd14e101099a8 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Mon, 29 Feb 2016 18:05:29 +0200
 Subject: IB/core: Add vendor's specific data to alloc mw

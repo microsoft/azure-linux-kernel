@@ -1,4 +1,4 @@
-From 891cd314a74a220743d4485b48fa3753c9fa4977 Mon Sep 17 00:00:00 2001
+From 528c6dcd3caf38a97c9ccef1a1fcb3f520d27a56 Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Thu, 10 Dec 2015 17:52:59 +0000
 Subject: genirq/msi: Export functions to allow MSI domains in modules

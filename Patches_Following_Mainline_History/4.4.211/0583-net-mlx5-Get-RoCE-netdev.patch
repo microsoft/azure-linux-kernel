@@ -1,4 +1,4 @@
-From 4bdc799361ed5ea58eb9b3a59291036681c267ff Mon Sep 17 00:00:00 2001
+From 5b3921246641ce9fd9135a785c79ec47d337a1d4 Mon Sep 17 00:00:00 2001
 From: Aviv Heller <avivh@mellanox.com>
 Date: Mon, 9 May 2016 11:06:44 +0000
 Subject: net/mlx5: Get RoCE netdev

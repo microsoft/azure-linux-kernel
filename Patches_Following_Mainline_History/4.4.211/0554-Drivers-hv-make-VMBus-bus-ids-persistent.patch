@@ -1,4 +1,4 @@
-From f16e8d3056fa404c7aa21164334d975d7372dc8f Mon Sep 17 00:00:00 2001
+From c8ec0b3aefb00d2437e649e4d4d436acdb2526d0 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 16 Sep 2016 09:01:17 -0700
 Subject: Drivers: hv: make VMBus bus ids persistent

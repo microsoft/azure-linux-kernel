@@ -1,4 +1,4 @@
-From 01594a3c87cd813089645dd97bfe56e286402aa3 Mon Sep 17 00:00:00 2001
+From 8a4bde553620f47c458a058369116945d47b87cb Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Sat, 28 Jan 2017 11:46:02 -0700
 Subject: Drivers: hv: vmbus: finally fix hv_need_to_signal_on_read()

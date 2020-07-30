@@ -1,4 +1,4 @@
-From feae2061a7ec4ef25fd7414f40b951bce6073a8f Mon Sep 17 00:00:00 2001
+From 60a16ce457cbee98959b8997d18f987c753070a9 Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Fri, 9 Sep 2016 17:35:23 +0300
 Subject: net/mlx5: Align sriov/eswitch modules with the new load/unload flow.

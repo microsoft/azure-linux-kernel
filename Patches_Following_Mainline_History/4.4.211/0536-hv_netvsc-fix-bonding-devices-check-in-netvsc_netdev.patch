@@ -1,4 +1,4 @@
-From fb91282e0b9d95a78722bea049f0630050329eac Mon Sep 17 00:00:00 2001
+From b2689e8af70541a27598fd037261be5d18b0f268 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Mon, 15 Aug 2016 17:48:43 +0200
 Subject: hv_netvsc: fix bonding devices check in netvsc_netdev_event()

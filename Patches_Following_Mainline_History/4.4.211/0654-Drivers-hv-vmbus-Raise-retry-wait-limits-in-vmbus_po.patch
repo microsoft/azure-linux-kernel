@@ -1,4 +1,4 @@
-From 83c80d6d5bead636d3fe469945ebfe540d9f77b9 Mon Sep 17 00:00:00 2001
+From b475d98897546c006195e9ae6c989276110a0965 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 7 Dec 2016 01:16:24 -0800
 Subject: Drivers: hv: vmbus: Raise retry/wait limits in vmbus_post_msg()

@@ -1,4 +1,4 @@
-From e4288b3c899ad02e94e706e2ee5d303f07430547 Mon Sep 17 00:00:00 2001
+From 887d263e16e6a30bef6db296419a715689f72f7b Mon Sep 17 00:00:00 2001
 From: Colin Ian King <colin.king@canonical.com>
 Date: Sun, 20 Mar 2016 17:44:56 +0000
 Subject: net/mlx4: remove unused array zero_gid[]

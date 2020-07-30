@@ -1,4 +1,4 @@
-From 37026fb09d4487e01d417b9c9c01e439595f66ed Mon Sep 17 00:00:00 2001
+From 1cc2b79591234cbe68432f2d489618213477d8f9 Mon Sep 17 00:00:00 2001
 From: David Decotigny <decot@googlers.com>
 Date: Wed, 24 Feb 2016 10:58:12 -0800
 Subject: net: mlx4: use new ETHTOOL_G/SSETTINGS API

@@ -1,4 +1,4 @@
-From 000ab0f3bbb0e9df88b52748d7220f79a109e906 Mon Sep 17 00:00:00 2001
+From 66c6a3a76a70fc88effcc6d3344228ae2c1c3dc5 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:12 -0800
 Subject: netvsc: account for packets/bytes transmitted after completion

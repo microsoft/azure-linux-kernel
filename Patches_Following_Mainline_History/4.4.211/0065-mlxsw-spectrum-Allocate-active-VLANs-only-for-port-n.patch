@@ -1,4 +1,4 @@
-From fc98a880bd1683c29bd48a80da9932671a5361aa Mon Sep 17 00:00:00 2001
+From e9b2db92c163c6f33ed58f4442f0bdd289a0c29a Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:36 +0100
 Subject: mlxsw: spectrum: Allocate active VLANs only for port netdevs

@@ -1,4 +1,4 @@
-From f5ad0ef048349435eeb4cec57164b51673965ec7 Mon Sep 17 00:00:00 2001
+From 9a7836e7c4ab8b16281d854adc3bb8f115e26cd7 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Fri, 27 Nov 2015 13:45:58 +0100
 Subject: mlxsw: reg: Add definition of fan management registers

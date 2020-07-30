@@ -1,4 +1,4 @@
-From d5dd74bc754918994434e79461f5513cadbd3a55 Mon Sep 17 00:00:00 2001
+From d6b35f338c7555661a4711e7bf8e779e83779625 Mon Sep 17 00:00:00 2001
 From: Eugenia Emantayev <eugenia@mellanox.com>
 Date: Wed, 17 Feb 2016 17:24:23 +0200
 Subject: net/mlx4_en: Choose time-stamping shift value according to HW

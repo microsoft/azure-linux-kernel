@@ -1,4 +1,4 @@
-From 33dec6b78fc3ead07321a85b9312ef091da8af05 Mon Sep 17 00:00:00 2001
+From 70fe9c0b686fe111cb66e4e4618685b38accd785 Mon Sep 17 00:00:00 2001
 From: Jarod Wilson <jarod@redhat.com>
 Date: Fri, 7 Oct 2016 22:04:33 -0400
 Subject: net: centralize net_device min/max MTU checking

@@ -1,4 +1,4 @@
-From e84ba459b482882f452f70e69ca35203e13507bb Mon Sep 17 00:00:00 2001
+From ff2a5883589168de3d0c5ee7cea9c7b6d881e6b6 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 19 Jul 2016 20:17:12 +0300
 Subject: net/mlx5: Unify and improve command interface

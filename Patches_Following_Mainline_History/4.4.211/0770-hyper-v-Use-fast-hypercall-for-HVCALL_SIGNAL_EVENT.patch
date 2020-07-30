@@ -1,4 +1,4 @@
-From 5aae6c1ed3d007986bb21c89e1d0c9e9b4053428 Mon Sep 17 00:00:00 2001
+From 4d88258eb2733f26757ad808560e44566eef0756 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:16 +0200
 Subject: hyper-v: Use fast hypercall for HVCALL_SIGNAL_EVENT

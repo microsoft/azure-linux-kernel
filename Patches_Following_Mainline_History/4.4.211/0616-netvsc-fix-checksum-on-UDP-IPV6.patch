@@ -1,4 +1,4 @@
-From ba36fc33845c058abee368a79a9a849ccf1d3c02 Mon Sep 17 00:00:00 2001
+From 373893cfbe5ff0fe5245c426a2a6138242499844 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 11 Oct 2016 14:03:07 -0700
 Subject: netvsc: fix checksum on UDP IPV6

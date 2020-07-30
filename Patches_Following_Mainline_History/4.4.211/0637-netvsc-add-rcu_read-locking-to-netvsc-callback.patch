@@ -1,4 +1,4 @@
-From 7954c2f515285d17f0712409d960b98774f0a7e9 Mon Sep 17 00:00:00 2001
+From 2212b80d0b7b2112e8016d05a7819214806736a3 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 11 Jan 2017 09:16:32 -0800
 Subject: netvsc: add rcu_read locking to netvsc callback

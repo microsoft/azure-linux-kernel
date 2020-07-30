@@ -1,4 +1,4 @@
-From e9a737bcf47475ae1b320ade326148b88152d8c9 Mon Sep 17 00:00:00 2001
+From c7b239e637c866fe55bda54131c34fa2ec1cbb7b Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Fri, 2 Mar 2018 13:49:03 -0800
 Subject: hv_netvsc: fix error unwind handling if vmbus_open fails

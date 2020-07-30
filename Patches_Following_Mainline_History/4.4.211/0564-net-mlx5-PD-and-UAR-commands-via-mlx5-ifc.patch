@@ -1,4 +1,4 @@
-From 85b593e29063f15f4ae5227b24244e60a88dc136 Mon Sep 17 00:00:00 2001
+From eb5490b98d80a2a72d64f077088e4754736c261b Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Sun, 17 Jul 2016 01:44:57 +0300
 Subject: net/mlx5: PD and UAR commands via mlx5 ifc

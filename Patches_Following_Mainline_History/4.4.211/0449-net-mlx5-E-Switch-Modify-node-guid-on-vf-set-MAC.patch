@@ -1,4 +1,4 @@
-From 76946c58e76f8636f255bcd4167c8df5e2294556 Mon Sep 17 00:00:00 2001
+From 164c12b28f789aa9f077939baae844dc04e06f89 Mon Sep 17 00:00:00 2001
 From: Noa Osherovich <noaos@mellanox.com>
 Date: Fri, 10 Jun 2016 00:07:37 +0300
 Subject: net/mlx5: E-Switch, Modify node guid on vf set MAC

@@ -1,4 +1,4 @@
-From 95bc7ec259a59e92a10d5c07a5d7be30b960d40a Mon Sep 17 00:00:00 2001
+From 15e273dd9d5930ef0a3a176b102556bf2224697f Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:03 -0800
 Subject: netvsc: allow more flexible setting of number of channels

@@ -1,4 +1,4 @@
-From fa50b4b714174093e009f8169d825f783e9abb32 Mon Sep 17 00:00:00 2001
+From b8fbc5a88b1efc4a5415bf4031edeef13c2fa193 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Tue, 23 Aug 2016 12:17:57 -0700
 Subject: hv_netvsc: add ethtool statistics for tx packet issues

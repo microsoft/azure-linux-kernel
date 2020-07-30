@@ -1,4 +1,4 @@
-From f7fe4b5cb19e377e39813f742ddfb451caac0cab Mon Sep 17 00:00:00 2001
+From 31a21764fd81ee57101ee8deb03cdeb4187d549a Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Mon, 22 Feb 2016 18:17:23 +0200
 Subject: net/mlx5: Introduce a new header file for physical port functions

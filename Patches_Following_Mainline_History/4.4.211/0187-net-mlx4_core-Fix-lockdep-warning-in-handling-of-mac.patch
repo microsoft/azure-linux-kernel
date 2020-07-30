@@ -1,4 +1,4 @@
-From 06a2d89339146de96a4cec0ead8e25901ab05abe Mon Sep 17 00:00:00 2001
+From 9e4d8db4aeb690342e8dd945f405d4cdc58f1d8c Mon Sep 17 00:00:00 2001
 From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Date: Wed, 2 Mar 2016 17:47:44 +0200
 Subject: net/mlx4_core: Fix lockdep warning in handling of mac/vlan tables

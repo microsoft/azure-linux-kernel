@@ -1,4 +1,4 @@
-From ece3e8f6830bd67ca1c112ebf449126cdb9203fc Mon Sep 17 00:00:00 2001
+From 3a06158475d565379a69af4f99d17722f582b29e Mon Sep 17 00:00:00 2001
 From: Amir Vadai <amir@vadai.me>
 Date: Tue, 8 Mar 2016 12:42:33 +0200
 Subject: net/mlx5_core: Set flow steering dest only for forward rules

@@ -1,4 +1,4 @@
-From cabcc86b3214a6058325c0ddb9f95c6f53b1e722 Mon Sep 17 00:00:00 2001
+From 54d2cfbc37b6249937e36d220ee8b3af771c6c99 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Thu, 10 Dec 2015 17:12:45 +0200
 Subject: net/mlx5e: Rename en_flow_table.c to en_fs.c

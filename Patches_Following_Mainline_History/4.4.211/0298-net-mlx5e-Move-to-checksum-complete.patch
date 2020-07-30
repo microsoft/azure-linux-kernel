@@ -1,4 +1,4 @@
-From 89cf94a8e72c9617bb58be124b11c6a09b141b42 Mon Sep 17 00:00:00 2001
+From f5c3a5eb001d096c76b0d110b0513e3e7d83f8da Mon Sep 17 00:00:00 2001
 From: Matthew Finlay <matt@mellanox.com>
 Date: Mon, 22 Feb 2016 18:17:30 +0200
 Subject: net/mlx5e: Move to checksum complete

@@ -1,4 +1,4 @@
-From fab0eed6bb8e6d7697080366358bf64aee4dc6f6 Mon Sep 17 00:00:00 2001
+From 1f06dbf2e8a68b806bc73a8d656b3eb9edb7ae1f Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Mon, 14 Dec 2015 19:02:01 -0800
 Subject: Drivers: hv: ring_buffer: eliminate hv_ringbuffer_peek()

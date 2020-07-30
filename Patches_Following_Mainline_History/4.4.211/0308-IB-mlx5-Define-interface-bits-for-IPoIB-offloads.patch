@@ -1,4 +1,4 @@
-From 8dcb26a7ca87202903ad9425b6e08a9d5ca73c4e Mon Sep 17 00:00:00 2001
+From 2aa1b8d7682ebd7bfc285ee53171e281fedb7376 Mon Sep 17 00:00:00 2001
 From: Erez Shitrit <erezsh@mellanox.com>
 Date: Sun, 21 Feb 2016 16:27:16 +0200
 Subject: IB/mlx5: Define interface bits for IPoIB offloads

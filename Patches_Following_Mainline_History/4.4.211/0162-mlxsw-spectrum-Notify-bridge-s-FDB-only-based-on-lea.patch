@@ -1,4 +1,4 @@
-From 0728050d20add505fcbb635c9cad67fbe12b411a Mon Sep 17 00:00:00 2001
+From 115846882d3a95cb742a5c53df33bc68cdff0fb8 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:21 +0100
 Subject: mlxsw: spectrum: Notify bridge's FDB only based on learning_sync

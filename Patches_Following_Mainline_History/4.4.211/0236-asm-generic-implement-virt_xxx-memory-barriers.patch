@@ -1,4 +1,4 @@
-From acbc2a6b405c768a2ee6b302fe916186196d8303 Mon Sep 17 00:00:00 2001
+From 65d5d06f1f963f8510cac26c9834d6a9d0ce3de6 Mon Sep 17 00:00:00 2001
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Date: Sun, 27 Dec 2015 18:23:01 +0200
 Subject: asm-generic: implement virt_xxx memory barriers

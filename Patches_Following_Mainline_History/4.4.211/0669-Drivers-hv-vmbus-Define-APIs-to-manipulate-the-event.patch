@@ -1,4 +1,4 @@
-From 5e619425e3e0136a1aaa2711d154b2fdfd1fac59 Mon Sep 17 00:00:00 2001
+From 7504641efb8e8b291d9418dea1e7ba6bfdea61da Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:55 -0700
 Subject: Drivers: hv: vmbus: Define APIs to manipulate the event page

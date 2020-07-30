@@ -1,4 +1,4 @@
-From d22e16a2403f9c3d6d4a1b4649d6602994c3501d Mon Sep 17 00:00:00 2001
+From 3b608becfa020b4295cfa51de590bc77108c45e8 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:23 +0000
 Subject: cpu/hotplug: Restructure FROZEN state handling

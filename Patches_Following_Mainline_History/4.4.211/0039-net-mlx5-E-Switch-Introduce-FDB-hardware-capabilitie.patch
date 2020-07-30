@@ -1,4 +1,4 @@
-From 456b92c9ac40781548780862ccde25f7b3a3cc41 Mon Sep 17 00:00:00 2001
+From 788f44b3da0e469f6a58255a9b0c2bdbb64ef452 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:19 +0200
 Subject: net/mlx5: E-Switch, Introduce FDB hardware capabilities

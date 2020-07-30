@@ -1,4 +1,4 @@
-From 936b7a6168dad70a03d60b97d4487a8882737a82 Mon Sep 17 00:00:00 2001
+From 8f127d2988ff118da2c56fc2c9951bc1df6595ff Mon Sep 17 00:00:00 2001
 From: KY Srinivasan <kys@microsoft.com>
 Date: Tue, 1 Dec 2015 16:43:05 -0800
 Subject: hv_netvsc: Eliminate the channel field in hv_netvsc_packet structure

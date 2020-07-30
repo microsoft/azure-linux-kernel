@@ -1,4 +1,4 @@
-From eec1cc72c2f6800802cb73357d1d1167b698933e Mon Sep 17 00:00:00 2001
+From 239d60475e377789612dbdf5d89f1662ef1e59af Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Fri, 9 Sep 2016 17:35:18 +0300
 Subject: net/mlx5: SRIOV core code refactoring

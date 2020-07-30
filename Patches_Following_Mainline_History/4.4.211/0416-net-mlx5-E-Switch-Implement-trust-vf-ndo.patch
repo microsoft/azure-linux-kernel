@@ -1,4 +1,4 @@
-From 6f6e17bfa554328c3997686cd47d75cb6db22d0d Mon Sep 17 00:00:00 2001
+From 802d9a90e988e693b26b56ec27b624a030bc4b3c Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Tue, 3 May 2016 17:14:04 +0300
 Subject: net/mlx5: E-Switch, Implement trust vf ndo

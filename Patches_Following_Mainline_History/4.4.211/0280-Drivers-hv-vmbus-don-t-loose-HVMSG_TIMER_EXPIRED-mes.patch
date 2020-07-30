@@ -1,4 +1,4 @@
-From a942bb9514cbccccbf0d793c616a14cdcea621f4 Mon Sep 17 00:00:00 2001
+From 71938ecea6e976c06ff3a4a9dff43784e01109f2 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 26 Feb 2016 15:13:15 -0800
 Subject: Drivers: hv: vmbus: don't loose HVMSG_TIMER_EXPIRED messages

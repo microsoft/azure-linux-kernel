@@ -1,4 +1,4 @@
-From 6ea1bd7406f8a4978701eee1fcf4485eeb6d36b9 Mon Sep 17 00:00:00 2001
+From 884f058f98755c7e56e252e2aba971fee522cd8c Mon Sep 17 00:00:00 2001
 From: Noa Osherovich <noaos@mellanox.com>
 Date: Thu, 2 Jun 2016 10:47:53 +0300
 Subject: net/mlx5: Separate query_port_proto_oper for IB and EN

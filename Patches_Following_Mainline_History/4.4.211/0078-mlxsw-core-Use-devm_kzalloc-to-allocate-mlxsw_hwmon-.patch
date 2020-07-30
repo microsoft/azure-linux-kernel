@@ -1,4 +1,4 @@
-From 33e905efc87571acca59723a47f2af067cfb4007 Mon Sep 17 00:00:00 2001
+From 31d3cac714aa9f11cdac9ef2c7e1ac59c4434e1e Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Tue, 22 Dec 2015 09:43:07 +0100
 Subject: mlxsw: core: Use devm_kzalloc to allocate mlxsw_hwmon structure

@@ -1,4 +1,4 @@
-From 6040804a951fa1fe7b26845ee247b6597ae0260e Mon Sep 17 00:00:00 2001
+From 9266bf70234e69f5d5b8e283075df4006e737ec2 Mon Sep 17 00:00:00 2001
 From: Alex Ng <alexng@microsoft.com>
 Date: Wed, 20 Sep 2017 11:17:35 -0700
 Subject: hv_netvsc: fix send buffer failure on MTU change

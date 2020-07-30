@@ -1,4 +1,4 @@
-From 672c2a8b3795c53d1325bf966188760447c5efe5 Mon Sep 17 00:00:00 2001
+From 60fbb87f0eec151cbd88e9bf48c7b57f6b8ee428 Mon Sep 17 00:00:00 2001
 From: Hadar Hen Zion <hadarh@mellanox.com>
 Date: Fri, 1 Jul 2016 14:51:05 +0300
 Subject: net/mlx5e: TIRs management refactoring

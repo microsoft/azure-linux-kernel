@@ -1,4 +1,4 @@
-From f3c439e6eddc59c2aae75cd692899284cb39d25f Mon Sep 17 00:00:00 2001
+From cd610d2428c3a39a398b48f9b20dc472f83aa927 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Wed, 2 Mar 2016 00:13:37 +0200
 Subject: net/mlx5e: Don't try to modify CQ moderation if it is not supported

@@ -1,4 +1,4 @@
-From ab1d0778d8bee022fbcd948beff2d7bb67148f85 Mon Sep 17 00:00:00 2001
+From 9511e5c57b00ff1630b36c8e60b99d4ab6f17077 Mon Sep 17 00:00:00 2001
 From: KY Srinivasan <kys@microsoft.com>
 Date: Thu, 14 Apr 2016 16:31:54 -0700
 Subject: hv_netvsc: Implement support for VF drivers on Hyper-V

@@ -1,4 +1,4 @@
-From 439da7ef893b65c06017a6d13d90d166ccdab080 Mon Sep 17 00:00:00 2001
+From 7fb77b717601bd2973a5d9f8c6ed047d6b719276 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 19 Jul 2017 11:53:12 -0700
 Subject: netvsc: force link update after MTU change

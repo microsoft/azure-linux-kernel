@@ -1,4 +1,4 @@
-From fb00f4ac5725c3f267432498debfa8a65ba82456 Mon Sep 17 00:00:00 2001
+From 4a526b782df66b68f5dbbee8b4574b04c8657b34 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Fri, 29 Apr 2016 01:36:38 +0300
 Subject: net/mlx5e: Split the main flow steering table

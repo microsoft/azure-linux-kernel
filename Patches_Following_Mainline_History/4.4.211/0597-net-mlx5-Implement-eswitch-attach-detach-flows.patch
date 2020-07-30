@@ -1,4 +1,4 @@
-From 8424e20ee04523599df015fc3f6828ac61b36d9f Mon Sep 17 00:00:00 2001
+From 7aec0e4d33c3d99a22d0673bb933692a44e54ae8 Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Fri, 9 Sep 2016 17:35:22 +0300
 Subject: net/mlx5: Implement eswitch attach/detach flows

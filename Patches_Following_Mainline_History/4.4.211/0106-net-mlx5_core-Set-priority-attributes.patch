@@ -1,4 +1,4 @@
-From fe2c4ebc4fc3ddb142d0a4a545b4c8dc2852f90e Mon Sep 17 00:00:00 2001
+From 46feabf5ec35047dbaa7f07082cf8336a91b4967 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:26:02 +0200
 Subject: net/mlx5_core: Set priority attributes

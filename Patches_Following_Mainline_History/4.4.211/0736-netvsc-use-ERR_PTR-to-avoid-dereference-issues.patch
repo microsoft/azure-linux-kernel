@@ -1,4 +1,4 @@
-From d1548f87ca485b6969edc10186b38ff5ea826417 Mon Sep 17 00:00:00 2001
+From 8ba1fb517dcd77440d52c8521fabfd851da68f5f Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 19 Jul 2017 11:53:16 -0700
 Subject: netvsc: use ERR_PTR to avoid dereference issues

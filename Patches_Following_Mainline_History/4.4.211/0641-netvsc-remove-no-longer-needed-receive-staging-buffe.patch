@@ -1,4 +1,4 @@
-From a95485b21c133978bf32644b595a9fcc0425bf7b Mon Sep 17 00:00:00 2001
+From ba915514cec17bad48ca8d38cc9bb35806c7f35f Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:05:58 -0800
 Subject: netvsc: remove no longer needed receive staging buffers

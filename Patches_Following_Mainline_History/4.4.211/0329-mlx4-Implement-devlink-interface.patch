@@ -1,4 +1,4 @@
-From fbcec0e7cd6783307afade528e723721fbdedee5 Mon Sep 17 00:00:00 2001
+From cce9be939cddc2518cda2132d90b28bed7c0a717 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Fri, 26 Feb 2016 17:32:24 +0100
 Subject: mlx4: Implement devlink interface

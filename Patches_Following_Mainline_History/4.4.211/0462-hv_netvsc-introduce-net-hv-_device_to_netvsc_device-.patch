@@ -1,4 +1,4 @@
-From 4b4e88f1bbefdae4b35e7eea5c58dffa2d6ab850 Mon Sep 17 00:00:00 2001
+From 028be24b7638a4499b90a6f9c2a1abb28959067b Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 3 Jun 2016 17:50:59 +0200
 Subject: hv_netvsc: introduce {net, hv}_device_to_netvsc_device() helpers

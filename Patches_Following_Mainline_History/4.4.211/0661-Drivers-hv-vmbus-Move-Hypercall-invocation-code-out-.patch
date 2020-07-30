@@ -1,4 +1,4 @@
-From 7fcbc7a6413b0163a62d4a78ecd4aa2b005b18e0 Mon Sep 17 00:00:00 2001
+From 1f6da796e703a0ebe7f20e8820c4c59f133347b9 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Wed, 18 Jan 2017 16:45:03 -0700
 Subject: Drivers: hv: vmbus: Move Hypercall invocation code out of common code

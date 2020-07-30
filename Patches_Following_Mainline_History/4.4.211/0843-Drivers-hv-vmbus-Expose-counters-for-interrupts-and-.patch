@@ -1,4 +1,4 @@
-From 495a343afbdafb7edbc98651a0c423d425dc6f07 Mon Sep 17 00:00:00 2001
+From 096ffa4b21efb52afd28968eb1294b5ee8538d46 Mon Sep 17 00:00:00 2001
 From: Kimberly Brown <kimbrownkd@gmail.com>
 Date: Mon, 4 Feb 2019 02:13:09 -0500
 Subject: Drivers: hv: vmbus: Expose counters for interrupts and full
@@ -40,11 +40,11 @@ Signed-off-by: Sasha Levin <sashal@kernel.org>
 (backported from commit 396ae57ef1ef978d1d21cdb7586ba184a3f22453)
 Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
 ---
- Documentation/ABI/stable/sysfs-bus-vmbus | 40 ++++++++++++++++++
- drivers/hv/ring_buffer.c                 | 16 +++++--
- drivers/hv/vmbus_drv.c                   | 36 ++++++++++++++++
- include/linux/hyperv.h                   | 53 ++++++++++++++++++++++++
- 4 files changed, 142 insertions(+), 3 deletions(-)
+ Documentation/ABI/stable/sysfs-bus-vmbus | 40 +++++++++++++++++++++
+ drivers/hv/ring_buffer.c                 | 16 +++++++--
+ drivers/hv/vmbus_drv.c                   | 36 +++++++++++++++++++
+ include/linux/hyperv.h                   | 46 ++++++++++++++++++++++++
+ 4 files changed, 135 insertions(+), 3 deletions(-)
 
 diff --git a/Documentation/ABI/stable/sysfs-bus-vmbus b/Documentation/ABI/stable/sysfs-bus-vmbus
 index 8863e9ddaf24..2c0f98c254f5 100644
@@ -195,7 +195,7 @@ index 88dad6daccea..bbd7a95b1590 100644
  	&chan_attr_subchannel_id.attr,
  	NULL
 diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index ca5332a7ee5c..3f4d2bee183e 100644
+index 8b2b901d8062..3f4d2bee183e 100644
 --- a/include/linux/hyperv.h
 +++ b/include/linux/hyperv.h
 @@ -756,6 +756,19 @@ struct vmbus_channel {
@@ -218,17 +218,10 @@ index ca5332a7ee5c..3f4d2bee183e 100644
  	/* Channel callback's invoked in softirq context */
  	struct tasklet_struct callback_event;
  	void (*onchannel_callback)(void *context);
-@@ -910,6 +923,31 @@ struct vmbus_channel {
- 
- 	bool probe_done;
- 
-+	/*
-+	 * We must offload the handling of the primary/sub channels
-+	 * from the single-threaded vmbus_connection.work_queue to
-+	 * two different workqueue, otherwise we can block
-+	 * vmbus_connection.work_queue and hang: see vmbus_process_offer().
-+	 */
-+	struct work_struct add_channel_work;
+@@ -917,6 +930,24 @@ struct vmbus_channel {
+ 	 * vmbus_connection.work_queue and hang: see vmbus_process_offer().
+ 	 */
+ 	struct work_struct add_channel_work;
 +
 +	/*
 +	 * Guest to host interrupts caused by the inbound ring buffer changing
@@ -250,7 +243,7 @@ index ca5332a7ee5c..3f4d2bee183e 100644
  };
  
  static inline bool is_hvsock_channel(const struct vmbus_channel *c)
-@@ -943,6 +981,21 @@ static inline void *get_per_channel_state(struct vmbus_channel *c)
+@@ -950,6 +981,21 @@ static inline void *get_per_channel_state(struct vmbus_channel *c)
  static inline void set_channel_pending_send_size(struct vmbus_channel *c,
  						 u32 size)
  {

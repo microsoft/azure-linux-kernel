@@ -1,4 +1,4 @@
-From 954ca3bd727fa44ddcbe562d559c7ecc6868d41b Mon Sep 17 00:00:00 2001
+From 89e8bef0337d9556c8953cb77ce7451042e6e8a1 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 6 Jun 2016 18:09:35 +0300
 Subject: net/mlx5: Add sniffer namespaces

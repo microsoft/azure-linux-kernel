@@ -1,4 +1,4 @@
-From 2365564cf8f3714a7206a3bdefe2ce8c7102a54d Mon Sep 17 00:00:00 2001
+From d3d31c69e2b2168f1e49b2ab0c5698cf9800c46b Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 4 Jul 2016 17:23:10 +0300
 Subject: net/mlx5e: Add support to get ethtool flow rules

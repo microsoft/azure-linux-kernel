@@ -1,4 +1,4 @@
-From 698773b2fefb9990850258e6d05a6253c09cf049 Mon Sep 17 00:00:00 2001
+From 8407b2969743532642ddafe4f91a54a2357c2ba5 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 3 Jun 2016 17:51:00 +0200
 Subject: hv_netvsc: pass struct netvsc_device to rndis_filter_{open, close}()

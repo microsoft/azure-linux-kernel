@@ -1,4 +1,4 @@
-From c66699c0fbd3396a1e2eef52bbec19d913413883 Mon Sep 17 00:00:00 2001
+From 59d163e2cddc4fac307b0b1d1e365678b11b3de0 Mon Sep 17 00:00:00 2001
 From: Marina Varshaver <marinav@mellanox.com>
 Date: Thu, 18 Feb 2016 18:31:06 +0200
 Subject: IB/mlx4: Add support for the don't trap rule

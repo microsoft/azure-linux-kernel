@@ -1,4 +1,4 @@
-From 498cfff41bcd844d51ee2f1638c8ee2de30ac7ee Mon Sep 17 00:00:00 2001
+From 6c3326912ff5901dd50ab38b8b84653ebe307d07 Mon Sep 17 00:00:00 2001
 From: Yishai Hadas <yishaih@mellanox.com>
 Date: Mon, 23 May 2016 15:20:54 +0300
 Subject: IB/core: Extend create QP to get indirection table

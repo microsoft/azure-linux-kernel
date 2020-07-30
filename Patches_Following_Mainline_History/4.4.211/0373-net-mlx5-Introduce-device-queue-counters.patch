@@ -1,4 +1,4 @@
-From ef497b8db1767b93a39f59ece67b61597389d0d0 Mon Sep 17 00:00:00 2001
+From 12fcf5bfd0995182cf5a855d46db49af0e01bf34 Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 20 Apr 2016 22:02:09 +0300
 Subject: net/mlx5: Introduce device queue counters

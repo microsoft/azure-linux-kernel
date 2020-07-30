@@ -1,0 +1,43 @@
+From 6ed102c1c59d44253c88e09e3f03aeb1c7331e8e Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Thu, 24 Aug 2017 16:49:16 -0700
+Subject: netvsc: fix deadlock betwen link status and removal
+Reply-To: joseph.salisbury@microsoft.com
+
+There is a deadlock possible when canceling the link status
+delayed work queue. The removal process is run with RTNL held,
+and the link status callback is acquring RTNL.
+
+Resolve the issue by using trylock and rescheduling.
+If cancel is in process, that block it from happening.
+
+Fixes: 122a5f6410f4 ("staging: hv: use delayed_work for netvsc_send_garp()")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 9b4e946ce14e20d7addbfb7d9139e604f9fda107)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 84d7134f2400..e9433e0e528e 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1740,7 +1740,12 @@ static void netvsc_link_change(struct work_struct *w)
+ 	bool notify = false, reschedule = false;
+ 	unsigned long flags, next_reconfig, delay;
+ 
+-	rtnl_lock();
++	/* if changes are happening, comeback later */
++	if (!rtnl_trylock()) {
++		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
++		return;
++	}
++
+ 	net_device = rtnl_dereference(ndev_ctx->nvdev);
+ 	if (!net_device)
+ 		goto out_unlock;
+-- 
+2.17.1
+

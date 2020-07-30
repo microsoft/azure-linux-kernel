@@ -1,4 +1,4 @@
-From 900f0f84575e7ba44b938e34c27fe7a1f6074c3b Mon Sep 17 00:00:00 2001
+From 025be826fb7c72249ed10a4bb40efcea049f583f Mon Sep 17 00:00:00 2001
 From: John Fastabend <john.fastabend@gmail.com>
 Date: Tue, 16 Feb 2016 21:16:43 -0800
 Subject: net: rework setup_tc ndo op to consume general tc operand

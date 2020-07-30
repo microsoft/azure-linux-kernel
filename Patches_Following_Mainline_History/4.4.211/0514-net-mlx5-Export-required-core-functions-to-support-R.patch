@@ -1,4 +1,4 @@
-From 9b1f2575fd68601f235d0c85ebdb86a7c2418073 Mon Sep 17 00:00:00 2001
+From 643cdca58bcd11a837217e4f32d2e26f3e4c38b8 Mon Sep 17 00:00:00 2001
 From: Yishai Hadas <yishaih@mellanox.com>
 Date: Mon, 23 May 2016 15:20:47 +0300
 Subject: net/mlx5: Export required core functions to support RSS

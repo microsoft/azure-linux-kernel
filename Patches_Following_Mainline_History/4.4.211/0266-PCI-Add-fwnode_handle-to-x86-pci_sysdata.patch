@@ -1,4 +1,4 @@
-From 95123f6806934c5827607e4f2dd687c899ad3b0c Mon Sep 17 00:00:00 2001
+From 2b6695456bc4a314716673d4b0bae6589ea81345 Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Tue, 16 Feb 2016 21:56:21 +0000
 Subject: PCI: Add fwnode_handle to x86 pci_sysdata

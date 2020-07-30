@@ -1,4 +1,4 @@
-From a3d5a593d5390cf2214b8e9b71f331e90fb75fd8 Mon Sep 17 00:00:00 2001
+From 74ea0949bdae6bf88034fb735f30a7c9d209249b Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 10 Mar 2016 23:10:21 +0100
 Subject: mlxsw: pci: Implement reset done check

@@ -1,4 +1,4 @@
-From 8f0ae0afcfc25b3fc9e05a5018a95df7a3908ed1 Mon Sep 17 00:00:00 2001
+From c8bb4419b6130d862338bddfaacc11ef4911b193 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Mon, 4 Jan 2016 10:42:26 +0100
 Subject: mlxsw: spectrum: Change bridge port attributes only when bridged

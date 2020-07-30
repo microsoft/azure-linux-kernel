@@ -1,4 +1,4 @@
-From ced082c34c513112ebffb9cb11eaa47a782d69c6 Mon Sep 17 00:00:00 2001
+From 21bc3e0f8a07bf375f7b7d6e167cad118117d5f6 Mon Sep 17 00:00:00 2001
 From: Daniel Jurgens <danielj@mellanox.com>
 Date: Thu, 30 Jun 2016 17:34:41 +0300
 Subject: net/mlx5: Fix wait_vital for VFs and remove fixed sleep

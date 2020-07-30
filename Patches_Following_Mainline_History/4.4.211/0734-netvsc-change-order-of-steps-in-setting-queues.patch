@@ -1,4 +1,4 @@
-From 4224e8bfeb73e9470ba5dbd5b96e9a9458ec5de3 Mon Sep 17 00:00:00 2001
+From 6cf7b87b2945d5604498c56d96aefaece83da318 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 19 Jul 2017 11:53:14 -0700
 Subject: netvsc: change order of steps in setting queues

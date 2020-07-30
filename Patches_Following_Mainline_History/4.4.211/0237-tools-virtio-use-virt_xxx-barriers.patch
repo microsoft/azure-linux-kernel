@@ -1,4 +1,4 @@
-From d039d29809e08f3b7e7e582889649de08ecaf371 Mon Sep 17 00:00:00 2001
+From d6e5e6d948f8b35b16d898d3e82226653970e30c Mon Sep 17 00:00:00 2001
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Date: Wed, 20 Jan 2016 21:12:58 +0200
 Subject: tools/virtio: use virt_xxx barriers

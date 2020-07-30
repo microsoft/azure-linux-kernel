@@ -1,4 +1,4 @@
-From bf3d5c87c15b3059db54f1a5901e3607d38ce237 Mon Sep 17 00:00:00 2001
+From 5ec229913d2cfd3b5e58b9261697f5d175bf0bdd Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:49 -0700
 Subject: Drivers: hv: vmbus: Move the check for hypercall page setup

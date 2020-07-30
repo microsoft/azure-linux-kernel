@@ -1,4 +1,4 @@
-From c6fe5a684bc7951785d7edaefe757ab41718102d Mon Sep 17 00:00:00 2001
+From 9e328edeae37b0f73a594150e8d1a4d947fcacc8 Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Fri, 10 Feb 2017 15:18:46 -0600
 Subject: PCI: hv: Fix wslot_to_devfn() to fix warnings on device removal

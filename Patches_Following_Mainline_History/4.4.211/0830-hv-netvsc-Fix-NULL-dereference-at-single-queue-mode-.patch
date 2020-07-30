@@ -1,4 +1,4 @@
-From 886838440e6ee063995118a5056a3a9dbe4a849d Mon Sep 17 00:00:00 2001
+From c1dd8dd827ccc4f4314337fdb7051a570066e129 Mon Sep 17 00:00:00 2001
 From: Takashi Iwai <tiwai@suse.de>
 Date: Tue, 14 Aug 2018 19:10:50 +0200
 Subject: hv/netvsc: Fix NULL dereference at single queue mode fallback

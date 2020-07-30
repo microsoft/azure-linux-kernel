@@ -1,4 +1,4 @@
-From 687efe45cfbd2e9f6bd2f603b8a237e5de990106 Mon Sep 17 00:00:00 2001
+From 2557c8f0be028ec0cc9fb2420d9c171ca43f7067 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:57 -0700
 Subject: Drivers: hv: vmbus: Define an API to retrieve virtual processor index

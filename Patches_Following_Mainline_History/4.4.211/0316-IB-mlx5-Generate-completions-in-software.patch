@@ -1,4 +1,4 @@
-From 859a5762e6552461429f0e6f49572f23f320fe48 Mon Sep 17 00:00:00 2001
+From a421b3d2620f44304464e8b18fad945524b623be Mon Sep 17 00:00:00 2001
 From: Haggai Eran <haggaie@mellanox.com>
 Date: Mon, 29 Feb 2016 15:45:08 +0200
 Subject: IB/mlx5: Generate completions in software

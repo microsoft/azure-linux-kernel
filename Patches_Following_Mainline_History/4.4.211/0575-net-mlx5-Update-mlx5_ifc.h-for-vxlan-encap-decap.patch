@@ -1,4 +1,4 @@
-From 5f055e35abd5247cf744edfc571cd0da56049595 Mon Sep 17 00:00:00 2001
+From 9e5ffffb3c12ad51d399416eba79e2f988fc91dd Mon Sep 17 00:00:00 2001
 From: Hadar Hen Zion <hadarh@mellanox.com>
 Date: Wed, 3 Aug 2016 15:08:33 +0300
 Subject: net/mlx5: Update mlx5_ifc.h for vxlan encap/decap

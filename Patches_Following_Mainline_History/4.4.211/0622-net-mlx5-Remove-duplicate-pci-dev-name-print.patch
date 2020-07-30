@@ -1,4 +1,4 @@
-From 973c92bed2467bb3520d0588a96cb77a2ab6d937 Mon Sep 17 00:00:00 2001
+From 722749517b66dbb291c81a31e955c03b7038aac6 Mon Sep 17 00:00:00 2001
 From: Kamal Heib <kamalh@mellanox.com>
 Date: Tue, 6 Dec 2016 17:32:44 +0200
 Subject: net/mlx5: Remove duplicate pci dev name print

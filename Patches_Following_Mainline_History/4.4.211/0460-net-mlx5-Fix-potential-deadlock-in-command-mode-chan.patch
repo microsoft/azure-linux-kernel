@@ -1,4 +1,4 @@
-From 2deaad1d2618551ca8a78b831d171ddfe2c42e92 Mon Sep 17 00:00:00 2001
+From 919e502a6c271b648c8e39a308c7a2f9dac225dc Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Thu, 30 Jun 2016 17:34:42 +0300
 Subject: net/mlx5: Fix potential deadlock in command mode change

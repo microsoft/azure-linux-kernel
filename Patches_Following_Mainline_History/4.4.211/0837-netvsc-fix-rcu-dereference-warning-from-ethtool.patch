@@ -1,4 +1,4 @@
-From 55a9010830ef4e24f66aaaf7f14632323a0fa236 Mon Sep 17 00:00:00 2001
+From 0d574789822ec7c6194a25a15597b8e7d3913c81 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 7 Jun 2017 15:53:47 -0700
 Subject: netvsc: fix rcu dereference warning from ethtool

@@ -1,4 +1,4 @@
-From 2a7b0d5aa8930d5c553869df9e4d379735e08feb Mon Sep 17 00:00:00 2001
+From 5b2a91d1292a611d7be41fa2aee1934d21e01d49 Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Tue, 23 Aug 2016 04:45:51 +0000
 Subject: PCI: hv: Use zero-length array in struct pci_packet

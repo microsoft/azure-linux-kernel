@@ -1,4 +1,4 @@
-From 76fe072ac3bfb007c13044d7f9da98c5e300d3c0 Mon Sep 17 00:00:00 2001
+From ac2db08a9f0026be50d5d91abcf3ffb2953f5042 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 5 Jan 2016 11:36:40 +0100
 Subject: mlxsw: pci: Adjust value of CPU egress traffic class

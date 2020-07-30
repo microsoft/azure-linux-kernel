@@ -1,4 +1,4 @@
-From b193ef5aef99293d6358b119651dfe970eb0df4e Mon Sep 17 00:00:00 2001
+From 6c43f96202257b122e37653565db601c4143269a Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Thu, 13 Sep 2018 08:03:43 -0700
 Subject: hv_netvsc: fix schedule in RCU context

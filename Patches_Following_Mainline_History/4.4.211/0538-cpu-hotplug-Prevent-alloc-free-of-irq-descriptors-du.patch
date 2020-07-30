@@ -1,4 +1,4 @@
-From 497cfa0e9703d9e631f1ec0bfa4758ce4135ede4 Mon Sep 17 00:00:00 2001
+From 2eb92d08ed7b6a1c127e3d28df991aee512f04e0 Mon Sep 17 00:00:00 2001
 From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
 Date: Wed, 3 Aug 2016 13:22:28 -0400
 Subject: cpu/hotplug: Prevent alloc/free of irq descriptors during CPU up/down

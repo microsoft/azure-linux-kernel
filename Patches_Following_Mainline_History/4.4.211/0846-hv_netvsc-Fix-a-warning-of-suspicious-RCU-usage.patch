@@ -1,4 +1,4 @@
-From 89c08d25128a9561a7aebd930df608190721b745 Mon Sep 17 00:00:00 2001
+From 46df47bb708796079f1d64346c71b0f554704ada Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Fri, 9 Aug 2019 01:58:08 +0000
 Subject: hv_netvsc: Fix a warning of suspicious RCU usage
@@ -17,10 +17,10 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 5bc6d807c5c1..899bb20b35af 100644
+index 69f8a0c4e372..e70e28f3403f 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1177,12 +1177,15 @@ static void netvsc_get_stats64(struct net_device *net,
+@@ -1173,12 +1173,15 @@ static void netvsc_get_stats64(struct net_device *net,
  			       struct rtnl_link_stats64 *t)
  {
  	struct net_device_context *ndev_ctx = netdev_priv(net);
@@ -38,7 +38,7 @@ index 5bc6d807c5c1..899bb20b35af 100644
  
  	netdev_stats_to_stats64(t, &net->stats);
  
-@@ -1221,6 +1224,8 @@ static void netvsc_get_stats64(struct net_device *net,
+@@ -1217,6 +1220,8 @@ static void netvsc_get_stats64(struct net_device *net,
  		t->rx_packets	+= packets;
  		t->multicast	+= multicast;
  	}

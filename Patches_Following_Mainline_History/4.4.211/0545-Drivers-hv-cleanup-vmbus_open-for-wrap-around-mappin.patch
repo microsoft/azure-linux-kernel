@@ -1,4 +1,4 @@
-From 4652cdf8a698e4be8ad8a98dda631ba70a156d12 Mon Sep 17 00:00:00 2001
+From caf727c5ceb04959bc39bbf9499f0c11650124e7 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 2 Sep 2016 05:58:19 -0700
 Subject: Drivers: hv: cleanup vmbus_open() for wrap around mappings

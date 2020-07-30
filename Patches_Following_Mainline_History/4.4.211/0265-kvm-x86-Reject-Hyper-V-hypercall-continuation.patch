@@ -1,4 +1,4 @@
-From 0ceebc1f4f32b58206882f311886a834ce77be92 Mon Sep 17 00:00:00 2001
+From 23869f32be36d4b098c179b45662540eb470a151 Mon Sep 17 00:00:00 2001
 From: Andrey Smetanin <asmetanin@virtuozzo.com>
 Date: Thu, 11 Feb 2016 16:45:00 +0300
 Subject: kvm/x86: Reject Hyper-V hypercall continuation

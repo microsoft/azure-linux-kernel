@@ -1,4 +1,4 @@
-From 53529b990b3b398bcffee82e1098aff65528355a Mon Sep 17 00:00:00 2001
+From b5eb54867df057be4565974a8e0a15fcd8334a4a Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Thu, 9 Mar 2017 14:58:29 -0800
 Subject: netvsc: handle select_queue when device is being removed

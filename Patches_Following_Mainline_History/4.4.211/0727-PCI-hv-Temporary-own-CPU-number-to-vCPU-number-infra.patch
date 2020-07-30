@@ -1,4 +1,4 @@
-From 32119d514c2e1f39b094c65713a331b541127dd4 Mon Sep 17 00:00:00 2001
+From 9dd8f364c067315d611474512ce91362804707d5 Mon Sep 17 00:00:00 2001
 From: Jork Loeser <jloeser@microsoft.com>
 Date: Wed, 24 May 2017 13:41:26 -0700
 Subject: PCI: hv: Temporary own CPU-number-to-vCPU-number infra

@@ -1,4 +1,4 @@
-From b29d3f0c71f377e048f04baaaf573d425002f01f Mon Sep 17 00:00:00 2001
+From e0cf1f22cdbf3d169921d762d1efab895ffe6f95 Mon Sep 17 00:00:00 2001
 From: Christoph Hellwig <hch@lst.de>
 Date: Wed, 23 Dec 2015 19:12:54 +0100
 Subject: IB: remove the write-only usecnt field from struct ib_mr

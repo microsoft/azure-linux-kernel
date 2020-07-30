@@ -1,4 +1,4 @@
-From 6827f39eea3617ce74a43bcf6b5dce704952bdd4 Mon Sep 17 00:00:00 2001
+From e4344d2fdfb3189796757451c056cf14dd9f5e25 Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Thu, 30 Jun 2016 17:34:39 +0300
 Subject: net/mlx5: Avoid calling sleeping function by the health poll thread

@@ -1,4 +1,4 @@
-From 29fa79b87cd04bf2c1d70c36697515efcae616bb Mon Sep 17 00:00:00 2001
+From f2ea3cb344b251032104d1a92ef1ecc7abe76dbe Mon Sep 17 00:00:00 2001
 From: "sixiao@microsoft.com" <sixiao@microsoft.com>
 Date: Thu, 25 Feb 2016 15:24:08 -0800
 Subject: hv_netvsc: add ethtool support for set and get of settings

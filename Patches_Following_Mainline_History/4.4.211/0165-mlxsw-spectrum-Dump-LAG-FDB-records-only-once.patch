@@ -1,4 +1,4 @@
-From 32c4d750a73d0d629673d1d16b324c5b10882eac Mon Sep 17 00:00:00 2001
+From f6e6109076f33be736c387aebf5feb0981b495f5 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:24 +0100
 Subject: mlxsw: spectrum: Dump LAG FDB records only once

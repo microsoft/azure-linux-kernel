@@ -1,4 +1,4 @@
-From 3c1ac184a264c5255f434e9501a90a3136f1100b Mon Sep 17 00:00:00 2001
+From 34159786f0fb0636d0e84da15316ee2ff8976538 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Mon, 14 Nov 2016 18:06:19 +0100
 Subject: refcount_t: Introduce a special purpose refcount type

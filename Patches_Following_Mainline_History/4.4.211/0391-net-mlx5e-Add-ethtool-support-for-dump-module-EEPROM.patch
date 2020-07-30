@@ -1,4 +1,4 @@
-From b112161eb9249fa612dc51a48dede1b59454edde Mon Sep 17 00:00:00 2001
+From 56a734bda7651089583b10b1db5d9e81f81f7b58 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Sun, 24 Apr 2016 22:51:54 +0300
 Subject: net/mlx5e: Add ethtool support for dump module EEPROM

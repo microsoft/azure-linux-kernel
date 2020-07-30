@@ -1,4 +1,4 @@
-From 14a29116b74cfc1aa5f099c846a778068634eb80 Mon Sep 17 00:00:00 2001
+From 1911bf39263c4f28d3dcc4e05ebf90fc64f1bb04 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 13 May 2016 13:55:22 +0200
 Subject: hv_netvsc: untangle the pointer mess

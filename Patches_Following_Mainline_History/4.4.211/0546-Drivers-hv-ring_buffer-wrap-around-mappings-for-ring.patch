@@ -1,4 +1,4 @@
-From 39fa2f76b964f9d4602010d12db129120dd99c25 Mon Sep 17 00:00:00 2001
+From 91c65fb85f925c088b781f907d8cdee8848fc58f Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 2 Sep 2016 05:58:20 -0700
 Subject: Drivers: hv: ring_buffer: wrap around mappings for ring buffers

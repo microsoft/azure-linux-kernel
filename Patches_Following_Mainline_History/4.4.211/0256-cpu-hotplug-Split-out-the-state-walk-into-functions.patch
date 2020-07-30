@@ -1,4 +1,4 @@
-From fdc291bbe00625cd0cca3ad921efc3fe02892428 Mon Sep 17 00:00:00 2001
+From 56a057e8eae39a77eb997320203d7ff62a9ba6f1 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:37 +0000
 Subject: cpu/hotplug: Split out the state walk into functions

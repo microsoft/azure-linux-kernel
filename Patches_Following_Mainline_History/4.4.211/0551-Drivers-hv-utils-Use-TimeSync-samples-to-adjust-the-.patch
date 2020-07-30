@@ -1,4 +1,4 @@
-From 41686e33852a62524eda27d9a9fd9ebfd4f07212 Mon Sep 17 00:00:00 2001
+From d94bd6f988720c9c7797a3794e9dbe76543c8db6 Mon Sep 17 00:00:00 2001
 From: Alex Ng <alexng@messages.microsoft.com>
 Date: Thu, 8 Sep 2016 05:24:13 -0700
 Subject: Drivers: hv: utils: Use TimeSync samples to adjust the clock after

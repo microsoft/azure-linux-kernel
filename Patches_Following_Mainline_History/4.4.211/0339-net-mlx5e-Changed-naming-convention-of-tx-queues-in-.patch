@@ -1,4 +1,4 @@
-From 6bd860c73002fa7439097669f23a4bc5252f14bb Mon Sep 17 00:00:00 2001
+From 8b2ff2e193d95dd8505530b7de0934286d93d130 Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 2 Mar 2016 00:13:34 +0200
 Subject: net/mlx5e: Changed naming convention of tx queues in ethtool stats

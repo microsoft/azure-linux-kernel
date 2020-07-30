@@ -1,4 +1,4 @@
-From b320d92ac9d609a20736d1e0a9b0096d492fe123 Mon Sep 17 00:00:00 2001
+From 618634598673942843c5037cc1377913f0edebee Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Fri, 2 Mar 2018 13:49:02 -0800
 Subject: hv_netvsc: only wake transmit queue if link is up

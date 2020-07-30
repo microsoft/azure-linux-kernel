@@ -1,4 +1,4 @@
-From 1486f58a432e62bc894bb75b459fc21fe3d19555 Mon Sep 17 00:00:00 2001
+From 973135f277c44ef5f078569e585d3565fbee4d4d Mon Sep 17 00:00:00 2001
 From: Bart Van Assche <bart.vanassche@sandisk.com>
 Date: Thu, 12 May 2016 10:49:15 -0700
 Subject: IB/core: Enhance ib_map_mr_sg()

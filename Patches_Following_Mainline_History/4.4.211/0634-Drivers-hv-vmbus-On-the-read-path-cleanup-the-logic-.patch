@@ -1,4 +1,4 @@
-From aa2e0f58cd487bb4612198668db1d0843e8182da Mon Sep 17 00:00:00 2001
+From 242de50027a189004061961d8710698d2e2d22c8 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Sun, 6 Nov 2016 13:14:18 -0800
 Subject: Drivers: hv: vmbus: On the read path cleanup the logic to interrupt

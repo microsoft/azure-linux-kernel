@@ -1,4 +1,4 @@
-From e16fe250a629200daf026a9d94da63a748171495 Mon Sep 17 00:00:00 2001
+From 60e075a6ff4ee81f2cf4a778781eae00ec3c7b88 Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Wed, 27 Jan 2016 22:29:37 -0800
 Subject: Drivers: hv: vmbus: add a helper function to set a channel's pending

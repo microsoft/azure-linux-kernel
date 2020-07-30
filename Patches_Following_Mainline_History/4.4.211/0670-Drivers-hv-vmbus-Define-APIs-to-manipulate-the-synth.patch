@@ -1,4 +1,4 @@
-From 856e1779be679306925adc15655b49c990080a35 Mon Sep 17 00:00:00 2001
+From ea809eb6a612447f6404e459a189ee1ec59ae61f Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:56 -0700
 Subject: Drivers: hv: vmbus: Define APIs to manipulate the synthetic interrupt

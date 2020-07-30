@@ -1,4 +1,4 @@
-From 53e716720bbadab717cd0bea9f65cb6a46927d1f Mon Sep 17 00:00:00 2001
+From cfab30cb04dd0db7fe7ffd0d48f29d7caf337346 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Mon, 21 Dec 2015 11:14:21 +0100
 Subject: mlxsw: core: Allow to reset temperature history via hwmon interface

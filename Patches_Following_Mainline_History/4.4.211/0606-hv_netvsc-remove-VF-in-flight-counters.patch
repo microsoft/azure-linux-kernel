@@ -1,4 +1,4 @@
-From 9b8650258f6566cb3ea6577c32c490dc47361f49 Mon Sep 17 00:00:00 2001
+From 1ed7e6cab2320d8fded8eebb26e5fba849532a16 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Thu, 22 Sep 2016 16:56:34 -0700
 Subject: hv_netvsc: remove VF in flight counters

@@ -1,4 +1,4 @@
-From cdb0b91a409aa72897ce27a6f88e20985d4e1059 Mon Sep 17 00:00:00 2001
+From 5d9350dfcb30911ddde407e889856f9cef9073ac Mon Sep 17 00:00:00 2001
 From: Ira Weiny <ira.weiny@intel.com>
 Date: Wed, 15 Jun 2016 02:22:00 -0400
 Subject: IB/mlx4: Support device FW version string

@@ -1,4 +1,4 @@
-From c49c25893d01aad14899dcd2a9dcafb9d99fa1f8 Mon Sep 17 00:00:00 2001
+From 3e9982bf248de7aeb5cf9def3dc6204222695f42 Mon Sep 17 00:00:00 2001
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
 Date: Mon, 22 Feb 2016 03:15:22 -0800
 Subject: time: Add driver cross timestamp interface for higher precision time

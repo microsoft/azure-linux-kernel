@@ -1,4 +1,4 @@
-From dad7123a2c8aea8042d0d99faab0834a59cbeef6 Mon Sep 17 00:00:00 2001
+From a61795f6a8c55e5e401eff30b3527d257b612f26 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Fri, 28 Jul 2017 08:59:45 -0700
 Subject: netvsc: optimize receive completions

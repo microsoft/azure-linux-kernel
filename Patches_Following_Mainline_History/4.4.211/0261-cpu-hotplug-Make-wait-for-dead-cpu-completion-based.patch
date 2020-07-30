@@ -1,4 +1,4 @@
-From f15790d882b4de312deb1dd6795566d836bbf112 Mon Sep 17 00:00:00 2001
+From 6544b1eb49a4950f42d55fa5b4b71730d8045a5d Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:43 +0000
 Subject: cpu/hotplug: Make wait for dead cpu completion based

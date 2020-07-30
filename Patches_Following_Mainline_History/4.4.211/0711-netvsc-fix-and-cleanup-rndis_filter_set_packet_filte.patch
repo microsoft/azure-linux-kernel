@@ -1,4 +1,4 @@
-From c9af84e9593cdbfa9557b6e96cee35ad0c321205 Mon Sep 17 00:00:00 2001
+From 41109ab722bf7a36e743af79877155a482648120 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 22 Mar 2017 14:51:05 -0700
 Subject: netvsc: fix and cleanup rndis_filter_set_packet_filter

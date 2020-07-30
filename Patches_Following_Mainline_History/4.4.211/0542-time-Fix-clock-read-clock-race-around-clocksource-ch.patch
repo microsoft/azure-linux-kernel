@@ -1,4 +1,4 @@
-From ee5a1a506a2bad10f5d1179c8cc1f0e3293e800a Mon Sep 17 00:00:00 2001
+From 1dbd210bc99a60a1ed5e287c5e9554a5761fdb08 Mon Sep 17 00:00:00 2001
 From: John Stultz <john.stultz@linaro.org>
 Date: Thu, 8 Jun 2017 16:44:20 -0700
 Subject: time: Fix clock->read(clock) race around clocksource changes

@@ -1,4 +1,4 @@
-From 41b4b457ba3ca3946466a4ba192620f56dde3881 Mon Sep 17 00:00:00 2001
+From 0e712bff46b4f8cdcdc92ddbe5a4ece1c3986833 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 14 Apr 2016 18:19:13 +0200
 Subject: devlink: add shared buffer configuration

@@ -1,4 +1,4 @@
-From b7419a37453f72d466e3b4cd868a4f1219ba2adc Mon Sep 17 00:00:00 2001
+From 524a59221e1fa97dc1967c7661d20ff4958a47b1 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Sat, 2 Apr 2016 17:59:46 -0700
 Subject: Drivers: hv: vmbus: Introduce functions for estimating room in the

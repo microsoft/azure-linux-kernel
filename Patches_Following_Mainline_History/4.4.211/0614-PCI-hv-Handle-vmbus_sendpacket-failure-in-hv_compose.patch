@@ -1,4 +1,4 @@
-From c509b16279950ba75bf021fc8ed11f63e0259f09 Mon Sep 17 00:00:00 2001
+From 44aec0d3b695d94a2128b85aabe50a016ae9a2ad Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Tue, 23 Aug 2016 04:48:11 +0000
 Subject: PCI: hv: Handle vmbus_sendpacket() failure in hv_compose_msi_msg()

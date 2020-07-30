@@ -1,4 +1,4 @@
-From 173c64cf7d8e9023363e328d81c8914ce2ce5a8d Mon Sep 17 00:00:00 2001
+From 1842d6a6f9c14c5fd2064a501109bdcce6cbaea3 Mon Sep 17 00:00:00 2001
 From: Wei Yongjun <weiyj.lk@gmail.com>
 Date: Thu, 28 Jul 2016 16:16:48 +0000
 Subject: PCI: hv: Use list_move_tail() instead of list_del() + list_add_tail()

@@ -1,4 +1,4 @@
-From 2d85840c63af145470b52ca67ce2ce5b2757c9ce Mon Sep 17 00:00:00 2001
+From 43993807e5a3f1fe2926325089d401b23c10bd25 Mon Sep 17 00:00:00 2001
 From: David Decotigny <decot@googlers.com>
 Date: Fri, 19 Feb 2016 09:23:59 -0500
 Subject: lib/bitmap.c: conversion routines to/from u32 array

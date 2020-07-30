@@ -1,4 +1,4 @@
-From d7405f978e66b69d8ddfdea717d035d81418a9de Mon Sep 17 00:00:00 2001
+From c31b8e9d8f9cce7379ccd7cd2bd110a8d1b226ae Mon Sep 17 00:00:00 2001
 From: Juergen Gross <jgross@suse.com>
 Date: Thu, 13 Apr 2017 09:42:03 +0200
 Subject: x86/cpu: remove hypervisor specific set_cpu_features

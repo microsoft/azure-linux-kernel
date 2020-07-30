@@ -1,4 +1,4 @@
-From 8021c8695e87af1dbcaacbe1559b1a16284a3fde Mon Sep 17 00:00:00 2001
+From 2983bcd46798c7483fb526c0f871bd720b541310 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:00 -0800
 Subject: netvsc: report number of rx queues in ethtool

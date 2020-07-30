@@ -1,4 +1,4 @@
-From 4d367bddc15648d95da405ff74c51ea6f641cd23 Mon Sep 17 00:00:00 2001
+From 1f9c901cd63b1d5bacd65cc5fc61e7eb34d885db Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Mon, 22 Feb 2016 18:17:24 +0200
 Subject: net/mlx5: Introduce physical port PFC access functions

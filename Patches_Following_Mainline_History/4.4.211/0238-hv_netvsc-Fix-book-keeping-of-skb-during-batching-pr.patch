@@ -1,4 +1,4 @@
-From cbeff28472bf9f5b3e9f5162fe5c45280ca979a0 Mon Sep 17 00:00:00 2001
+From affebe7ea643cd5841526625fd102744430eb565 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Mon, 25 Jan 2016 09:49:31 -0800
 Subject: hv_netvsc: Fix book keeping of skb during batching process

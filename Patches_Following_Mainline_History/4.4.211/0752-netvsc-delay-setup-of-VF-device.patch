@@ -1,4 +1,4 @@
-From 6abf0879259038ff1c16d1260e788db85ad5bc22 Mon Sep 17 00:00:00 2001
+From 46ee63ded42093e2614c712d6015570afe19b1f8 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 9 Aug 2017 17:46:03 -0700
 Subject: netvsc: delay setup of VF device

@@ -1,4 +1,4 @@
-From e713d8e4f0756653e9e926a1fc71865224d7b7a8 Mon Sep 17 00:00:00 2001
+From 6d92f0f388e72a9452ea001c95bcfcb272374d6a Mon Sep 17 00:00:00 2001
 From: Alexander Duyck <aduyck@mirantis.com>
 Date: Thu, 16 Jun 2016 12:22:38 -0700
 Subject: mlx5_en: Replace ndo_add/del_vxlan_port with ndo_add/del_udp_enc_port

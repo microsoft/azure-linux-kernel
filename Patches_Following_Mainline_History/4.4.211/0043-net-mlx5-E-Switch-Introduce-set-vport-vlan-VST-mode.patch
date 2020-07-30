@@ -1,4 +1,4 @@
-From 2b4221e860cc0a0f392c6713f4b0481bf2b91132 Mon Sep 17 00:00:00 2001
+From 95dc376568b7481003f17f97d48cce602d51ccc5 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:23 +0200
 Subject: net/mlx5: E-Switch, Introduce set vport vlan (VST mode)

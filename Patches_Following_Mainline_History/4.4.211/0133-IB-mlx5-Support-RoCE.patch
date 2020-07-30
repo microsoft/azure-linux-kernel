@@ -1,4 +1,4 @@
-From 97dc5ed2f3ea133f9bb33c95faac9ae70b512b06 Mon Sep 17 00:00:00 2001
+From b8b16dd20bda0122073b9ece0c0c899cbc6fb892 Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Wed, 23 Dec 2015 18:47:25 +0200
 Subject: IB/mlx5: Support RoCE

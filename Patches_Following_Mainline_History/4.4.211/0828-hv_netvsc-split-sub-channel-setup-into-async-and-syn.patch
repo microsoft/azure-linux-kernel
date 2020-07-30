@@ -1,4 +1,4 @@
-From 4b65c2324aa734cff215997037eb6cd5def82c21 Mon Sep 17 00:00:00 2001
+From eb0a1c93d3d91d9cec409767c946e646fc9ac6bf Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Fri, 29 Jun 2018 14:07:16 -0700
 Subject: hv_netvsc: split sub-channel setup into async and sync

@@ -1,4 +1,4 @@
-From 4d779371178e7fbe0eb93d0d0ea40f39697387da Mon Sep 17 00:00:00 2001
+From 672341c6643df64fbe575e89e26546bb35f8392a Mon Sep 17 00:00:00 2001
 From: Eric Dumazet <edumazet@google.com>
 Date: Wed, 18 Nov 2015 06:30:59 -0800
 Subject: net: move skb_mark_napi_id() into core networking stack

@@ -1,4 +1,4 @@
-From 41acc4c1cf5be89f2191f73a05a7c7e4f2c7ede1 Mon Sep 17 00:00:00 2001
+From 7cd84fa178219ca0dc75eda504faef0238da2aa9 Mon Sep 17 00:00:00 2001
 From: Yishai Hadas <yishaih@mellanox.com>
 Date: Mon, 23 May 2016 15:20:49 +0300
 Subject: IB/uverbs: Add WQ support

@@ -1,4 +1,4 @@
-From db51c056ff76a51f68725adadbbe5e17b8f588b3 Mon Sep 17 00:00:00 2001
+From 621b16bc3caeacb62bf31a1f3ccd72536c558ef5 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Wed, 23 Dec 2015 14:56:53 +0200
 Subject: IB/core: Validate route when we init ah

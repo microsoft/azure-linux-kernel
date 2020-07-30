@@ -1,4 +1,4 @@
-From 8c6675f1674a3031a75762a6a418318078e4fdd9 Mon Sep 17 00:00:00 2001
+From e4593b8f65c3eaa9846436e87dc4c85a3fbe2b5d Mon Sep 17 00:00:00 2001
 From: Aaron Conole <aconole@redhat.com>
 Date: Thu, 9 Jun 2016 13:41:15 -0400
 Subject: virtio_net: Update the feature bit to comply with spec

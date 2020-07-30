@@ -1,4 +1,4 @@
-From 65ef4ca9b9e25832d31c3da7bbfd07d50196de2b Mon Sep 17 00:00:00 2001
+From e72a91b8009495aec2ced3c67496e489cc37104c Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Sun, 24 Apr 2016 22:51:50 +0300
 Subject: net/mlx5e: Add link down events counter

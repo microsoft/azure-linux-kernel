@@ -1,4 +1,4 @@
-From 9c10ac74352b0002a7cfb0a52e3913be4cef8fc2 Mon Sep 17 00:00:00 2001
+From 182a647b4c287f92db731216a8a72cab20f8eeb0 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 13 May 2016 13:55:20 +0200
 Subject: hv_netvsc: move start_remove flag to net_device_context

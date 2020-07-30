@@ -1,4 +1,4 @@
-From bee6f15c09800590d5f4695c6388a438c9c49f89 Mon Sep 17 00:00:00 2001
+From dd5f7bb7fd521d53e6494b934fb85f092e7f875b Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 1 Sep 2017 14:30:04 -0700
 Subject: hv_netvsc: Clean up an unused parameter in

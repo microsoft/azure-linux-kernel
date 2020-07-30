@@ -1,4 +1,4 @@
-From 0d5449e0b5bac19308bd7080c01d7c907caca663 Mon Sep 17 00:00:00 2001
+From b8cfa97e6627c557b87433e5aeb268c05c6e58da Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sun, 5 Feb 2017 17:20:31 -0700
 Subject: vmbus: use kernel bitops for traversing interrupt mask

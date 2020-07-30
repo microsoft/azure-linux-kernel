@@ -1,4 +1,4 @@
-From d72067a20ecc8bbbb92993a1ef1a8988682b4fbc Mon Sep 17 00:00:00 2001
+From cd777bba0d6d7b04e39f5200f4437868739a5c55 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 6 Oct 2017 08:33:57 -0700
 Subject: hv_netvsc: Change the hash level variable to bit flags

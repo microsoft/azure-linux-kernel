@@ -1,4 +1,4 @@
-From 77958bf443ecdfd569fd54ef873bc4471234b1da Mon Sep 17 00:00:00 2001
+From 17e18df17fe821caf613669c922174ce13129dd7 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 21 Feb 2020 08:32:18 -0800
 Subject: hv_netvsc: Fix unwanted wakeup in netvsc_attach()
@@ -43,10 +43,10 @@ index 10a222b75540..0377b9205891 100644
  	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
  	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index c02ec42477d6..2a242e9072a2 100644
+index 48ab2db4f19a..107d78c47bc9 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -969,6 +969,7 @@ static int netvsc_attach(struct net_device *ndev,
+@@ -968,6 +968,7 @@ static int netvsc_attach(struct net_device *ndev,
  	}
  
  	/* In any case device is now ready */
@@ -54,7 +54,7 @@ index c02ec42477d6..2a242e9072a2 100644
  	netif_device_attach(ndev);
  
  	/* Note: enable and attach happen when sub-channels setup */
-@@ -2163,6 +2164,8 @@ static int netvsc_probe(struct hv_device *dev,
+@@ -2172,6 +2173,8 @@ static int netvsc_probe(struct hv_device *dev,
  	else
  		net->max_mtu = ETH_DATA_LEN;
  

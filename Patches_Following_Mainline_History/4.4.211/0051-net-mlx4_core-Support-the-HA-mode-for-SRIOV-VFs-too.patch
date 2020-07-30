@@ -1,4 +1,4 @@
-From c10be22fd6dbd105d1147ad0622f53047b6250a7 Mon Sep 17 00:00:00 2001
+From 25ad0cb68f16bb01fa8a8d50adaf4dbcb6d83209 Mon Sep 17 00:00:00 2001
 From: Moni Shoua <monis@mellanox.com>
 Date: Sun, 6 Dec 2015 18:07:43 +0200
 Subject: net/mlx4_core: Support the HA mode for SRIOV VFs too

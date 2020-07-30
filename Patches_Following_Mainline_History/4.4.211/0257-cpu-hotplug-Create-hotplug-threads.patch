@@ -1,4 +1,4 @@
-From d5f0f47df1d63cd6bc4537415a92c66a05f6a887 Mon Sep 17 00:00:00 2001
+From 53fc77d9ea997fc08117c0bea73bf41b28e880c6 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:38 +0000
 Subject: cpu/hotplug: Create hotplug threads

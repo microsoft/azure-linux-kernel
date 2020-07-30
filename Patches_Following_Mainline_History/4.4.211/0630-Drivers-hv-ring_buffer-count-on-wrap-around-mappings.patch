@@ -1,4 +1,4 @@
-From 0b60d82e4060dd956ef6d9d266b4dc90dbb0296a Mon Sep 17 00:00:00 2001
+From 0f1d39c353f8e8100a9cd41d5399c66c5cd213b5 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sun, 6 Nov 2016 13:14:05 -0800
 Subject: Drivers: hv: ring_buffer: count on wrap around mappings in

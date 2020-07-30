@@ -1,4 +1,4 @@
-From f0cae222e20517986e064ac793ab5bfff6cae421 Mon Sep 17 00:00:00 2001
+From 8d8c31f060f928e58962dc66efd35599a3f064a0 Mon Sep 17 00:00:00 2001
 From: Jesper Dangaard Brouer <brouer@redhat.com>
 Date: Mon, 8 Feb 2016 13:14:59 +0100
 Subject: net: bulk free infrastructure for NAPI context, use napi_consume_skb

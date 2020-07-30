@@ -1,4 +1,4 @@
-From 17b639b5997c6ea2d2cc459a88d4d505ee810c07 Mon Sep 17 00:00:00 2001
+From 0f4cf51fe4714e0541fd5f04580fd070ac9fd4da Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Wed, 9 May 2018 14:09:04 -0700
 Subject: hv_netvsc: set master device

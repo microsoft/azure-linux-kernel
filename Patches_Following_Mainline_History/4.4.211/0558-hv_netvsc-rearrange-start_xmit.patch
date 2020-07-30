@@ -1,4 +1,4 @@
-From b2895f5fde4241ebf878c1dd82e9479cb1e214f5 Mon Sep 17 00:00:00 2001
+From 82c8fdf7d282f8e7639ec5e66358049d2f8f9515 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Tue, 23 Aug 2016 12:17:52 -0700
 Subject: hv_netvsc: rearrange start_xmit

@@ -1,4 +1,4 @@
-From a91a015b7506c686d710d88424a3679668fe5181 Mon Sep 17 00:00:00 2001
+From 5dd75a362f5fd0eb8d4a7aaa828d821a5dde7fa2 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sat, 28 Jan 2017 12:37:14 -0700
 Subject: Drivers: hv: restore hypervcall page cleanup before kexec

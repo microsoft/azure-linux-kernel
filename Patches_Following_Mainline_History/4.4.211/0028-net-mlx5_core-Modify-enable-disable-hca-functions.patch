@@ -1,4 +1,4 @@
-From 18ecb51aac9284fd9c6389853ae9c5e3b5c9d48d Mon Sep 17 00:00:00 2001
+From d1fcefbd12130e9f8faabcc8632a25daf37bbe52 Mon Sep 17 00:00:00 2001
 From: Eli Cohen <eli@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:08 +0200
 Subject: net/mlx5_core: Modify enable/disable hca functions

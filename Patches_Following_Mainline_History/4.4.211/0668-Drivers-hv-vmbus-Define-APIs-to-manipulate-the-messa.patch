@@ -1,4 +1,4 @@
-From 28cd4cef0862649fac5e54c5f1b00d56d931a724 Mon Sep 17 00:00:00 2001
+From a760be68fcb5bcadd5e4f0ab2894bb77c90f4141 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:54 -0700
 Subject: Drivers: hv: vmbus: Define APIs to manipulate the message page

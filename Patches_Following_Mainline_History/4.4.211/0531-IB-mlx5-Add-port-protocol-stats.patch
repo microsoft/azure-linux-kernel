@@ -1,4 +1,4 @@
-From f7870198938a993c11a658f71b22813426f7c792 Mon Sep 17 00:00:00 2001
+From 7bdf3a64dd64bcc7c66994227c0cca90953d3e47 Mon Sep 17 00:00:00 2001
 From: Mark Bloch <markb@mellanox.com>
 Date: Fri, 17 Jun 2016 15:10:56 +0300
 Subject: IB/mlx5: Add port protocol stats

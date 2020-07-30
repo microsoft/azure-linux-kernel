@@ -1,4 +1,4 @@
-From 4391bf2a14c5e53ab573eda19ec2299639f5fdad Mon Sep 17 00:00:00 2001
+From c8783b1a48579b339b30fde797d41c528b8a540b Mon Sep 17 00:00:00 2001
 From: Aviv Heller <avivh@mellanox.com>
 Date: Sun, 17 Apr 2016 19:32:13 +0300
 Subject: net/mlx5: LAG and SRIOV cannot be used together

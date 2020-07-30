@@ -1,4 +1,4 @@
-From 2593f8f2403de7304e3efc41ef3809d2b2eaed17 Mon Sep 17 00:00:00 2001
+From 3db16cd4cec5c905b14b305f2a46167b73d0db62 Mon Sep 17 00:00:00 2001
 From: David Decotigny <decot@googlers.com>
 Date: Wed, 24 Feb 2016 10:57:59 -0800
 Subject: net: ethtool: add new ETHTOOL_xLINKSETTINGS API

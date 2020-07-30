@@ -1,4 +1,4 @@
-From 773839c2bca6e10eb629f40dba108f0d41f39c53 Mon Sep 17 00:00:00 2001
+From f5ea3d4e11a20ebd9bd71ee36a6264f77f5b15dd Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 22 Mar 2017 14:50:59 -0700
 Subject: netvsc: change max channel calculation

@@ -1,4 +1,4 @@
-From e66aa9a41aec776e4c3f10b17e439cc171849001 Mon Sep 17 00:00:00 2001
+From e77d6bc280a85c4caab4769ba4726e2f780f7d42 Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Fri, 9 Sep 2016 17:35:21 +0300
 Subject: net/mlx5: Implement SRIOV attach/detach flows

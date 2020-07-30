@@ -1,4 +1,4 @@
-From a0aa1c111ba40be19ff03cb27bf66de5149ba5f1 Mon Sep 17 00:00:00 2001
+From 3ea9de7e44f08dc07c04a23149c179dd9bc4ad17 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 11 Feb 2017 23:02:23 -0700
 Subject: vmbus: expose hv_begin/end_read

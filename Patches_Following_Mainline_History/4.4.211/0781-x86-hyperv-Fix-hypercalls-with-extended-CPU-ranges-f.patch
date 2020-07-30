@@ -1,4 +1,4 @@
-From 772eb094117db18da4fd5d85c52155247ed85461 Mon Sep 17 00:00:00 2001
+From fc977bc0c5812987791e0088bfedb19eeace5a2b Mon Sep 17 00:00:00 2001
 From: Marcelo Henrique Cerri <marcelo.cerri@canonical.com>
 Date: Thu, 5 Oct 2017 10:34:29 -0300
 Subject: x86/hyperv: Fix hypercalls with extended CPU ranges for TLB flushing

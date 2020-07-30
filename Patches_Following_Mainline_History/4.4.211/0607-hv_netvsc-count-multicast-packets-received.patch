@@ -1,4 +1,4 @@
-From 488961fc722dbd17ba63c2518ba19040fedeb0be Mon Sep 17 00:00:00 2001
+From f5bacfca19fa60a35d499b41f0c638375fb5b245 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Thu, 22 Sep 2016 16:56:35 -0700
 Subject: hv_netvsc: count multicast packets received

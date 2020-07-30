@@ -1,4 +1,4 @@
-From 9825b3ea082f885e49ae4ed77d51d0ee65f55c5a Mon Sep 17 00:00:00 2001
+From 06584c9602a4314e51a8b91f2866b793075f3f83 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Thu, 18 May 2017 10:46:03 -0700
 Subject: hv_utils: drop .getcrosststamp() support from PTP driver

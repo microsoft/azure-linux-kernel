@@ -1,4 +1,4 @@
-From 3acb48bce1a810e2100d395e57caedff3c4034f5 Mon Sep 17 00:00:00 2001
+From dd904d01a4a68f844dab276f4609e975268f1738 Mon Sep 17 00:00:00 2001
 From: Majd Dibbiny <majd@mellanox.com>
 Date: Fri, 22 Apr 2016 00:33:02 +0300
 Subject: net/mlx5_core: Add ConnectX-5 to list of supported devices

@@ -1,4 +1,4 @@
-From b1818670cf763ed680b86c02a694ee43a8b64601 Mon Sep 17 00:00:00 2001
+From 8d5b058592c09399cb5517ef0091d7470b28a0d8 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:28 +0000
 Subject: cpu/hotplug: Convert to a state machine for the control processor

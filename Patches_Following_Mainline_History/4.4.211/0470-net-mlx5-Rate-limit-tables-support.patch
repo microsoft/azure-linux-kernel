@@ -1,4 +1,4 @@
-From 74a4ebda098ef9eeafb3e448c41105c359040c8c Mon Sep 17 00:00:00 2001
+From fc2b569df5f1210c6b48a18a51b25c9189361283 Mon Sep 17 00:00:00 2001
 From: Yevgeny Petrilin <yevgenyp@mellanox.com>
 Date: Thu, 23 Jun 2016 17:02:37 +0300
 Subject: net/mlx5: Rate limit tables support

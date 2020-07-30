@@ -1,4 +1,4 @@
-From b0c699007438ec2f40b21bd5ab8db74bc0137876 Mon Sep 17 00:00:00 2001
+From 0fb17dff4c7f5ae80be8a772691955d620daa5a2 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Mon, 27 Jun 2016 12:08:38 +0300
 Subject: net/mlx5e: Reorganize ethtool statistics

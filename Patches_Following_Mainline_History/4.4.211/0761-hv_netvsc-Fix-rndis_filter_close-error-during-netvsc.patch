@@ -1,4 +1,4 @@
-From 975eccf49ea2d3ffaad9c753379c2be651c18721 Mon Sep 17 00:00:00 2001
+From ff1a01c82147e1574fba2a3b75b0ec85eb2509db Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 24 Aug 2017 11:50:02 -0700
 Subject: hv_netvsc: Fix rndis_filter_close error during netvsc_remove

@@ -1,4 +1,4 @@
-From 594514c707d47ac6b1f994402a393e58c628fc4a Mon Sep 17 00:00:00 2001
+From 97ed88a35ae16dc54e310e1b35c901b0ed37e14a Mon Sep 17 00:00:00 2001
 From: Eran Ben Elisha <eranbe@mellanox.com>
 Date: Tue, 29 Dec 2015 14:58:30 +0200
 Subject: net/mlx5_core: Introduce access function to read internal timer

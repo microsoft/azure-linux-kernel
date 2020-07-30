@@ -1,4 +1,4 @@
-From f8bc08a5ff797b115e1ef35c3e6968f2f2be1733 Mon Sep 17 00:00:00 2001
+From a64cda1fe05e152c4ead209470d0ea4800cd338f Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Thu, 30 Aug 2018 05:42:13 +0000
 Subject: hv_netvsc: Fix a deadlock by getting rtnl lock earlier in

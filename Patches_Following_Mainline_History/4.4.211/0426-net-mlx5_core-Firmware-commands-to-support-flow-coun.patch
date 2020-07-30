@@ -1,4 +1,4 @@
-From 6f8c5829c9dedb75e91b8f79f2474d386b49e4b0 Mon Sep 17 00:00:00 2001
+From 1fc87960e24c0bc414290cf079003aa2159b4988 Mon Sep 17 00:00:00 2001
 From: Amir Vadai <amirva@mellanox.com>
 Date: Fri, 13 May 2016 12:55:39 +0000
 Subject: net/mlx5_core: Firmware commands to support flow counters

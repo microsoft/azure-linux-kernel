@@ -1,4 +1,4 @@
-From 027e0409fb1241b49698fed2d85d7e3a5b87dd24 Mon Sep 17 00:00:00 2001
+From f7963ee9ccd9aefae0bc2a157a10894e6460ab2d Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:32 +0000
 Subject: cpu/hotplug: Make target state writeable

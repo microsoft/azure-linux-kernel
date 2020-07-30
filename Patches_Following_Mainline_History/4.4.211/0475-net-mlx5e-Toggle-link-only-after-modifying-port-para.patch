@@ -1,4 +1,4 @@
-From 7508802611f5a0d7dba9d9685f40273cb9bd277e Mon Sep 17 00:00:00 2001
+From 7257e44b5ff1196d75fd697e7ddf8d82c2b2f378 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Thu, 23 Jun 2016 17:02:42 +0300
 Subject: net/mlx5e: Toggle link only after modifying port parameters

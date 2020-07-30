@@ -1,4 +1,4 @@
-From c108109e108bf0ad03da189760ed9859c06dccca Mon Sep 17 00:00:00 2001
+From a27442be7a51e58d3628eeacc15592322edc54ec Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:10 -0800
 Subject: netvsc: simplify rndis_filter_remove

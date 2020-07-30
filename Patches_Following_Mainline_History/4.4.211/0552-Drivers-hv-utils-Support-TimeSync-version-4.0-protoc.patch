@@ -1,4 +1,4 @@
-From 9f064a094a7a57af3619249b31717283a99b5143 Mon Sep 17 00:00:00 2001
+From 3dd2eb679afb216fea17805c3e657c75cfc5657c Mon Sep 17 00:00:00 2001
 From: Alex Ng <alexng@messages.microsoft.com>
 Date: Thu, 8 Sep 2016 05:24:14 -0700
 Subject: Drivers: hv: utils: Support TimeSync version 4.0 protocol samples.

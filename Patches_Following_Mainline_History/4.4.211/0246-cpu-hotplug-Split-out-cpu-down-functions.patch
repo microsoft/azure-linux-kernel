@@ -1,4 +1,4 @@
-From dafa85d22b4be0abe397b89d48f9b71437661618 Mon Sep 17 00:00:00 2001
+From 3555c5fd466e8ca03f42ec1eeff4d00fc61dcd93 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:25 +0000
 Subject: cpu/hotplug: Split out cpu down functions

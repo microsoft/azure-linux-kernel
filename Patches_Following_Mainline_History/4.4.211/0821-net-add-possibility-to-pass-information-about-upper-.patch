@@ -1,4 +1,4 @@
-From 194d89bf4d983915085f0f6019f9c75ab23ae1ad Mon Sep 17 00:00:00 2001
+From 39770eddec0b2aac2f0aa045cb6930c2287bb24e Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 12:12:11 +0100
 Subject: net: add possibility to pass information about upper device via

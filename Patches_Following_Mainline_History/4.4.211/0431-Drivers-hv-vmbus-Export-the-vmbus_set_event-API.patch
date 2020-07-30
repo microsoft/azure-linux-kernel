@@ -1,4 +1,4 @@
-From 42d9ec0b24e56888c9df873581d20850c56f0c16 Mon Sep 17 00:00:00 2001
+From 6d364a266e7841ed7e39db282e1c77578f287941 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Sat, 2 Apr 2016 17:59:49 -0700
 Subject: Drivers: hv: vmbus: Export the vmbus_set_event() API

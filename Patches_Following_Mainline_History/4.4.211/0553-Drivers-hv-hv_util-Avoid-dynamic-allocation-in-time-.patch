@@ -1,4 +1,4 @@
-From 513227df7841efaee2e4719caa47bdb69d752f6a Mon Sep 17 00:00:00 2001
+From bdbe60387ab0521c1ba8ade401be6923827f62e5 Mon Sep 17 00:00:00 2001
 From: Vivek yadav <vyadav@microsoft.com>
 Date: Fri, 9 Sep 2016 00:42:30 -0700
 Subject: Drivers: hv: hv_util: Avoid dynamic allocation in time synch

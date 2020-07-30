@@ -1,4 +1,4 @@
-From 767c6b023be7501a4ab87a961ec8c4f46c78594b Mon Sep 17 00:00:00 2001
+From b7a7c5e9cf5bccb128884a3f4f87c37b70cef925 Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Fri, 29 Apr 2016 01:36:32 +0300
 Subject: net/mlx5e: Direct TIR per RQ

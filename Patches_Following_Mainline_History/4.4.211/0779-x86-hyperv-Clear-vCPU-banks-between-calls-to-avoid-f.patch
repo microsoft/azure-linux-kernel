@@ -1,4 +1,4 @@
-From de4c7f6202983524bbc96f45351824be81907d4f Mon Sep 17 00:00:00 2001
+From f1b4cf7c7469130a653b9e9feda42f9925788697 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 6 Oct 2017 17:48:54 +0200
 Subject: x86/hyperv: Clear vCPU banks between calls to avoid flushing unneeded

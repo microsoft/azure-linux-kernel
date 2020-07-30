@@ -1,4 +1,4 @@
-From daae8a41e899ccb47009a5051838560fea79004f Mon Sep 17 00:00:00 2001
+From 0e2e32031f8ea53eedec4dad268a2c17e3699cbd Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Fri, 28 Jul 2017 08:59:47 -0700
 Subject: netvsc: signal host if receive ring is emptied

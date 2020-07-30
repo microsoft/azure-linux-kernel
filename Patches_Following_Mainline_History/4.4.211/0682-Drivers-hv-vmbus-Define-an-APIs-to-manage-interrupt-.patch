@@ -1,4 +1,4 @@
-From 8277ab79cb63f7d113df51644d9ca1a613878ff8 Mon Sep 17 00:00:00 2001
+From 96be4204071c20b3de62a69b998a71af54d5846f Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:58 -0700
 Subject: Drivers: hv: vmbus: Define an APIs to manage interrupt state

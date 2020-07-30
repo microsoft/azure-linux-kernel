@@ -1,4 +1,4 @@
-From ac26f4782acb06093b856364dd71ec39a522eeee Mon Sep 17 00:00:00 2001
+From bb2f508ec8e4ce17c2380f38c66a69c6d4b66bcb Mon Sep 17 00:00:00 2001
 From: Hadar Hen Zion <hadarh@mellanox.com>
 Date: Sun, 24 Jul 2016 16:12:40 +0300
 Subject: net/mlx5e: Query minimum required header copy during xmit

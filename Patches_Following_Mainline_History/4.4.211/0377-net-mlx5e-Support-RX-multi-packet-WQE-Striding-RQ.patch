@@ -1,4 +1,4 @@
-From 9fe110c82edc437824f04b198335f0708fd0b4ef Mon Sep 17 00:00:00 2001
+From 5273dbc5fa48b6ebf64cfa8c2ca508db0351ccbc Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 20 Apr 2016 22:02:13 +0300
 Subject: net/mlx5e: Support RX multi-packet WQE (Striding RQ)

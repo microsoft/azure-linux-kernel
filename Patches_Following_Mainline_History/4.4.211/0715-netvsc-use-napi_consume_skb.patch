@@ -1,4 +1,4 @@
-From d6621862b0f3ba890bd72b0cd269367d5a38b070 Mon Sep 17 00:00:00 2001
+From 5e59b62ed608afb525d596acac99d1ed3dd8d2ac Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Fri, 7 Apr 2017 14:41:19 -0400
 Subject: netvsc: use napi_consume_skb

@@ -1,4 +1,4 @@
-From faf35e2ba93b618e1958697745386abf4c60f49a Mon Sep 17 00:00:00 2001
+From 032a8788a4962758b3d5d42f0abe450acbb94979 Mon Sep 17 00:00:00 2001
 From: Marina Varshaver <marinav@mellanox.com>
 Date: Thu, 18 Feb 2016 18:31:05 +0200
 Subject: IB/core: Add don't trap flag to flow creation

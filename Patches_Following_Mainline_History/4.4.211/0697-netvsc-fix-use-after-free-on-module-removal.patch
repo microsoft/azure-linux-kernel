@@ -1,4 +1,4 @@
-From b1dc9dc4b716fc1ab4515b43edb8664145440410 Mon Sep 17 00:00:00 2001
+From 37cc79f07da0a4cfaf729b05bd9bf27faf610303 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 19 Apr 2017 15:22:02 -0700
 Subject: netvsc: fix use after free on module removal
