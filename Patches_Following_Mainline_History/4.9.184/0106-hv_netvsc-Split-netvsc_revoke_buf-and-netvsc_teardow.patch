@@ -1,4 +1,4 @@
-From 11797de3edbbb504b311ac3caeedd56b3ad804a2 Mon Sep 17 00:00:00 2001
+From 5ff1bfd2ce5b1f7e5762237b7677dae45809c1a9 Mon Sep 17 00:00:00 2001
 From: Mohammed Gamal <mgamal@redhat.com>
 Date: Thu, 5 Apr 2018 21:09:19 +0200
 Subject: hv_netvsc: Split netvsc_revoke_buf() and netvsc_teardown_gpadl()
@@ -153,7 +153,7 @@ index cfbb81c5c321..ba7a8f7fdf9b 100644
  	/* Release all resources */
  	free_netvsc_device_rcu(net_device);
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 7628f5f0e427..57f82fb16b88 100644
+index c5503ae249f1..b0f28ace1705 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
 @@ -286,8 +286,8 @@ static inline int netvsc_get_tx_queue(struct net_device *ndev,

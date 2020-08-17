@@ -1,4 +1,4 @@
-From 2da55412580c1c9ff57670bf0f7fda7e4ad7cfce Mon Sep 17 00:00:00 2001
+From e7d742c637fe341b6b2e9f44472dd4dc9de0ee8d Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 21 Nov 2019 13:33:40 -0800
 Subject: hv_netvsc: Fix offset usage in netvsc_send_table()

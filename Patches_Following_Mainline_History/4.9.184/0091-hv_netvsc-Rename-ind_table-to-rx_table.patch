@@ -1,4 +1,4 @@
-From ab3aed14963f82734b7430470f1afef02880e343 Mon Sep 17 00:00:00 2001
+From 187d831d4b955364860d1546407f23760d19a804 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 13 Oct 2017 12:28:03 -0700
 Subject: hv_netvsc: Rename ind_table to rx_table

@@ -1,4 +1,4 @@
-From f4439083b8402f8fecb6a1a56584757851136291 Mon Sep 17 00:00:00 2001
+From a7d9fffda68c8edd12e44d9afa04de2356639723 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Mon, 27 Feb 2017 10:26:49 -0800
 Subject: netvsc: implement NAPI

@@ -1,4 +1,4 @@
-From a3f7d12ee4e46352cf2746862e232a61a04a99cf Mon Sep 17 00:00:00 2001
+From e20f8d71a3a466ab3445ccbdcbb6266b6c8e3ef4 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Wed, 6 Sep 2017 13:53:05 -0700
 Subject: hv_netvsc: fix deadlock on hotplug

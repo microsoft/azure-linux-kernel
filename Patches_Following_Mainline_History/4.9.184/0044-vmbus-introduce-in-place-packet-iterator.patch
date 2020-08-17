@@ -1,4 +1,4 @@
-From a0541c52b3753da85d360078028acb82fb2accc6 Mon Sep 17 00:00:00 2001
+From 329960bf456918ae9180b35079c6613e102592c4 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Mon, 27 Feb 2017 10:26:48 -0800
 Subject: vmbus: introduce in-place packet iterator

@@ -1,4 +1,4 @@
-From 66bc7b9de5b4472db1bbf339b6120f9ed256fe78 Mon Sep 17 00:00:00 2001
+From 188cbfd7171793dd0d15f634fb32b9b4c2a66a10 Mon Sep 17 00:00:00 2001
 From: Colin Ian King <colin.king@canonical.com>
 Date: Sat, 25 Mar 2017 14:26:39 +0000
 Subject: netvsc: fix dereference before null check errors

@@ -1,4 +1,4 @@
-From 39500ceb79b7861113aa850ea5616534e9dff5a0 Mon Sep 17 00:00:00 2001
+From ffeff527df0cc1dce936077ce8668091bdc7547c Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Fri, 29 Jun 2018 14:07:16 -0700
 Subject: hv_netvsc: split sub-channel setup into async and sync
@@ -95,10 +95,10 @@ index 28ae76902385..344ca6a339fe 100644
  	return net_device;
  }
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 5ea0ebe1d36b..0b4b3a90cab1 100644
+index 37e68e017c3d..c1cd123802e2 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -930,8 +930,20 @@ static int netvsc_attach(struct net_device *ndev,
+@@ -932,8 +932,20 @@ static int netvsc_attach(struct net_device *ndev,
  	if (IS_ERR(nvdev))
  		return PTR_ERR(nvdev);
  
@@ -120,7 +120,7 @@ index 5ea0ebe1d36b..0b4b3a90cab1 100644
  	netif_carrier_off(ndev);
  
  	if (netif_running(ndev)) {
-@@ -2067,7 +2079,10 @@ static int netvsc_probe(struct hv_device *dev,
+@@ -2069,7 +2081,10 @@ static int netvsc_probe(struct hv_device *dev,
  
  	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
  

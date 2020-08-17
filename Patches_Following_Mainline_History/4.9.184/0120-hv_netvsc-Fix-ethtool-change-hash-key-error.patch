@@ -1,4 +1,4 @@
-From 7e88795208a1c01b5053980b252bc8f081a9a144 Mon Sep 17 00:00:00 2001
+From 65dc0d4fd59bfb51c1859425cc3ed0efcb34b06d Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Tue, 15 Jan 2019 00:51:42 +0000
 Subject: hv_netvsc: Fix ethtool change hash key error

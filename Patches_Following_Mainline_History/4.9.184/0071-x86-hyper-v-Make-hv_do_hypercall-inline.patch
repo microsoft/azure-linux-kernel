@@ -1,4 +1,4 @@
-From 382fd10e9029d4fe7e4c336e90ed546dec8b4911 Mon Sep 17 00:00:00 2001
+From eecefd5675c4d8f80d9ff1d57d8c7808c68de64c Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:14 +0200
 Subject: x86/hyper-v: Make hv_do_hypercall() inline

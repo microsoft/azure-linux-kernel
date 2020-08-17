@@ -1,4 +1,4 @@
-From ade14790376983c3aee5356594698b000b1b5693 Mon Sep 17 00:00:00 2001
+From 6f8a085f169b6e4a1f1f6980e10cd051200c3fdb Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Wed, 7 Mar 2018 13:49:12 -0800
 Subject: hv_netvsc: fix locking during VF setup
@@ -17,10 +17,10 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  1 file changed, 4 insertions(+)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index fb9b48028d7d..782f4f5a9bb8 100644
+index 70ab6ebd171d..584038ce04f7 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1881,8 +1881,12 @@ static void __netvsc_vf_setup(struct net_device *ndev,
+@@ -1883,8 +1883,12 @@ static void __netvsc_vf_setup(struct net_device *ndev,
  
  	/* set multicast etc flags on VF */
  	dev_change_flags(vf_netdev, ndev->flags | IFF_SLAVE);

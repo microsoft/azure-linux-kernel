@@ -1,4 +1,4 @@
-From 26cc919903d3ddfbf08bcd6330beee85a0dc5eda Mon Sep 17 00:00:00 2001
+From bc21b10a5702e6de7f1e51d6aa36250584f11c88 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 12 Dec 2017 16:48:37 -0800
 Subject: hv_netvsc: simplify function args in receive status path

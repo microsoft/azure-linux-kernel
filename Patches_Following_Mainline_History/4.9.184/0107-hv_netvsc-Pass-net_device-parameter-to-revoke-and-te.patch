@@ -1,4 +1,4 @@
-From 3a31826025e2bf9d3422e8e8610746e1a592a81f Mon Sep 17 00:00:00 2001
+From d06defea20d6d018688d1188bbdd7524eb577d9c Mon Sep 17 00:00:00 2001
 From: Mohammed Gamal <mgamal@redhat.com>
 Date: Thu, 5 Apr 2018 21:09:21 +0200
 Subject: hv_netvsc: Pass net_device parameter to revoke and teardown functions
