@@ -1,4 +1,4 @@
-From 10a3645e5095f86f66bb5fea64fe8a39ec0876b9 Mon Sep 17 00:00:00 2001
+From 6950cf106312ad7165c53caa2fbef04ecc7d3e4a Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Fri, 29 Jun 2018 14:07:16 -0700
 Subject: hv_netvsc: split sub-channel setup into async and sync
@@ -25,10 +25,10 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  2 files changed, 11 deletions(-)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 73ae1f8394a3..b8d1cd2c2d52 100644
+index 2ae89438f801..f9834086c520 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -2138,16 +2138,6 @@ static int netvsc_probe(struct hv_device *dev,
+@@ -2140,16 +2140,6 @@ static int netvsc_probe(struct hv_device *dev,
  
  	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
  

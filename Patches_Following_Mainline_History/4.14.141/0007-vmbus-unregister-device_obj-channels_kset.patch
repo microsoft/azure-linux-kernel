@@ -1,4 +1,4 @@
-From 9e4f1fb723a52a1910582df4103afa697c3ff3dd Mon Sep 17 00:00:00 2001
+From 77b6efcddaa0793a6e7b579ae4ddb32b1d18c0d4 Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Tue, 14 Nov 2017 06:53:32 -0700
 Subject: vmbus: unregister device_obj->channels_kset

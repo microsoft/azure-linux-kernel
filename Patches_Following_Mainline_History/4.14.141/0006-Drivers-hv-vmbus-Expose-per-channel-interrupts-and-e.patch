@@ -1,4 +1,4 @@
-From 8df0d0f9110b99677ad7fe910a813e9ab85457d2 Mon Sep 17 00:00:00 2001
+From 4b3d88ff640d1f5217c6808000efd2b81b26e5ba Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sun, 29 Oct 2017 11:33:40 -0700
 Subject: Drivers: hv: vmbus: Expose per-channel interrupts and events counters
