@@ -1,4 +1,4 @@
-From 0f4052a60d6fc4d2da48afbb6a875c76d8c793ab Mon Sep 17 00:00:00 2001
+From 7a3ac45d190b10985e18687f4180d27da820c2a2 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 28 Sep 2018 14:41:23 +0000
 Subject: hv_netvsc: Fix rndis_per_packet_info internal field initialization

@@ -1,4 +1,4 @@
-From 1967491514c00b2bfbcd06c880f6e75dc3ce03c1 Mon Sep 17 00:00:00 2001
+From cac7d3c73075c2e173c1d589d90bc232c0fb8b52 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 21 Sep 2018 18:20:35 +0000
 Subject: hv_netvsc: Add support for LRO/RSC in the vSwitch

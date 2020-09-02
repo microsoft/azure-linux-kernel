@@ -1,0 +1,67 @@
+From c8fa1415af16a382e17aabd84bb325f5f16ced8c Mon Sep 17 00:00:00 2001
+From: "Andrea Parri (Microsoft)" <parri.andrea@gmail.com>
+Date: Mon, 6 Apr 2020 02:15:07 +0200
+Subject: hv_netvsc: Disable NAPI before closing the VMBus channel
+Reply-To: joseph.salisbury@microsoft.com
+
+vmbus_chan_sched() might call the netvsc driver callback function that
+ends up scheduling NAPI work.  This "work" can access the channel ring
+buffer, so we must ensure that any such work is completed and that the
+ring buffer is no longer being accessed before freeing the ring buffer
+data structure in the channel closure path.  To this end, disable NAPI
+before calling vmbus_close() in netvsc_device_remove().
+
+Suggested-by: Michael Kelley <mikelley@microsoft.com>
+Signed-off-by: Andrea Parri (Microsoft) <parri.andrea@gmail.com>
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>
+Link: https://lore.kernel.org/r/20200406001514.19876-5-parri.andrea@gmail.com
+Reviewed-by: Michael Kelley <mikelley@microsoft.com>
+Signed-off-by: Wei Liu <wei.liu@kernel.org>
+(cherry picked from commit ac5047671758ad4be9f93898247b3a8b6dfde4c7)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel.c        | 6 ++++++
+ drivers/net/hyperv/netvsc.c | 7 +++++--
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index 5e515533e9cd..aced52dc2cc0 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -585,6 +585,12 @@ void vmbus_reset_channel_cb(struct vmbus_channel *channel)
+ 	 * the former is accessing channel->inbound.ring_buffer, the latter
+ 	 * could be freeing the ring_buffer pages, so here we must stop it
+ 	 * first.
++	 *
++	 * vmbus_chan_sched() might call the netvsc driver callback function
++	 * that ends up scheduling NAPI work that accesses the ring buffer.
++	 * At this point, we have to ensure that any such work is completed
++	 * and that the channel ring buffer is no longer being accessed, cf.
++	 * the calls to napi_disable() in netvsc_device_remove().
+ 	 */
+ 	tasklet_disable(&channel->callback_event);
+ 
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 9b8dd733d6f2..f2cbcf4ab574 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -645,9 +645,12 @@ void netvsc_device_remove(struct hv_device *device)
+ 
+ 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
+ 
+-	/* And disassociate NAPI context from device */
+-	for (i = 0; i < net_device->num_chn; i++)
++	/* Disable NAPI and disassociate its context from the device. */
++	for (i = 0; i < net_device->num_chn; i++) {
++		/* See also vmbus_reset_channel_cb(). */
++		napi_disable(&net_device->chan_table[i].napi);
+ 		netif_napi_del(&net_device->chan_table[i].napi);
++	}
+ 
+ 	/*
+ 	 * At this point, no one should be accessing net_device
+-- 
+2.17.1
+
