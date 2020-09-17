@@ -1,0 +1,55 @@
+From e4572396406c645b7f14ebf381d80e1c95a8d791 Mon Sep 17 00:00:00 2001
+From: Jake Oshins <jakeo@microsoft.com>
+Date: Mon, 14 Dec 2015 16:01:52 -0800
+Subject: drivers:hv: Allow for MMIO claims that span ACPI _CRS records
+Reply-To: joseph.salisbury@microsoft.com
+
+This patch makes 16GB GPUs work in Hyper-V VMs, since, for
+compatibility reasons, the Hyper-V BIOS lists MMIO ranges in 2GB
+chunks in its root bus's _CRS object.
+
+Signed-off-by: Jake Oshins <jakeo@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 40f26f3168bf7a4da490db308dc0bd9f9923f41f)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/vmbus_drv.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index 97aafd52e15b..330528cd516d 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -1087,12 +1087,28 @@ static acpi_status vmbus_walk_resources(struct acpi_resource *res, void *ctx)
+ 	new_res->start = start;
+ 	new_res->end = end;
+ 
++	/*
++	 * Stick ranges from higher in address space at the front of the list.
++	 * If two ranges are adjacent, merge them.
++	 */
+ 	do {
+ 		if (!*old_res) {
+ 			*old_res = new_res;
+ 			break;
+ 		}
+ 
++		if (((*old_res)->end + 1) == new_res->start) {
++			(*old_res)->end = new_res->end;
++			kfree(new_res);
++			break;
++		}
++
++		if ((*old_res)->start == new_res->end + 1) {
++			(*old_res)->start = new_res->start;
++			kfree(new_res);
++			break;
++		}
++
+ 		if ((*old_res)->end < new_res->start) {
+ 			new_res->sibling = *old_res;
+ 			if (prev_res)
+-- 
+2.17.1
+

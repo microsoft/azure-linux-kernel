@@ -1,4 +1,4 @@
-From 9fc5757bc55d789b63204db5ac58e0a85af0cff5 Mon Sep 17 00:00:00 2001
+From cc2ce803641b6292b7d91245e76ae66227cb0b2c Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:14 +0200
 Subject: net/mlx5: Introduce access functions to modify/query vport promisc

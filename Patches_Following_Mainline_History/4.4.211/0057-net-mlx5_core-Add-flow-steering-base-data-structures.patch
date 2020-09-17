@@ -1,4 +1,4 @@
-From 1b8f6c76007d5d73f40feda9a0cd16cba85203f3 Mon Sep 17 00:00:00 2001
+From 67f95c44dd7e4947b06e5b57c2c8259fa6c37e65 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Thu, 10 Dec 2015 17:12:40 +0200
 Subject: net/mlx5_core: Add flow steering base data structures

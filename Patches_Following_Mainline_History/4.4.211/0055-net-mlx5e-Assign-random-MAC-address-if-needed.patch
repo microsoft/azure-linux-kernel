@@ -1,4 +1,4 @@
-From e376105f2fe0aaf4ce9cb543ca36ec167a9f06ac Mon Sep 17 00:00:00 2001
+From af547a41a371bc48dc86282521a0cbfab7b0a08b Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Thu, 10 Dec 2015 17:12:38 +0200
 Subject: net/mlx5e: Assign random MAC address if needed

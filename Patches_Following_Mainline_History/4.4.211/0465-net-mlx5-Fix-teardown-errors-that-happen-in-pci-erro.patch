@@ -1,0 +1,74 @@
+From 1d8fd0259188940d5809d4f64931de6d826e2d01 Mon Sep 17 00:00:00 2001
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
+Date: Thu, 30 Jun 2016 17:34:38 +0300
+Subject: net/mlx5: Fix teardown errors that happen in pci error handler
+Reply-To: joseph.salisbury@microsoft.com
+
+In case of internal error state we will simulate the commands status
+through the return value translation function, but we need to simulate
+all the teardown fw commands as successful so we will not have fw
+command failure prints.
+This also fix memory leaks that happen because we skip teardown stages
+due to failed fw commands.
+
+Fixes: 89d44f0a6c73 ('net/mlx5_core: Add pci error handlers to mlx5_core driver')
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 0d834442cc247c7b3f3bd6019512ae03e96dd99a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 42672e554c6f..35685715f31c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -309,6 +309,12 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_DESTROY_FLOW_GROUP:
+ 	case MLX5_CMD_OP_DELETE_FLOW_TABLE_ENTRY:
+ 	case MLX5_CMD_OP_DEALLOC_FLOW_COUNTER:
++	case MLX5_CMD_OP_2ERR_QP:
++	case MLX5_CMD_OP_2RST_QP:
++	case MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT:
++	case MLX5_CMD_OP_MODIFY_FLOW_TABLE:
++	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
++	case MLX5_CMD_OP_SET_FLOW_TABLE_ROOT:
+ 		return MLX5_CMD_STAT_OK;
+ 
+ 	case MLX5_CMD_OP_QUERY_HCA_CAP:
+@@ -335,8 +341,6 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_RTR2RTS_QP:
+ 	case MLX5_CMD_OP_RTS2RTS_QP:
+ 	case MLX5_CMD_OP_SQERR2RTS_QP:
+-	case MLX5_CMD_OP_2ERR_QP:
+-	case MLX5_CMD_OP_2RST_QP:
+ 	case MLX5_CMD_OP_QUERY_QP:
+ 	case MLX5_CMD_OP_SQD_RTS_QP:
+ 	case MLX5_CMD_OP_INIT2INIT_QP:
+@@ -356,7 +360,6 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT:
+ 	case MLX5_CMD_OP_MODIFY_ESW_VPORT_CONTEXT:
+ 	case MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT:
+-	case MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT:
+ 	case MLX5_CMD_OP_QUERY_ROCE_ADDRESS:
+ 	case MLX5_CMD_OP_SET_ROCE_ADDRESS:
+ 	case MLX5_CMD_OP_QUERY_HCA_VPORT_CONTEXT:
+@@ -404,11 +407,12 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_CREATE_RQT:
+ 	case MLX5_CMD_OP_MODIFY_RQT:
+ 	case MLX5_CMD_OP_QUERY_RQT:
++
+ 	case MLX5_CMD_OP_CREATE_FLOW_TABLE:
+ 	case MLX5_CMD_OP_QUERY_FLOW_TABLE:
+ 	case MLX5_CMD_OP_CREATE_FLOW_GROUP:
+ 	case MLX5_CMD_OP_QUERY_FLOW_GROUP:
+-	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
++
+ 	case MLX5_CMD_OP_QUERY_FLOW_TABLE_ENTRY:
+ 	case MLX5_CMD_OP_ALLOC_FLOW_COUNTER:
+ 	case MLX5_CMD_OP_QUERY_FLOW_COUNTER:
+-- 
+2.17.1
+

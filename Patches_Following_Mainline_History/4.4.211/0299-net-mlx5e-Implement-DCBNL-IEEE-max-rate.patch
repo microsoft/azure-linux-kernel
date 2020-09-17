@@ -1,0 +1,230 @@
+From 5740f014ce3bfcebe128add90b92c63b21d44dcc Mon Sep 17 00:00:00 2001
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Mon, 22 Feb 2016 18:17:28 +0200
+Subject: net/mlx5e: Implement DCBNL IEEE max rate
+Reply-To: joseph.salisbury@microsoft.com
+
+Add support for DCBNL IEEE get/set max rate.
+
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit d8880795dabf2381ed1e98348f6d9c7ea6fab950)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../ethernet/mellanox/mlx5/core/en_dcbnl.c    | 73 +++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/port.c    | 65 +++++++++++++++++
+ include/linux/mlx5/device.h                   |  6 ++
+ include/linux/mlx5/port.h                     |  6 ++
+ 4 files changed, 150 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
+index 39d8069ba9e3..3036f279a8fd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
+@@ -35,6 +35,9 @@
+ 
+ #define MLX5E_MAX_PRIORITY 8
+ 
++#define MLX5E_100MB (100000)
++#define MLX5E_1GB   (1000000)
++
+ static int mlx5e_dcbnl_ieee_getets(struct net_device *netdev,
+ 				   struct ieee_ets *ets)
+ {
+@@ -219,9 +222,79 @@ static u8 mlx5e_dcbnl_setdcbx(struct net_device *dev, u8 mode)
+ 	return 0;
+ }
+ 
++static int mlx5e_dcbnl_ieee_getmaxrate(struct net_device *netdev,
++				       struct ieee_maxrate *maxrate)
++{
++	struct mlx5e_priv *priv    = netdev_priv(netdev);
++	struct mlx5_core_dev *mdev = priv->mdev;
++	u8 max_bw_value[IEEE_8021QAZ_MAX_TCS];
++	u8 max_bw_unit[IEEE_8021QAZ_MAX_TCS];
++	int err;
++	int i;
++
++	err = mlx5_query_port_ets_rate_limit(mdev, max_bw_value, max_bw_unit);
++	if (err)
++		return err;
++
++	memset(maxrate->tc_maxrate, 0, sizeof(maxrate->tc_maxrate));
++
++	for (i = 0; i <= mlx5_max_tc(mdev); i++) {
++		switch (max_bw_unit[i]) {
++		case MLX5_100_MBPS_UNIT:
++			maxrate->tc_maxrate[i] = max_bw_value[i] * MLX5E_100MB;
++			break;
++		case MLX5_GBPS_UNIT:
++			maxrate->tc_maxrate[i] = max_bw_value[i] * MLX5E_1GB;
++			break;
++		case MLX5_BW_NO_LIMIT:
++			break;
++		default:
++			WARN(true, "non-supported BW unit");
++			break;
++		}
++	}
++
++	return 0;
++}
++
++static int mlx5e_dcbnl_ieee_setmaxrate(struct net_device *netdev,
++				       struct ieee_maxrate *maxrate)
++{
++	struct mlx5e_priv *priv    = netdev_priv(netdev);
++	struct mlx5_core_dev *mdev = priv->mdev;
++	u8 max_bw_value[IEEE_8021QAZ_MAX_TCS];
++	u8 max_bw_unit[IEEE_8021QAZ_MAX_TCS];
++	__u64 upper_limit_mbps = roundup(255 * MLX5E_100MB, MLX5E_1GB);
++	int i;
++
++	memset(max_bw_value, 0, sizeof(max_bw_value));
++	memset(max_bw_unit, 0, sizeof(max_bw_unit));
++
++	for (i = 0; i <= mlx5_max_tc(mdev); i++) {
++		if (!maxrate->tc_maxrate[i]) {
++			max_bw_unit[i]  = MLX5_BW_NO_LIMIT;
++			continue;
++		}
++		if (maxrate->tc_maxrate[i] < upper_limit_mbps) {
++			max_bw_value[i] = div_u64(maxrate->tc_maxrate[i],
++						  MLX5E_100MB);
++			max_bw_value[i] = max_bw_value[i] ? max_bw_value[i] : 1;
++			max_bw_unit[i]  = MLX5_100_MBPS_UNIT;
++		} else {
++			max_bw_value[i] = div_u64(maxrate->tc_maxrate[i],
++						  MLX5E_1GB);
++			max_bw_unit[i]  = MLX5_GBPS_UNIT;
++		}
++	}
++
++	return mlx5_modify_port_ets_rate_limit(mdev, max_bw_value, max_bw_unit);
++}
++
+ const struct dcbnl_rtnl_ops mlx5e_dcbnl_ops = {
+ 	.ieee_getets	= mlx5e_dcbnl_ieee_getets,
+ 	.ieee_setets	= mlx5e_dcbnl_ieee_setets,
++	.ieee_getmaxrate = mlx5e_dcbnl_ieee_getmaxrate,
++	.ieee_setmaxrate = mlx5e_dcbnl_ieee_setmaxrate,
+ 	.ieee_getpfc	= mlx5e_dcbnl_ieee_getpfc,
+ 	.ieee_setpfc	= mlx5e_dcbnl_ieee_setpfc,
+ 	.getdcbx	= mlx5e_dcbnl_getdcbx,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index eacc478fc3f0..988b7ca4dc90 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -450,6 +450,19 @@ static int mlx5_set_port_qetcr_reg(struct mlx5_core_dev *mdev, u32 *in,
+ 				    MLX5_REG_QETCR, 0, 1);
+ }
+ 
++static int mlx5_query_port_qetcr_reg(struct mlx5_core_dev *mdev, u32 *out,
++				     int outlen)
++{
++	u32 in[MLX5_ST_SZ_DW(qtct_reg)];
++
++	if (!MLX5_CAP_GEN(mdev, ets))
++		return -ENOTSUPP;
++
++	memset(in, 0, sizeof(in));
++	return mlx5_core_access_reg(mdev, in, sizeof(in), out, outlen,
++				    MLX5_REG_QETCR, 0, 0);
++}
++
+ int mlx5_set_port_tc_group(struct mlx5_core_dev *mdev, u8 *tc_group)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(qetc_reg)];
+@@ -481,3 +494,55 @@ int mlx5_set_port_tc_bw_alloc(struct mlx5_core_dev *mdev, u8 *tc_bw)
+ 	return mlx5_set_port_qetcr_reg(mdev, in, sizeof(in));
+ }
+ EXPORT_SYMBOL_GPL(mlx5_set_port_tc_bw_alloc);
++
++int mlx5_modify_port_ets_rate_limit(struct mlx5_core_dev *mdev,
++				    u8 *max_bw_value,
++				    u8 *max_bw_units)
++{
++	u32 in[MLX5_ST_SZ_DW(qetc_reg)];
++	void *ets_tcn_conf;
++	int i;
++
++	memset(in, 0, sizeof(in));
++
++	MLX5_SET(qetc_reg, in, port_number, 1);
++
++	for (i = 0; i <= mlx5_max_tc(mdev); i++) {
++		ets_tcn_conf = MLX5_ADDR_OF(qetc_reg, in, tc_configuration[i]);
++
++		MLX5_SET(ets_tcn_config_reg, ets_tcn_conf, r, 1);
++		MLX5_SET(ets_tcn_config_reg, ets_tcn_conf, max_bw_units,
++			 max_bw_units[i]);
++		MLX5_SET(ets_tcn_config_reg, ets_tcn_conf, max_bw_value,
++			 max_bw_value[i]);
++	}
++
++	return mlx5_set_port_qetcr_reg(mdev, in, sizeof(in));
++}
++EXPORT_SYMBOL_GPL(mlx5_modify_port_ets_rate_limit);
++
++int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
++				   u8 *max_bw_value,
++				   u8 *max_bw_units)
++{
++	u32 out[MLX5_ST_SZ_DW(qetc_reg)];
++	void *ets_tcn_conf;
++	int err;
++	int i;
++
++	err = mlx5_query_port_qetcr_reg(mdev, out, sizeof(out));
++	if (err)
++		return err;
++
++	for (i = 0; i <= mlx5_max_tc(mdev); i++) {
++		ets_tcn_conf = MLX5_ADDR_OF(qetc_reg, out, tc_configuration[i]);
++
++		max_bw_value[i] = MLX5_GET(ets_tcn_config_reg, ets_tcn_conf,
++					   max_bw_value);
++		max_bw_units[i] = MLX5_GET(ets_tcn_config_reg, ets_tcn_conf,
++					   max_bw_units);
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_ets_rate_limit);
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 86104eb1b6a2..e77ed396b511 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -350,6 +350,12 @@ enum {
+ 	MLX5_SET_PORT_PKEY_TABLE	= 20,
+ };
+ 
++enum {
++	MLX5_BW_NO_LIMIT   = 0,
++	MLX5_100_MBPS_UNIT = 3,
++	MLX5_GBPS_UNIT	   = 4,
++};
++
+ enum {
+ 	MLX5_MAX_PAGE_SHIFT		= 31
+ };
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index 0c67e699d017..595c7b2d9bfa 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -75,5 +75,11 @@ int mlx5_max_tc(struct mlx5_core_dev *mdev);
+ int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, u8 *prio_tc);
+ int mlx5_set_port_tc_group(struct mlx5_core_dev *mdev, u8 *tc_group);
+ int mlx5_set_port_tc_bw_alloc(struct mlx5_core_dev *mdev, u8 *tc_bw);
++int mlx5_modify_port_ets_rate_limit(struct mlx5_core_dev *mdev,
++				    u8 *max_bw_value,
++				    u8 *max_bw_unit);
++int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
++				   u8 *max_bw_value,
++				   u8 *max_bw_unit);
+ 
+ #endif /* __MLX5_PORT_H__ */
+-- 
+2.17.1
+

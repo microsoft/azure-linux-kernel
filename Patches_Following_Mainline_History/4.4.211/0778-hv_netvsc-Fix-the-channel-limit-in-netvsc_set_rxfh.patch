@@ -1,0 +1,33 @@
+From d18c02be68a4a9d41e9c82ab9ffa826601b3bfeb Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 1 Sep 2017 14:30:07 -0700
+Subject: hv_netvsc: Fix the channel limit in netvsc_set_rxfh()
+Reply-To: joseph.salisbury@microsoft.com
+
+The limit of setting receive indirection table value should be
+the current number of channels, not the VRSS_CHANNEL_MAX.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit db3cd7af9d0f174475cbcc02c0e96a5408fe2dc2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 9c754225e85d..39db303c2f2b 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1371,7 +1371,7 @@ static int netvsc_set_rxfh(struct net_device *dev, const u32 *indir,
+ 	rndis_dev = ndev->extension;
+ 	if (indir) {
+ 		for (i = 0; i < ITAB_NUM; i++)
+-			if (indir[i] >= dev->num_rx_queues)
++			if (indir[i] >= ndev->num_chn)
+ 				return -EINVAL;
+ 
+ 		for (i = 0; i < ITAB_NUM; i++)
+-- 
+2.17.1
+

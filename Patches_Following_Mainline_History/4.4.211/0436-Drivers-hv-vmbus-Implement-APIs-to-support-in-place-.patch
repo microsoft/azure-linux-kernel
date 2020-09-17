@@ -1,0 +1,144 @@
+From be30bbe94b0391911875b63045a707aa3ca58878 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Sat, 2 Apr 2016 17:59:51 -0700
+Subject: Drivers: hv: vmbus: Implement APIs to support "in place" consumption
+ of vmbus packets
+Reply-To: joseph.salisbury@microsoft.com
+
+Implement APIs for in-place consumption of vmbus packets. Currently, each
+packet is copied and processed one at a time and as part of processing
+each packet we potentially may signal the host (if it is waiting for
+room to produce a packet).
+
+These APIs help batched in-place processing of vmbus packets.
+We also optimize host signaling by having a separate API to signal
+the end of in-place consumption. With netvsc using these APIs,
+on an iperf run on average I see about 20X reduction in checks to
+signal the host.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit ab028db41ca9174caab7f9e3fc0a2e7f4a418410)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/ring_buffer.c |  1 +
+ include/linux/hyperv.h   | 86 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 87 insertions(+)
+
+diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
+index 218266978e6b..57bcec2d0d28 100644
+--- a/drivers/hv/ring_buffer.c
++++ b/drivers/hv/ring_buffer.c
+@@ -149,6 +149,7 @@ hv_set_next_read_location(struct hv_ring_buffer_info *ring_info,
+ 		    u32 next_read_location)
+ {
+ 	ring_info->ring_buffer->read_index = next_read_location;
++	ring_info->priv_read_index = next_read_location;
+ }
+ 
+ /* Get the size of the ring buffer. */
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 0318527a103c..7331a621aac9 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -126,6 +126,8 @@ struct hv_ring_buffer_info {
+ 
+ 	u32 ring_datasize;		/* < ring_size */
+ 	u32 ring_data_startoffset;
++	u32 priv_write_index;
++	u32 priv_read_index;
+ };
+ 
+ /*
+@@ -1448,4 +1450,88 @@ static inline  bool hv_need_to_signal_on_read(struct hv_ring_buffer_info *rbi)
+ 	return false;
+ }
+ 
++/*
++ * An API to support in-place processing of incoming VMBUS packets.
++ */
++#define VMBUS_PKT_TRAILER	8
++
++static inline struct vmpacket_descriptor *
++get_next_pkt_raw(struct vmbus_channel *channel)
++{
++	struct hv_ring_buffer_info *ring_info = &channel->inbound;
++	u32 read_loc = ring_info->priv_read_index;
++	void *ring_buffer = hv_get_ring_buffer(ring_info);
++	struct vmpacket_descriptor *cur_desc;
++	u32 packetlen;
++	u32 dsize = ring_info->ring_datasize;
++	u32 delta = read_loc - ring_info->ring_buffer->read_index;
++	u32 bytes_avail_toread = (hv_get_bytes_to_read(ring_info) - delta);
++
++	if (bytes_avail_toread < sizeof(struct vmpacket_descriptor))
++		return NULL;
++
++	if ((read_loc + sizeof(*cur_desc)) > dsize)
++		return NULL;
++
++	cur_desc = ring_buffer + read_loc;
++	packetlen = cur_desc->len8 << 3;
++
++	/*
++	 * If the packet under consideration is wrapping around,
++	 * return failure.
++	 */
++	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > (dsize - 1))
++		return NULL;
++
++	return cur_desc;
++}
++
++/*
++ * A helper function to step through packets "in-place"
++ * This API is to be called after each successful call
++ * get_next_pkt_raw().
++ */
++static inline void put_pkt_raw(struct vmbus_channel *channel,
++				struct vmpacket_descriptor *desc)
++{
++	struct hv_ring_buffer_info *ring_info = &channel->inbound;
++	u32 read_loc = ring_info->priv_read_index;
++	u32 packetlen = desc->len8 << 3;
++	u32 dsize = ring_info->ring_datasize;
++
++	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > dsize)
++		BUG();
++	/*
++	 * Include the packet trailer.
++	 */
++	ring_info->priv_read_index += packetlen + VMBUS_PKT_TRAILER;
++}
++
++/*
++ * This call commits the read index and potentially signals the host.
++ * Here is the pattern for using the "in-place" consumption APIs:
++ *
++ * while (get_next_pkt_raw() {
++ *	process the packet "in-place";
++ *	put_pkt_raw();
++ * }
++ * if (packets processed in place)
++ *	commit_rd_index();
++ */
++static inline void commit_rd_index(struct vmbus_channel *channel)
++{
++	struct hv_ring_buffer_info *ring_info = &channel->inbound;
++	/*
++	 * Make sure all reads are done before we update the read index since
++	 * the writer may start writing to the read area once the read index
++	 * is updated.
++	 */
++	virt_rmb();
++	ring_info->ring_buffer->read_index = ring_info->priv_read_index;
++
++	if (hv_need_to_signal_on_read(ring_info))
++		vmbus_set_event(channel);
++}
++
++
+ #endif /* _HYPERV_H */
+-- 
+2.17.1
+

@@ -1,0 +1,300 @@
+From 9bc56fe457550bf15fd00fc09044a71dd729db0e Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Sat, 4 Feb 2017 15:25:02 -0800
+Subject: net: remove __napi_complete()
+Reply-To: joseph.salisbury@microsoft.com
+
+All __napi_complete() callers have been converted to
+use the more standard napi_complete_done(),
+we can now remove this NAPI method for good.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 02c1602ee7b3e3d062c3eacd374d6a6e3a2ebb73)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/aeroflex/greth.c    |  2 +-
+ drivers/net/ethernet/amd/amd8111e.c      |  1 -
+ drivers/net/ethernet/amd/pcnet32.c       |  6 ----
+ drivers/net/ethernet/cirrus/ep93xx_eth.c |  3 --
+ drivers/net/ethernet/ibm/emac/mal.c      |  3 --
+ drivers/net/ethernet/marvell/skge.c      |  3 --
+ drivers/net/ethernet/micrel/ks8695net.c  |  3 --
+ drivers/net/ethernet/qlogic/qla3xxx.c    |  3 --
+ drivers/net/ethernet/realtek/8139cp.c    |  3 --
+ drivers/net/ethernet/realtek/8139too.c   |  3 --
+ drivers/net/ethernet/smsc/epic100.c      |  4 ---
+ include/linux/netdevice.h                |  1 -
+ net/core/dev.c                           | 45 ++----------------------
+ 13 files changed, 4 insertions(+), 76 deletions(-)
+
+diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
+index 20bf55dbd76f..b54cb44971c1 100644
+--- a/drivers/net/ethernet/aeroflex/greth.c
++++ b/drivers/net/ethernet/aeroflex/greth.c
+@@ -1008,7 +1008,7 @@ restart_txrx_poll:
+ 			spin_unlock_irqrestore(&greth->devlock, flags);
+ 			goto restart_txrx_poll;
+ 		} else {
+-			__napi_complete(napi);
++			napi_complete_done(napi, work_done);
+ 			spin_unlock_irqrestore(&greth->devlock, flags);
+ 		}
+ 	}
+diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
+index 94960055fa1f..438562737933 100644
+--- a/drivers/net/ethernet/amd/amd8111e.c
++++ b/drivers/net/ethernet/amd/amd8111e.c
+@@ -807,7 +807,6 @@ static int amd8111e_rx_poll(struct napi_struct *napi, int budget)
+ 	if (rx_pkt_limit > 0) {
+ 		/* Receive descriptor is empty now */
+ 		spin_lock_irqsave(&lp->lock, flags);
+-		__napi_complete(napi);
+ 		writel(VAL0|RINTEN0, mmio + INTEN0);
+ 		writel(VAL2 | RDMD0, mmio + CMD0);
+ 		spin_unlock_irqrestore(&lp->lock, flags);
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index c4a68c38a80f..c208195fa0be 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -1351,10 +1351,6 @@ static int pcnet32_poll(struct napi_struct *napi, int budget)
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ 
+ 	if (work_done < budget) {
+-		spin_lock_irqsave(&lp->lock, flags);
+-
+-		__napi_complete(napi);
+-
+ 		/* clear interrupt masks */
+ 		val = lp->a->read_csr(ioaddr, CSR3);
+ 		val &= 0x00ff;
+@@ -1362,8 +1358,6 @@ static int pcnet32_poll(struct napi_struct *napi, int budget)
+ 
+ 		/* Set interrupt enable. */
+ 		lp->a->write_csr(ioaddr, CSR0, CSR0_INTEN);
+-
+-		spin_unlock_irqrestore(&lp->lock, flags);
+ 	}
+ 	return work_done;
+ }
+diff --git a/drivers/net/ethernet/cirrus/ep93xx_eth.c b/drivers/net/ethernet/cirrus/ep93xx_eth.c
+index 3d71c8ad4e02..1895b7d55320 100644
+--- a/drivers/net/ethernet/cirrus/ep93xx_eth.c
++++ b/drivers/net/ethernet/cirrus/ep93xx_eth.c
+@@ -327,15 +327,12 @@ poll_some_more:
+ 	if (rx < budget) {
+ 		int more = 0;
+ 
+-		spin_lock_irq(&ep->rx_lock);
+-		__napi_complete(napi);
+ 		wrl(ep, REG_INTEN, REG_INTEN_TX | REG_INTEN_RX);
+ 		if (ep93xx_have_more_rx(ep)) {
+ 			wrl(ep, REG_INTEN, REG_INTEN_TX);
+ 			wrl(ep, REG_INTSTSP, REG_INTSTS_RX);
+ 			more = 1;
+ 		}
+-		spin_unlock_irq(&ep->rx_lock);
+ 
+ 		if (more && napi_reschedule(napi))
+ 			goto poll_some_more;
+diff --git a/drivers/net/ethernet/ibm/emac/mal.c b/drivers/net/ethernet/ibm/emac/mal.c
+index 81abe46c9e0d..c45d4a6f5e3f 100644
+--- a/drivers/net/ethernet/ibm/emac/mal.c
++++ b/drivers/net/ethernet/ibm/emac/mal.c
+@@ -431,10 +431,7 @@ static int mal_poll(struct napi_struct *napi, int budget)
+ 	}
+ 
+ 	/* We need to disable IRQs to protect from RXDE IRQ here */
+-	spin_lock_irqsave(&mal->lock, flags);
+-	__napi_complete(napi);
+ 	mal_enable_eob_irq(mal);
+-	spin_unlock_irqrestore(&mal->lock, flags);
+ 
+ 	/* Check for "rotting" packet(s) */
+ 	list_for_each(l, &mal->poll_list) {
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index b97a070074b7..b4e0a7983db1 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -3234,12 +3234,9 @@ static int skge_poll(struct napi_struct *napi, int to_do)
+ 		unsigned long flags;
+ 
+ 		napi_gro_flush(napi, false);
+-		spin_lock_irqsave(&hw->hw_lock, flags);
+-		__napi_complete(napi);
+ 		hw->intr_mask |= napimask[skge->port];
+ 		skge_write32(hw, B0_IMSK, hw->intr_mask);
+ 		skge_read32(hw, B0_IMSK);
+-		spin_unlock_irqrestore(&hw->hw_lock, flags);
+ 	}
+ 
+ 	return work_done;
+diff --git a/drivers/net/ethernet/micrel/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
+index 2126286b72e9..8b565acc6c95 100644
+--- a/drivers/net/ethernet/micrel/ks8695net.c
++++ b/drivers/net/ethernet/micrel/ks8695net.c
+@@ -570,11 +570,8 @@ static int ks8695_poll(struct napi_struct *napi, int budget)
+ 
+ 	if (work_done < budget) {
+ 		unsigned long flags;
+-		spin_lock_irqsave(&ksp->rx_lock, flags);
+-		__napi_complete(napi);
+ 		/*enable rx interrupt*/
+ 		writel(isr | mask_bit, KS8695_IRQ_VA + KS8695_INTEN);
+-		spin_unlock_irqrestore(&ksp->rx_lock, flags);
+ 	}
+ 	return work_done;
+ }
+diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+index 192224304802..8c4e9f7cb21f 100644
+--- a/drivers/net/ethernet/qlogic/qla3xxx.c
++++ b/drivers/net/ethernet/qlogic/qla3xxx.c
+@@ -2184,13 +2184,10 @@ static int ql_poll(struct napi_struct *napi, int budget)
+ 	ql_tx_rx_clean(qdev, &tx_cleaned, &rx_cleaned, budget);
+ 
+ 	if (tx_cleaned + rx_cleaned != budget) {
+-		spin_lock_irqsave(&qdev->hw_lock, hw_flags);
+-		__napi_complete(napi);
+ 		ql_update_small_bufq_prod_index(qdev);
+ 		ql_update_lrg_bufq_prod_index(qdev);
+ 		writel(qdev->rsp_consumer_index,
+ 			    &port_regs->CommonRegs.rspQConsumerIndex);
+-		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
+ 
+ 		ql_enable_interrupts(qdev);
+ 	}
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index 9b588251f2a7..2a6e6a1d2e2e 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -563,10 +563,7 @@ rx_next:
+ 			goto rx_status_loop;
+ 
+ 		napi_gro_flush(napi, false);
+-		spin_lock_irqsave(&cp->lock, flags);
+-		__napi_complete(napi);
+ 		cpw16_f(IntrMask, cp_intr_mask);
+-		spin_unlock_irqrestore(&cp->lock, flags);
+ 	}
+ 
+ 	return rx;
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index d987d571fdd6..700abf488564 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -2143,10 +2143,7 @@ static int rtl8139_poll(struct napi_struct *napi, int budget)
+ 		 * Order is important since data can get interrupted
+ 		 * again when we think we are done.
+ 		 */
+-		spin_lock_irqsave(&tp->lock, flags);
+-		__napi_complete(napi);
+ 		RTL_W16_F(IntrMask, rtl8139_intr_mask);
+-		spin_unlock_irqrestore(&tp->lock, flags);
+ 	}
+ 	spin_unlock(&tp->rx_lock);
+ 
+diff --git a/drivers/net/ethernet/smsc/epic100.c b/drivers/net/ethernet/smsc/epic100.c
+index 16667372f70a..203ccb4b5f6b 100644
+--- a/drivers/net/ethernet/smsc/epic100.c
++++ b/drivers/net/ethernet/smsc/epic100.c
+@@ -1265,18 +1265,14 @@ rx_action:
+ 
+ 		/* A bit baroque but it avoids a (space hungry) spin_unlock */
+ 
+-		spin_lock_irqsave(&ep->napi_lock, flags);
+ 
+ 		more = ep->reschedule_in_poll;
+ 		if (!more) {
+-			__napi_complete(napi);
+ 			ew32(INTSTAT, EpicNapiEvent);
+ 			epic_napi_irq_on(dev, ep);
+ 		} else
+ 			ep->reschedule_in_poll--;
+ 
+-		spin_unlock_irqrestore(&ep->napi_lock, flags);
+-
+ 		if (more)
+ 			goto rx_action;
+ 	}
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e26f44728b1d..44645dd3b73a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -450,7 +450,6 @@ static inline bool napi_reschedule(struct napi_struct *napi)
+ 	return false;
+ }
+ 
+-bool __napi_complete(struct napi_struct *n);
+ bool napi_complete_done(struct napi_struct *n, int work_done);
+ /**
+  *	napi_complete - NAPI processing complete
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8de0c3ed3ddc..c4a47187c84f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4772,23 +4772,6 @@ void __napi_schedule_irqoff(struct napi_struct *n)
+ }
+ EXPORT_SYMBOL(__napi_schedule_irqoff);
+ 
+-bool __napi_complete(struct napi_struct *n)
+-{
+-	BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state));
+-
+-	/* Some drivers call us directly, instead of calling
+-	 * napi_complete_done().
+-	 */
+-	if (unlikely(test_bit(NAPI_STATE_IN_BUSY_POLL, &n->state)))
+-		return false;
+-
+-	list_del_init(&n->poll_list);
+-	smp_mb__before_atomic();
+-	clear_bit(NAPI_STATE_SCHED, &n->state);
+-	return true;
+-}
+-EXPORT_SYMBOL(__napi_complete);
+-
+ bool napi_complete_done(struct napi_struct *n, int work_done)
+ {
+ 	unsigned long flags, val, new;
+@@ -4815,35 +4798,13 @@ bool napi_complete_done(struct napi_struct *n, int work_done)
+ 		else
+ 			napi_gro_flush(n, false);
+ 	}
+-	if (likely(list_empty(&n->poll_list))) {
+-		WARN_ON_ONCE(!test_and_clear_bit(NAPI_STATE_SCHED, &n->state));
+-	} else {
++	if (unlikely(!list_empty(&n->poll_list))) {
+ 		/* If n->poll_list is not empty, we need to mask irqs */
+ 		local_irq_save(flags);
+-		__napi_complete(n);
++		list_del_init(&n->poll_list);
+ 		local_irq_restore(flags);
+ 	}
+-
+-	do {
+-		val = READ_ONCE(n->state);
+-
+-		WARN_ON_ONCE(!(val & NAPIF_STATE_SCHED));
+-
+-		new = val & ~(NAPIF_STATE_MISSED | NAPIF_STATE_SCHED);
+-
+-		/* If STATE_MISSED was set, leave STATE_SCHED set,
+-		 * because we will call napi->poll() one more time.
+-		 * This C code was suggested by Alexander Duyck to help gcc.
+-		 */
+-		new |= (val & NAPIF_STATE_MISSED) / NAPIF_STATE_MISSED *
+-						    NAPIF_STATE_SCHED;
+-	} while (cmpxchg(&n->state, val, new) != val);
+-
+-	if (unlikely(val & NAPIF_STATE_MISSED)) {
+-		__napi_schedule(n);
+-		return false;
+-	}
+-
++	WARN_ON_ONCE(!test_and_clear_bit(NAPI_STATE_SCHED, &n->state));
+ 	return true;
+ }
+ EXPORT_SYMBOL(napi_complete_done);
+-- 
+2.17.1
+

@@ -1,0 +1,152 @@
+From 541bcf6ed95776b651d575484294a44cc54e5e93 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Thu, 19 Jan 2017 11:51:48 -0700
+Subject: Drivers: hv: vmbus: Move the crash notification function
+Reply-To: joseph.salisbury@microsoft.com
+
+As part of the effort to separate out architecture specific code, move the
+crash notification function.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit d058fa7e98ff01a4b4750a2210fc19906db3cbe1)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c          | 26 ++++++++++++++++++++++++++
+ arch/x86/include/asm/mshyperv.h    |  1 +
+ arch/x86/include/uapi/asm/hyperv.h |  8 ++++++++
+ drivers/hv/hyperv_vmbus.h          | 10 ----------
+ drivers/hv/vmbus_drv.c             | 25 -------------------------
+ 5 files changed, 35 insertions(+), 35 deletions(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index 860233af4568..ce5fc7394814 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -209,3 +209,29 @@ u64 hv_do_hypercall(u64 control, void *input, void *output)
+ #endif /* !x86_64 */
+ }
+ EXPORT_SYMBOL_GPL(hv_do_hypercall);
++
++void hyperv_report_panic(struct pt_regs *regs)
++{
++	static bool panic_reported;
++
++	/*
++	 * We prefer to report panic on 'die' chain as we have proper
++	 * registers to report, but if we miss it (e.g. on BUG()) we need
++	 * to report it on 'panic'.
++	 */
++	if (panic_reported)
++		return;
++	panic_reported = true;
++
++	wrmsrl(HV_X64_MSR_CRASH_P0, regs->ip);
++	wrmsrl(HV_X64_MSR_CRASH_P1, regs->ax);
++	wrmsrl(HV_X64_MSR_CRASH_P2, regs->bx);
++	wrmsrl(HV_X64_MSR_CRASH_P3, regs->cx);
++	wrmsrl(HV_X64_MSR_CRASH_P4, regs->dx);
++
++	/*
++	 * Let Hyper-V know there is crash data available
++	 */
++	wrmsrl(HV_X64_MSR_CRASH_CTL, HV_CRASH_CTL_CRASH_NOTIFY);
++}
++EXPORT_SYMBOL_GPL(hyperv_report_panic);
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index 54729e3cba47..64e682d88684 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -114,5 +114,6 @@ void hv_remove_crash_handler(void);
+ 
+ #if IS_ENABLED(CONFIG_HYPERV)
+ void hyperv_init(void);
++void hyperv_report_panic(struct pt_regs *regs);
+ #endif
+ #endif
+diff --git a/arch/x86/include/uapi/asm/hyperv.h b/arch/x86/include/uapi/asm/hyperv.h
+index 937ede3ef0b4..b485caadf3b4 100644
+--- a/arch/x86/include/uapi/asm/hyperv.h
++++ b/arch/x86/include/uapi/asm/hyperv.h
+@@ -73,6 +73,9 @@
+   */
+ #define HV_X64_MSR_STAT_PAGES_AVAILABLE		(1 << 8)
+ 
++/* Crash MSR available */
++#define HV_FEATURE_GUEST_CRASH_MSR_AVAILABLE (1 << 10)
++
+ /*
+  * Feature identification: EBX indicates which flags were specified at
+  * partition creation. The format is the same as the partition creation
+@@ -144,6 +147,11 @@
+  */
+ #define HV_X64_RELAXED_TIMING_RECOMMENDED	(1 << 5)
+ 
++/*
++ * Crash notification flag.
++ */
++#define HV_CRASH_CTL_CRASH_NOTIFY (1ULL << 63)
++
+ /* MSR used to identify the guest OS. */
+ #define HV_X64_MSR_GUEST_OS_ID			0x40000000
+ 
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 76f94797b50c..bef5e3da4247 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -40,16 +40,6 @@
+  */
+ #define HV_UTIL_NEGO_TIMEOUT 60
+ 
+-#define  HV_FEATURE_GUEST_CRASH_MSR_AVAILABLE   0x400
+-
+-#define HV_X64_MSR_CRASH_P0   0x40000100
+-#define HV_X64_MSR_CRASH_P1   0x40000101
+-#define HV_X64_MSR_CRASH_P2   0x40000102
+-#define HV_X64_MSR_CRASH_P3   0x40000103
+-#define HV_X64_MSR_CRASH_P4   0x40000104
+-#define HV_X64_MSR_CRASH_CTL  0x40000105
+-
+-#define HV_CRASH_CTL_CRASH_NOTIFY (1ULL << 63)
+ 
+ /* Define version of the synthetic interrupt controller. */
+ #define HV_SYNIC_VERSION		(1)
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index 4838e307ea2c..908242468183 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -51,31 +51,6 @@ static struct completion probe_event;
+ 
+ static int hyperv_cpuhp_online;
+ 
+-static void hyperv_report_panic(struct pt_regs *regs)
+-{
+-	static bool panic_reported;
+-
+-	/*
+-	 * We prefer to report panic on 'die' chain as we have proper
+-	 * registers to report, but if we miss it (e.g. on BUG()) we need
+-	 * to report it on 'panic'.
+-	 */
+-	if (panic_reported)
+-		return;
+-	panic_reported = true;
+-
+-	wrmsrl(HV_X64_MSR_CRASH_P0, regs->ip);
+-	wrmsrl(HV_X64_MSR_CRASH_P1, regs->ax);
+-	wrmsrl(HV_X64_MSR_CRASH_P2, regs->bx);
+-	wrmsrl(HV_X64_MSR_CRASH_P3, regs->cx);
+-	wrmsrl(HV_X64_MSR_CRASH_P4, regs->dx);
+-
+-	/*
+-	 * Let Hyper-V know there is crash data available
+-	 */
+-	wrmsrl(HV_X64_MSR_CRASH_CTL, HV_CRASH_CTL_CRASH_NOTIFY);
+-}
+-
+ static int hyperv_panic_event(struct notifier_block *nb, unsigned long val,
+ 			      void *args)
+ {
+-- 
+2.17.1
+

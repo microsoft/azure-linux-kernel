@@ -1,4 +1,4 @@
-From 903fad4cc4b427e6c5ecc4c120be00c7748621f9 Mon Sep 17 00:00:00 2001
+From d3f192faaa16ba559f2d5548e520b82df67b2e93 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 9 Feb 2016 14:57:43 +0200
 Subject: net/mlx5e: Remove select queue ndo initialization

@@ -1,4 +1,4 @@
-From f1258cdec7ab4a2983fd653e802dcce6a4b7ad23 Mon Sep 17 00:00:00 2001
+From b61f3ed1a9ccf09d8a0cfc15e36f2c8014c59301 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Mon, 29 Feb 2016 21:17:15 +0200
 Subject: net/mlx5e: Provide correct packet/bytes statistics

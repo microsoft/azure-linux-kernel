@@ -1,0 +1,50 @@
+From c6af7633e4b9f07555cd0f29e9309702194264df Mon Sep 17 00:00:00 2001
+From: Erez Shitrit <erezsh@mellanox.com>
+Date: Sun, 21 Feb 2016 16:27:16 +0200
+Subject: IB/mlx5: Define interface bits for IPoIB offloads
+Reply-To: joseph.salisbury@microsoft.com
+
+The HW can supply several offloads for UD QP, added  offloads for
+checksumming for both TX and RX and LSO for TX.
+Two new bits were added in order to expose and enable these offloads:
+1. HCA capability bit: declares the support for IPoIB basic offloads.
+2. QPC bit which will be used in the QP creation flow, which set these
+abilities in the QP.
+
+Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 1015c2e8ca2b94d8964f8ab30d925b6f678fd9d2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 856a973263e5..66d1fe320db5 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -750,7 +750,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         cqe_version[0x4];
+ 
+ 	u8         compact_address_vector[0x1];
+-	u8         reserved_at_200[0xe];
++	u8         reserved_at_200[0x3];
++	u8         ipoib_basic_offloads[0x1];
++	u8         reserved_at_204[0xa];
+ 	u8         drain_sigerr[0x1];
+ 	u8         cmdif_checksum[0x2];
+ 	u8         sigerr_cqe[0x1];
+@@ -1824,7 +1826,7 @@ struct mlx5_ifc_qpc_bits {
+ 	u8         log_sq_size[0x4];
+ 	u8         reserved_at_55[0x6];
+ 	u8         rlky[0x1];
+-	u8         reserved_at_5c[0x4];
++	u8         ulp_stateless_offload_mode[0x4];
+ 
+ 	u8         counter_set_id[0x8];
+ 	u8         uar_page[0x18];
+-- 
+2.17.1
+

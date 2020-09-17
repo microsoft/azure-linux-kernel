@@ -1,0 +1,60 @@
+From d81da1040e07aaedadeda9ff819541a186a5820c Mon Sep 17 00:00:00 2001
+From: Amir Vadai <amir@vadai.me>
+Date: Tue, 8 Mar 2016 12:42:35 +0200
+Subject: net/mlx5e: Add a new priority for kernel flow tables
+Reply-To: joseph.salisbury@microsoft.com
+
+Move the vlan and main flow tables to use priority 1. This will allow
+the upcoming TC offload logic to use a higher priority (0) for the
+offload steering table.
+
+Signed-off-by: Amir Vadai <amir@vadai.me>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit b6172aac71e9fba0981e013839ced5fcd97746fb)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c   | 4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+index 80d81abc4820..d00a24203410 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+@@ -1041,7 +1041,7 @@ static int mlx5e_create_main_flow_table(struct mlx5e_priv *priv)
+ 	int err;
+ 
+ 	ft->num_groups = 0;
+-	ft->t = mlx5_create_flow_table(priv->fts.ns, 0, MLX5E_MAIN_TABLE_SIZE);
++	ft->t = mlx5_create_flow_table(priv->fts.ns, 1, MLX5E_MAIN_TABLE_SIZE);
+ 
+ 	if (IS_ERR(ft->t)) {
+ 		err = PTR_ERR(ft->t);
+@@ -1150,7 +1150,7 @@ static int mlx5e_create_vlan_flow_table(struct mlx5e_priv *priv)
+ 	int err;
+ 
+ 	ft->num_groups = 0;
+-	ft->t = mlx5_create_flow_table(priv->fts.ns, 0, MLX5E_VLAN_TABLE_SIZE);
++	ft->t = mlx5_create_flow_table(priv->fts.ns, 1, MLX5E_VLAN_TABLE_SIZE);
+ 
+ 	if (IS_ERR(ft->t)) {
+ 		err = PTR_ERR(ft->t);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 89b6e2acfea3..d845fdfefe38 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -73,8 +73,8 @@
+ #define BY_PASS_MIN_LEVEL (KENREL_MIN_LEVEL + MLX5_BY_PASS_NUM_PRIOS +\
+ 			   LEFTOVERS_MAX_FT)
+ 
+-#define KERNEL_MAX_FT 2
+-#define KERNEL_NUM_PRIOS 1
++#define KERNEL_MAX_FT 3
++#define KERNEL_NUM_PRIOS 2
+ #define KENREL_MIN_LEVEL 2
+ 
+ #define ANCHOR_MAX_FT 1
+-- 
+2.17.1
+

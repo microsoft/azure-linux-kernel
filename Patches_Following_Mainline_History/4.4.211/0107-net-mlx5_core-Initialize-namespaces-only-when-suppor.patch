@@ -1,4 +1,4 @@
-From aed2f83fac627879e9904814aa29d418858f3c7f Mon Sep 17 00:00:00 2001
+From d602367ed34cbcfdc0195ef40262cd573bbeaf55 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:26:03 +0200
 Subject: net/mlx5_core: Initialize namespaces only when supported by device

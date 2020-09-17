@@ -1,4 +1,4 @@
-From a47ca789aee4bc75ee855a5282871fec5ebef5c8 Mon Sep 17 00:00:00 2001
+From 7c0e50724dd2516bf17cf69ad9e73d6a6da85361 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 12:12:28 +0100
 Subject: mlxsw: spectrum: Implement LAG port join/leave

@@ -1,0 +1,178 @@
+From 56febc71d3e1b3b7fc3d583597a6e97ef1ba4727 Mon Sep 17 00:00:00 2001
+From: Bodong Wang <bodong@mellanox.com>
+Date: Fri, 17 Jun 2016 15:02:20 +0300
+Subject: IB/mlx5: Report mlx5 TSO capabilities when querying device
+Reply-To: joseph.salisbury@microsoft.com
+
+Enable mlx5 based hardware to report TCP segmentation offload (TSO)
+capabilities from kernel to user space. A TSO enabled NIC will accept
+big chunks of data with sizes greater than MTU for TCP traffic.  The TSO
+engine will break the data into separate packets and will insert headers
+automatically.
+
+The capabilities are exposed to user space through query_device by uhw
+directly. The following capabilities are reported:
+
+1. The maximum payload size in bytes supported for segmentation by TSO
+   engine.
+2. Bitmap showing which QP types are supported by TSO operation. The bitmap
+   is built by members from 'enmu ib_qp_type'. For example, similar code
+   should be performed if UD QP is supported:
+	supported_qpts |= 1 << IB_QPT_UD;
+
+To make user-space library aware of whether kernel supports uhw or not, a
+new flag: cmds_supp_uhw will be returned back to user-space through
+alloc_ucontext.
+
+Signed-off-by: Bodong Wang <bodong@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit 402ca53644ff1928f2ea68cce6fe41b2b5f38510)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/main.c | 50 +++++++++++++++++++++++++++----
+ drivers/infiniband/hw/mlx5/user.h | 24 ++++++++++++++-
+ 2 files changed, 68 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index 8ae759771ff2..0f30ae3c1e3b 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -432,8 +432,17 @@ static int mlx5_ib_query_device(struct ib_device *ibdev,
+ 	int max_rq_sg;
+ 	int max_sq_sg;
+ 	u64 min_page_size = 1ull << MLX5_CAP_GEN(mdev, log_pg_sz);
++	struct mlx5_ib_query_device_resp resp = {};
++	size_t resp_len;
++	u64 max_tso;
+ 
+-	if (uhw->inlen || uhw->outlen)
++	resp_len = sizeof(resp.comp_mask) + sizeof(resp.response_length);
++	if (uhw->outlen && uhw->outlen < resp_len)
++		return -EINVAL;
++	else
++		resp.response_length = resp_len;
++
++	if (uhw->inlen && !ib_is_udata_cleared(uhw, 0, uhw->inlen))
+ 		return -EINVAL;
+ 
+ 	memset(props, 0, sizeof(*props));
+@@ -484,10 +493,21 @@ static int mlx5_ib_query_device(struct ib_device *ibdev,
+ 	if (MLX5_CAP_GEN(mdev, block_lb_mc))
+ 		props->device_cap_flags |= IB_DEVICE_BLOCK_MULTICAST_LOOPBACK;
+ 
+-	if (MLX5_CAP_GEN(dev->mdev, eth_net_offloads) &&
+-	    (MLX5_CAP_ETH(dev->mdev, csum_cap)))
++	if (MLX5_CAP_GEN(dev->mdev, eth_net_offloads)) {
++		if (MLX5_CAP_ETH(mdev, csum_cap))
+ 			props->device_cap_flags |= IB_DEVICE_RAW_IP_CSUM;
+ 
++		if (field_avail(typeof(resp), tso_caps, uhw->outlen)) {
++			max_tso = MLX5_CAP_ETH(mdev, max_lso_cap);
++			if (max_tso) {
++				resp.tso_caps.max_tso = 1 << max_tso;
++				resp.tso_caps.supported_qpts |=
++					1 << IB_QPT_RAW_PACKET;
++				resp.response_length += sizeof(resp.tso_caps);
++			}
++		}
++	}
++
+ 	if (MLX5_CAP_GEN(mdev, ipoib_basic_offloads)) {
+ 		props->device_cap_flags |= IB_DEVICE_UD_IP_CSUM;
+ 		props->device_cap_flags |= IB_DEVICE_UD_TSO;
+@@ -539,6 +559,13 @@ static int mlx5_ib_query_device(struct ib_device *ibdev,
+ 	if (!mlx5_core_is_pf(mdev))
+ 		props->device_cap_flags |= IB_DEVICE_VIRTUAL_FUNCTION;
+ 
++	if (uhw->outlen) {
++		err = ib_copy_to_udata(uhw, &resp, resp.response_length);
++
++		if (err)
++			return err;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -947,13 +974,26 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
+ 	if (field_avail(typeof(resp), reserved2, udata->outlen))
+ 		resp.response_length += sizeof(resp.reserved2);
+ 
+-	if (field_avail(typeof(resp), hca_core_clock_offset, udata->outlen)) {
++	if (field_avail(typeof(resp), cmds_supp_uhw, udata->outlen)) {
++		resp.cmds_supp_uhw |= MLX5_USER_CMDS_SUPP_UHW_QUERY_DEVICE;
++		resp.response_length += sizeof(resp.cmds_supp_uhw);
++	}
++
++	/*
++	 * We don't want to expose information from the PCI bar that is located
++	 * after 4096 bytes, so if the arch only supports larger pages, let's
++	 * pretend we don't support reading the HCA's core clock. This is also
++	 * forced by mmap function.
++	 */
++	if (PAGE_SIZE <= 4096 &&
++	    field_avail(typeof(resp), hca_core_clock_offset, udata->outlen)) {
+ 		resp.comp_mask |=
+ 			MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET;
+ 		resp.hca_core_clock_offset =
+ 			offsetof(struct mlx5_init_seg, internal_timer_h) %
+ 			PAGE_SIZE;
+-		resp.response_length += sizeof(resp.hca_core_clock_offset);
++		resp.response_length += sizeof(resp.hca_core_clock_offset) +
++					sizeof(resp.reserved2);
+ 	}
+ 
+ 	err = ib_copy_to_udata(udata, &resp, resp.response_length);
+diff --git a/drivers/infiniband/hw/mlx5/user.h b/drivers/infiniband/hw/mlx5/user.h
+index 99407cbe1a5b..6896a84b33b0 100644
+--- a/drivers/infiniband/hw/mlx5/user.h
++++ b/drivers/infiniband/hw/mlx5/user.h
+@@ -79,6 +79,10 @@ enum mlx5_ib_alloc_ucontext_resp_mask {
+ 	MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET = 1UL << 0,
+ };
+ 
++enum mlx5_user_cmds_supp_uhw {
++	MLX5_USER_CMDS_SUPP_UHW_QUERY_DEVICE = 1 << 0,
++};
++
+ struct mlx5_ib_alloc_ucontext_resp {
+ 	__u32	qp_tab_size;
+ 	__u32	bf_reg_size;
+@@ -93,7 +97,9 @@ struct mlx5_ib_alloc_ucontext_resp {
+ 	__u16	reserved1;
+ 	__u32	comp_mask;
+ 	__u32	response_length;
+-	__u32	reserved2;
++	__u8	cqe_version;
++	__u8	cmds_supp_uhw;
++	__u16	reserved2;
+ 	__u64	hca_core_clock_offset;
+ };
+ 
+@@ -101,6 +107,22 @@ struct mlx5_ib_alloc_pd_resp {
+ 	__u32	pdn;
+ };
+ 
++struct mlx5_ib_tso_caps {
++	__u32 max_tso; /* Maximum tso payload size in bytes */
++
++	/* Corresponding bit will be set if qp type from
++	 * 'enum ib_qp_type' is supported, e.g.
++	 * supported_qpts |= 1 << IB_QPT_UD
++	 */
++	__u32 supported_qpts;
++};
++
++struct mlx5_ib_query_device_resp {
++	__u32	comp_mask;
++	__u32	response_length;
++	struct	mlx5_ib_tso_caps tso_caps;
++};
++
+ struct mlx5_ib_create_cq {
+ 	__u64	buf_addr;
+ 	__u64	db_addr;
+-- 
+2.17.1
+

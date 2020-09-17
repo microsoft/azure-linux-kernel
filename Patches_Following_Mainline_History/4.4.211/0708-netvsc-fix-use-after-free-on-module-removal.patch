@@ -1,0 +1,132 @@
+From b0cc1cfd47d8c5d91bd5fe502e7bf439355941e4 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 19 Apr 2017 15:22:02 -0700
+Subject: netvsc: fix use after free on module removal
+Reply-To: joseph.salisbury@microsoft.com
+
+The NAPI data structure is embedded in the netvsc_device structure
+and is freed when device is closed. There is still a reference
+(in NAPI list) to this which causes a crash in netif_napi_del
+when device is removed. Fix by managing NAPI instances correctly.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 76bb5db5c749dfe19d779aac076133e821b859dd)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ b23f9bbbd4815c7a90e00b429416ba3283956768.log |  1 +
+ drivers/net/hyperv/netvsc.c                  | 34 ++++++++++++++++----
+ drivers/net/hyperv/rndis_filter.c            | 20 ++++++++++--
+ 3 files changed, 46 insertions(+), 9 deletions(-)
+ create mode 100644 b23f9bbbd4815c7a90e00b429416ba3283956768.log
+
+diff --git a/b23f9bbbd4815c7a90e00b429416ba3283956768.log b/b23f9bbbd4815c7a90e00b429416ba3283956768.log
+new file mode 100644
+index 000000000000..2e995d53c0fb
+--- /dev/null
++++ b/b23f9bbbd4815c7a90e00b429416ba3283956768.log
+@@ -0,0 +1 @@
++0001-netvsc-transparent-VF-management.patch
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 06cd57899b6b..a45d91192f05 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -570,6 +570,10 @@ void netvsc_device_remove(struct hv_device *device)
+ 	/* Now, we can close the channel safely */
+ 	vmbus_close(device->channel);
+ 
++	/* And dissassociate NAPI context from device */
++	for (i = 0; i < net_device->num_chn; i++)
++		netif_napi_del(&net_device->chan_table[i].napi);
++
+ 	/* Release all resources */
+ 	free_netvsc_device(net_device);
+ }
+@@ -1285,6 +1289,24 @@ int netvsc_device_add(struct hv_device *device,
+ 
+ 	net_device->ring_size = ring_size;
+ 
++	/* Because the device uses NAPI, all the interrupt batching and
++	 * control is done via Net softirq, not the channel handling
++	 */
++	set_channel_read_mode(device->channel, HV_CALL_ISR);
++
++	/* If we're reopening the device we may have multiple queues, fill the
++	 * chn_table with the default channel to use it before subchannels are
++	 * opened.
++	 * Initialize the channel state before we open;
++	 * we can be interrupted as soon as we open the channel.
++	 */
++
++	for (i = 0; i < VRSS_CHANNEL_MAX; i++) {
++		struct netvsc_channel *nvchan = &net_device->chan_table[i];
++
++		nvchan->channel = device->channel;
++	}
++
+ 	/* Open the channel */
+ 	ret = vmbus_open(device->channel, ring_size * PAGE_SIZE,
+ 			 ring_size * PAGE_SIZE, NULL, 0,
+@@ -1298,12 +1320,10 @@ int netvsc_device_add(struct hv_device *device,
+ 	/* Channel is opened */
+ 	pr_info("hv_netvsc channel opened successfully\n");
+ 
+-	/* If we're reopening the device we may have multiple queues, fill the
+-	 * chn_table with the default channel to use it before subchannels are
+-	 * opened.
+-	 */
+-	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
+-		net_device->chan_table[i].channel = device->channel;
++	/* Enable NAPI handler for init callbacks */
++	netif_napi_add(ndev, &net_device->chan_table[0].napi,
++		       netvsc_poll, NAPI_POLL_WEIGHT);
++	napi_enable(&net_device->chan_table[0].napi);
+ 
+ 	/* Writing nvdev pointer unlocks netvsc_send(), make sure chn_table is
+ 	 * populated.
+@@ -1323,6 +1343,8 @@ int netvsc_device_add(struct hv_device *device,
+ 	return ret;
+ 
+ close:
++	netif_napi_del(&net_device->chan_table[0].napi);
++
+ 	/* Now, we can close the channel safely */
+ 	vmbus_close(device->channel);
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 480345f0bfff..c8f1ef577453 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1014,12 +1014,26 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 	nvscdev->chan_table[chn_index].mrc.buf
+ 		= vzalloc(NETVSC_RECVSLOT_MAX * sizeof(struct recv_comp_data));
+ 
++	if (!nvchan->mrc.buf)
++		return;
++
++	/* Because the device uses NAPI, all the interrupt batching and
++	 * control is done via Net softirq, not the channel handling
++	 */
++	set_channel_read_mode(new_sc, HV_CALL_ISR);
++
++	/* Set the channel before opening.*/
++	nvchan->channel = new_sc;
++	netif_napi_add(ndev, &nvchan->napi,
++		       netvsc_poll, NAPI_POLL_WEIGHT);
++
+ 	ret = vmbus_open(new_sc, nvscdev->ring_size * PAGE_SIZE,
+ 			 nvscdev->ring_size * PAGE_SIZE, NULL, 0,
+-			 netvsc_channel_cb, new_sc);
+-
++			 netvsc_channel_cb, nvchan);
+ 	if (ret == 0)
+-		nvscdev->chan_table[chn_index].channel = new_sc;
++		napi_enable(&nvchan->napi);
++	else
++		netdev_err(ndev, "sub channel open failed (%d)\n", ret);
+ 
+ 	spin_lock_irqsave(&nvscdev->sc_lock, flags);
+ 	nvscdev->num_sc_offered--;
+-- 
+2.17.1
+

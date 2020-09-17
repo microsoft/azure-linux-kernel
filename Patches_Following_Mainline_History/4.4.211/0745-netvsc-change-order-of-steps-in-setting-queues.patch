@@ -1,0 +1,48 @@
+From 0d7f7f7eebbe29f565a768734b81779eabbfe26a Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 19 Jul 2017 11:53:14 -0700
+Subject: netvsc: change order of steps in setting queues
+Reply-To: joseph.salisbury@microsoft.com
+
+This fixes the error unwind logic for incorrect number of queues.
+If netif_set_real_num_XX_queues failed then rndis_filter_device_add
+would have been called twice. Since input arguments are already
+ranged checked this is a hypothetical only problem, not possible
+in actual code.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit a5e1ec3833211bc0136649a89ee3a29355c7b43b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index c9944af70b16..23d18d48955d 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -676,17 +676,15 @@ static int netvsc_set_queues(struct net_device *net, struct hv_device *dev,
+ 	device_info.ring_size = ring_size;
+ 	device_info.max_num_vrss_chns = num_chn;
+ 
+-	ret = rndis_filter_device_add(dev, &device_info);
+-	if (ret)
+-		return ret;
+-
+ 	ret = netif_set_real_num_tx_queues(net, num_chn);
+ 	if (ret)
+ 		return ret;
+ 
+ 	ret = netif_set_real_num_rx_queues(net, num_chn);
++	if (ret)
++		return ret;
+ 
+-	return ret;
++	return rndis_filter_device_add(dev, &device_info);
+ }
+ 
+ static int netvsc_set_channels(struct net_device *net,
+-- 
+2.17.1
+

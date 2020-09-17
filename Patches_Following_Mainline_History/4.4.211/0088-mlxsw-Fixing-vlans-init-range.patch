@@ -1,4 +1,4 @@
-From 7a26d24b4867972be857740aac386fdf3e80466e Mon Sep 17 00:00:00 2001
+From 816fe0d5ff8c4830fb5691689f9a81477fb23021 Mon Sep 17 00:00:00 2001
 From: Elad Raz <eladr@mellanox.com>
 Date: Wed, 6 Jan 2016 13:01:08 +0100
 Subject: mlxsw: Fixing vlans init range

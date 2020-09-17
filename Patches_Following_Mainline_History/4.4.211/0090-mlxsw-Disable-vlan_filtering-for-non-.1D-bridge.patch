@@ -1,4 +1,4 @@
-From e20d92f860e700169c44898d01e944ca5f122ef3 Mon Sep 17 00:00:00 2001
+From d640cca2dea5ff32165ac82fb204055317565772 Mon Sep 17 00:00:00 2001
 From: Elad Raz <eladr@mellanox.com>
 Date: Wed, 6 Jan 2016 13:01:10 +0100
 Subject: mlxsw: Disable vlan_filtering for non .1D bridge

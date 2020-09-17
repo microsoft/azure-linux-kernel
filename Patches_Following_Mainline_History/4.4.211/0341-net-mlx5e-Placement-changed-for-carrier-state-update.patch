@@ -1,0 +1,45 @@
+From 63c9e29e786e8cb423faf45e81f7731560b35205 Mon Sep 17 00:00:00 2001
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Wed, 2 Mar 2016 00:13:33 +0200
+Subject: net/mlx5e: Placement changed for carrier state updates
+Reply-To: joseph.salisbury@microsoft.com
+
+More proper to declare carrier state UP only after the channels
+are ready for traffic.
+
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit ce89ef36d2544b4180fdb9ce9e2918196b0082f8)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index ecaaf03fe224..973da56813d6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1463,8 +1463,8 @@ int mlx5e_open_locked(struct net_device *netdev)
+ 		goto err_close_channels;
+ 	}
+ 
+-	mlx5e_update_carrier(priv);
+ 	mlx5e_redirect_rqts(priv);
++	mlx5e_update_carrier(priv);
+ 	mlx5e_timestamp_init(priv);
+ 
+ 	schedule_delayed_work(&priv->update_stats_work, 0);
+@@ -1503,8 +1503,8 @@ int mlx5e_close_locked(struct net_device *netdev)
+ 	clear_bit(MLX5E_STATE_OPENED, &priv->state);
+ 
+ 	mlx5e_timestamp_cleanup(priv);
+-	mlx5e_redirect_rqts(priv);
+ 	netif_carrier_off(priv->netdev);
++	mlx5e_redirect_rqts(priv);
+ 	mlx5e_close_channels(priv);
+ 
+ 	return 0;
+-- 
+2.17.1
+

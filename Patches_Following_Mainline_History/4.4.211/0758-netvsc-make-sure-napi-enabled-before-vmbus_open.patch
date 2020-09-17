@@ -1,0 +1,67 @@
+From f0d6eff4cbe8e3959e38c115fe0203e76dd9cf0f Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 3 May 2017 16:59:21 -0700
+Subject: netvsc: make sure napi enabled before vmbus_open
+Reply-To: joseph.salisbury@microsoft.com
+
+This fixes a race where vmbus callback for new packet arriving
+could occur before NAPI is initialized.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 2be0f2644598ee4b8ea0ed6a32913e1ce0212c9c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c       | 6 +++++-
+ drivers/net/hyperv/rndis_filter.c | 4 ++++
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 8a2c10e3ecc7..6b55e70c3207 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1266,6 +1266,10 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 		nvchan->net_device = net_device;
+ 	}
+ 
++	/* Enable NAPI handler before init callbacks */
++	netif_napi_add(ndev, &net_device->chan_table[0].napi,
++		       netvsc_poll, NAPI_POLL_WEIGHT);
++
+ 	/* Open the channel */
+ 	ret = vmbus_open(device->channel, ring_size * PAGE_SIZE,
+ 			 ring_size * PAGE_SIZE, NULL, 0,
+@@ -1273,6 +1277,7 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 			 net_device->chan_table);
+ 
+ 	if (ret != 0) {
++		netif_napi_del(&net_device->chan_table[0].napi);
+ 		netdev_err(ndev, "unable to open channel: %d\n", ret);
+ 		goto cleanup;
+ 	}
+@@ -1280,7 +1285,6 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 	/* Channel is opened */
+ 	pr_info("hv_netvsc channel opened successfully\n");
+ 
+-	/* Enable NAPI handler for init callbacks */
+ 	napi_enable(&net_device->chan_table[0].napi);
+ 
+ 	/* Writing nvdev pointer unlocks netvsc_send(), make sure chn_table is
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 3f8b5424434c..61f6c655a1d9 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1044,6 +1044,10 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 	ret = vmbus_open(new_sc, nvscdev->ring_size * PAGE_SIZE,
+ 			 nvscdev->ring_size * PAGE_SIZE, NULL, 0,
+ 			 netvsc_channel_cb, nvchan);
++	if (ret == 0)
++		napi_enable(&nvchan->napi);
++	else
++		netif_napi_del(&nvchan->napi);
+ 
+ 	atomic_inc(&nvscdev->open_chn);
+ 	wake_up(&nvscdev->subchan_open);
+-- 
+2.17.1
+

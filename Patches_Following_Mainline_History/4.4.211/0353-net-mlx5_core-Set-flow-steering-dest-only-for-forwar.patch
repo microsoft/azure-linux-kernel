@@ -1,0 +1,130 @@
+From 83a94064dc2561bb0792fcda08c742880953e806 Mon Sep 17 00:00:00 2001
+From: Amir Vadai <amir@vadai.me>
+Date: Tue, 8 Mar 2016 12:42:33 +0200
+Subject: net/mlx5_core: Set flow steering dest only for forward rules
+Reply-To: joseph.salisbury@microsoft.com
+
+We need to handle flow table entry destinations only if the action
+associated with the rule is forwarding (MLX5_FLOW_CONTEXT_ACTION_FWD_DEST).
+
+Fixes: 26a8145390b3 ('net/mlx5_core: Introduce flow steering firmware commands')
+Signed-off-by: Amir Vadai <amir@vadai.me>
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 60ab4584f5bf4e496baec7b090a4b382d03b2100)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/fs_cmd.c  | 29 ++++++++++---------
+ .../net/ethernet/mellanox/mlx5/core/fs_core.c | 28 +++++++++---------
+ 2 files changed, 29 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+index 5096f4f336bd..da383d527c8b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+@@ -168,19 +168,22 @@ static int mlx5_cmd_set_fte(struct mlx5_core_dev *dev,
+ 				      match_value);
+ 	memcpy(in_match_value, &fte->val, MLX5_ST_SZ_BYTES(fte_match_param));
+ 
+-	in_dests = MLX5_ADDR_OF(flow_context, in_flow_context, destination);
+-	list_for_each_entry(dst, &fte->node.children, node.list) {
+-		unsigned int id;
+-
+-		MLX5_SET(dest_format_struct, in_dests, destination_type,
+-			 dst->dest_attr.type);
+-		if (dst->dest_attr.type ==
+-		    MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE)
+-			id = dst->dest_attr.ft->id;
+-		else
+-			id = dst->dest_attr.tir_num;
+-		MLX5_SET(dest_format_struct, in_dests, destination_id, id);
+-		in_dests += MLX5_ST_SZ_BYTES(dest_format_struct);
++	if (fte->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
++		in_dests = MLX5_ADDR_OF(flow_context, in_flow_context, destination);
++		list_for_each_entry(dst, &fte->node.children, node.list) {
++			unsigned int id;
++
++			MLX5_SET(dest_format_struct, in_dests, destination_type,
++				 dst->dest_attr.type);
++			if (dst->dest_attr.type ==
++			    MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE) {
++				id = dst->dest_attr.ft->id;
++			} else {
++				id = dst->dest_attr.tir_num;
++			}
++			MLX5_SET(dest_format_struct, in_dests, destination_id, id);
++			in_dests += MLX5_ST_SZ_BYTES(dest_format_struct);
++		}
+ 	}
+ 	memset(out, 0, sizeof(out));
+ 	err = mlx5_cmd_exec_check_status(dev, in, inlen, out,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index bf3446794bd5..89b6e2acfea3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -367,13 +367,8 @@ static void del_rule(struct fs_node *node)
+ 	memcpy(match_value, fte->val, sizeof(fte->val));
+ 	fs_get_obj(ft, fg->node.parent);
+ 	list_del(&rule->node.list);
+-	if (rule->sw_action == MLX5_FLOW_CONTEXT_ACTION_FWD_NEXT_PRIO) {
+-		mutex_lock(&rule->dest_attr.ft->lock);
+-		list_del(&rule->next_ft);
+-		mutex_unlock(&rule->dest_attr.ft->lock);
+-	}
+-	fte->dests_size--;
+-	if (fte->dests_size) {
++	if ((fte->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) &&
++	    --fte->dests_size) {
+ 		err = mlx5_cmd_update_fte(dev, ft,
+ 					  fg->id, fte);
+ 		if (err)
+@@ -837,7 +832,8 @@ static struct mlx5_flow_rule *alloc_rule(struct mlx5_flow_destination *dest)
+ 
+ 	INIT_LIST_HEAD(&rule->next_ft);
+ 	rule->node.type = FS_TYPE_FLOW_DEST;
+-	memcpy(&rule->dest_attr, dest, sizeof(*dest));
++	if (dest)
++		memcpy(&rule->dest_attr, dest, sizeof(*dest));
+ 
+ 	return rule;
+ }
+@@ -860,12 +856,10 @@ static struct mlx5_flow_rule *add_rule_fte(struct fs_fte *fte,
+ 	 * end of the list for forward to next prio rules.
+ 	 */
+ 	tree_init_node(&rule->node, 1, del_rule);
+-	if (dest && dest->type != MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE)
+-		list_add(&rule->node.list, &fte->node.children);
+-	else
+-		list_add_tail(&rule->node.list, &fte->node.children);
+-	fte->dests_size++;
+-	if (fte->dests_size == 1)
++	list_add_tail(&rule->node.list, &fte->node.children);
++	if (dest)
++		fte->dests_size++;
++	if (fte->dests_size == 1 || !dest)
+ 		err = mlx5_cmd_create_fte(get_dev(&ft->node),
+ 					  ft, fg->id, fte);
+ 	else
+@@ -881,7 +875,8 @@ static struct mlx5_flow_rule *add_rule_fte(struct fs_fte *fte,
+ free_rule:
+ 	list_del(&rule->node.list);
+ 	kfree(rule);
+-	fte->dests_size--;
++	if (dest)
++		fte->dests_size--;
+ 	return ERR_PTR(err);
+ }
+ 
+@@ -1101,6 +1096,9 @@ _mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+ 	struct mlx5_flow_group *g;
+ 	struct mlx5_flow_rule *rule;
+ 
++	if ((action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) && !dest)
++		return ERR_PTR(-EINVAL);
++
+ 	nested_lock_ref_node(&ft->node, FS_MUTEX_GRANDPARENT);
+ 	fs_for_each_fg(g, ft)
+ 		if (compare_match_criteria(g->mask.match_criteria_enable,
+-- 
+2.17.1
+

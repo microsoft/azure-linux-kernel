@@ -1,4 +1,4 @@
-From 9b7731ead2891a5306818fa5169b549a32efb2ac Mon Sep 17 00:00:00 2001
+From f2ebf29f6c282b8094354a44de6d2741db6e6ccd Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:10 +0200
 Subject: net/mlx5: Add HW capabilities and structs for SR-IOV E-Switch

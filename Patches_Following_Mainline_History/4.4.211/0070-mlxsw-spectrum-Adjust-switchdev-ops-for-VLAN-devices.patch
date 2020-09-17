@@ -1,4 +1,4 @@
-From c057fcee6d94f266245fc34d4d0de718d8dff49b Mon Sep 17 00:00:00 2001
+From c5dde7c24f7fb0bf6706d3f01b30d70dd48a158c Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:41 +0100
 Subject: mlxsw: spectrum: Adjust switchdev ops for VLAN devices

@@ -1,4 +1,4 @@
-From bdbbd318d40bf1e4580fe3ab87b813e45b7032f8 Mon Sep 17 00:00:00 2001
+From 16253a21a7590cf190f8e61af09b52afe92c3bdb Mon Sep 17 00:00:00 2001
 From: Moni Shoua <monis@mellanox.com>
 Date: Sun, 6 Dec 2015 18:07:40 +0200
 Subject: net/mlx4_core: Support mirroring VF DMFS rules on both ports

@@ -1,4 +1,4 @@
-From 37bc1bd036bb43e12f85c5a771761a1df1d7e258 Mon Sep 17 00:00:00 2001
+From ab1ada06db9c298fcc614573e820c12f813ade0f Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:47 +0100
 Subject: mlxsw: spectrum: Add support for VLAN devices on top of LAG

@@ -1,0 +1,129 @@
+From 90e5d560b3075e9fa53223c4de8405af9aee088c Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 22 Mar 2017 14:50:57 -0700
+Subject: netvsc: fix NAPI performance regression
+Reply-To: joseph.salisbury@microsoft.com
+
+When using NAPI, the single stream performance declined signifcantly
+because the poll routine was updating host after every burst
+of packets. This excess signalling caused host throttling.
+
+This fix restores the old behavior. Host is only signalled
+after the ring has been emptied.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit f4f1c23d6e41f5ee4973a6da65cba1e1c536ec29)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  1 +
+ drivers/net/hyperv/netvsc.c     | 48 +++++++++++++++------------------
+ 2 files changed, 22 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 5ff6b1a860a9..8673a334b843 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -728,6 +728,7 @@ struct net_device_context {
+ /* Per channel data */
+ struct netvsc_channel {
+ 	struct vmbus_channel *channel;
++	const struct vmpacket_descriptor *desc;
+ 	struct napi_struct napi;
+ 	struct multi_send_data msd;
+ 	struct multi_recv_comp mrc;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 6b9c2e590bf2..9b17f18ed152 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1198,7 +1198,6 @@ static int netvsc_process_raw_pkt(struct hv_device *device,
+ 				  struct vmbus_channel *channel,
+ 				  struct netvsc_device *net_device,
+ 				  struct net_device *ndev,
+-				  u64 request_id,
+ 				  const struct vmpacket_descriptor *desc)
+ {
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+@@ -1220,7 +1219,7 @@ static int netvsc_process_raw_pkt(struct hv_device *device,
+ 
+ 	default:
+ 		netdev_err(ndev, "unhandled packet type %d, tid %llx\n",
+-			   desc->type, request_id);
++			   desc->type, desc->trans_id);
+ 		break;
+ 	}
+ 
+@@ -1243,34 +1242,32 @@ int netvsc_poll(struct napi_struct *napi, int budget)
+ 	u16 q_idx = channel->offermsg.offer.sub_channel_index;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct netvsc_device *net_device = net_device_to_netvsc_device(ndev);
+-	const struct vmpacket_descriptor *desc;
+ 	int work_done = 0;
+ 
+-	desc = hv_pkt_iter_first(channel);
+-	while (desc) {
+-		int count;
++	/* If starting a new interval */
++	if (!nvchan->desc)
++		nvchan->desc = hv_pkt_iter_first(channel);
+ 
+-		count = netvsc_process_raw_pkt(device, channel, net_device,
+-					       ndev, desc->trans_id, desc);
+-		work_done += count;
+-		desc = __hv_pkt_iter_next(channel, desc);
+-
+-		/* If receive packet budget is exhausted, reschedule */
+-		if (work_done >= budget) {
+-			work_done = budget;
+-			break;
+-		}
++	while (nvchan->desc && work_done < budget) {
++		work_done += netvsc_process_raw_pkt(device, channel, net_device,
++						    ndev, nvchan->desc);
++		nvchan->desc = hv_pkt_iter_next(channel, nvchan->desc);
+ 	}
+-	hv_pkt_iter_close(channel);
+ 
+-	/* If ring is empty and NAPI is not doing polling */
++	/* If receive ring was exhausted
++	 * and not doing busy poll
++	 * then re-enable host interrupts
++	 *  and reschedule if ring is not empty.
++	 */
+ 	if (work_done < budget &&
+ 	    napi_complete_done(napi, work_done) &&
+ 	    hv_end_read(&channel->inbound) != 0)
+ 		napi_reschedule(napi);
+ 
+ 	netvsc_chk_recv_comp(net_device, channel, q_idx);
+-	return work_done;
++
++	/* Driver may overshoot since multiple packets per descriptor */
++	return min(work_done, budget);
+ }
+ 
+ 
+@@ -1278,15 +1275,12 @@ void netvsc_channel_cb(void *context)
+ {
+ 	struct netvsc_channel *nvchan = context;
+ 
+-	net_device = net_device_to_netvsc_device(ndev);
+-	if (unlikely(net_device->destroy) &&
+-	    netvsc_channel_idle(net_device, q_idx))
+-		return;
+-
+-	/* disable interupts from host */
+-	hv_begin_read(&nvchan->channel->inbound);
++	if (napi_schedule_prep(&nvchan->napi)) {
++		/* disable interupts from host */
++		hv_begin_read(&nvchan->channel->inbound);
+ 
+-	napi_schedule(&nvchan->napi);
++		__napi_schedule(&nvchan->napi);
++	}
+ }
+ 
+ /*
+-- 
+2.17.1
+

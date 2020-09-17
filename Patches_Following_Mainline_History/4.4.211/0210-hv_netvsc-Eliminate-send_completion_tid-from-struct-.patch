@@ -1,4 +1,4 @@
-From a21713c93412b16ff0fb80ac4a8e22c5fdf2dd9e Mon Sep 17 00:00:00 2001
+From a83b1b1c8c80af5eb840a11ed6094220759d32f7 Mon Sep 17 00:00:00 2001
 From: KY Srinivasan <kys@microsoft.com>
 Date: Tue, 1 Dec 2015 16:43:14 -0800
 Subject: hv_netvsc: Eliminate send_completion_tid from struct hv_netvsc_packet

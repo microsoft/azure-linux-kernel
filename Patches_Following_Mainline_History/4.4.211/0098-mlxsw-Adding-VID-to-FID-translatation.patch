@@ -1,4 +1,4 @@
-From b12ce820a8f3fcd68d082d3263ee7992114cb236 Mon Sep 17 00:00:00 2001
+From c0ba148138eb90c707ff9df8cfaa3cac9a72f456 Mon Sep 17 00:00:00 2001
 From: Elad Raz <eladr@mellanox.com>
 Date: Sun, 10 Jan 2016 21:06:27 +0100
 Subject: mlxsw: Adding VID to FID translatation

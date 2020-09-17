@@ -1,4 +1,4 @@
-From 25e7d76cb11ed56de62ae80d4828c87a58c0514a Mon Sep 17 00:00:00 2001
+From 337e3bb012f0e30313bd8e5e51a69f28ec5ff9a1 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 10 Dec 2015 12:19:35 -0800
 Subject: hv_netvsc: Fix race condition on Multi-Send Data field

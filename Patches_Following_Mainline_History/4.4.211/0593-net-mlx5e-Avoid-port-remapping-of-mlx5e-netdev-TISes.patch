@@ -1,0 +1,58 @@
+From edf7f868abb4a2156d9cc90474ffde66928572da Mon Sep 17 00:00:00 2001
+From: Aviv Heller <avivh@mellanox.com>
+Date: Mon, 30 May 2016 18:31:13 +0300
+Subject: net/mlx5e: Avoid port remapping of mlx5e netdev TISes
+Reply-To: joseph.salisbury@microsoft.com
+
+TISes belonging to the mlx5e NIC should not be
+subject to port remap.
+
+Signed-off-by: Aviv Heller <avivh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+(cherry picked from commit db60b80273c5e0e61c2ad59d2903c9988b9d184c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c   |  4 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h | 12 ++++++++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index ec5036237cb8..8f4306ccdbed 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1964,6 +1964,10 @@ static int mlx5e_create_tis(struct mlx5e_priv *priv, int tc)
+ 
+ 	MLX5_SET(tisc, tisc, prio, tc << 1);
+ 	MLX5_SET(tisc, tisc, transport_domain, mdev->mlx5e_res.td.tdn);
++
++	if (mlx5_lag_is_lacp_owner(mdev))
++		MLX5_SET(tisc, tisc, strict_lag_tx_port_affinity, 1);
++
+ 	return mlx5_core_create_tis(mdev, in, sizeof(in), &priv->tisn[tc]);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index 7f7aff393361..b772fe169b18 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -106,4 +106,16 @@ void mlx5_remove_dev_by_protocol(struct mlx5_core_dev *dev, int protocol);
+ void mlx5e_init(void);
+ void mlx5e_cleanup(void);
+ 
++static inline int mlx5_lag_is_lacp_owner(struct mlx5_core_dev *dev)
++{
++	/* LACP owner conditions:
++	 * 1) Function is physical.
++	 * 2) LAG is supported by FW.
++	 * 3) LAG is managed by driver (currently the only option).
++	 */
++	return  MLX5_CAP_GEN(dev, vport_group_manager) &&
++		   (MLX5_CAP_GEN(dev, num_lag_ports) > 1) &&
++		    MLX5_CAP_GEN(dev, lag_master);
++}
++
+ #endif /* __MLX5_CORE_H__ */
+-- 
+2.17.1
+

@@ -1,4 +1,4 @@
-From a3446c996087b2d4d3de47567dfa18467a000a66 Mon Sep 17 00:00:00 2001
+From c3afe2f73297bf741320601648634db2c726b7b5 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Tue, 15 Dec 2015 20:30:10 +0200
 Subject: IB/core: Add ib_is_udata_cleared

@@ -1,4 +1,4 @@
-From a46246bd9e179645e4a0d95f7a32a80fce1150ad Mon Sep 17 00:00:00 2001
+From 717f4d4e0bb247c1ac000f48dfb667023a2a794c Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Wed, 23 Dec 2015 18:47:20 +0200
 Subject: net/mlx5_core: Introduce access functions to query vport RoCE fields

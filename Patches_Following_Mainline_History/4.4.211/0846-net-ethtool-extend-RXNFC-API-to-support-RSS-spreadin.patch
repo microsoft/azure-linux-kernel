@@ -1,0 +1,271 @@
+From 3ec2ecc8a30fe219ea9a063b23a21f552d79fb0a Mon Sep 17 00:00:00 2001
+From: Edward Cree <ecree@solarflare.com>
+Date: Thu, 8 Mar 2018 15:45:03 +0000
+Subject: net: ethtool: extend RXNFC API to support RSS spreading of filter
+ matches
+Reply-To: joseph.salisbury@microsoft.com
+
+We use a two-step process to configure a filter with RSS spreading.  First,
+ the RSS context is allocated and configured using ETHTOOL_SRSSH; this
+ returns an identifier (rss_context) which can then be passed to subsequent
+ invocations of ETHTOOL_SRXCLSRLINS to specify that the offset from the RSS
+ indirection table lookup should be added to the queue number (ring_cookie)
+ when delivering the packet.  Drivers for devices which can only use the
+ indirection table entry directly (not add it to a base queue number)
+ should reject rule insertions combining RSS with a nonzero ring_cookie.
+
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 84a1d9c4820080bebcbd413a845076dcb62f45fa)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/ethtool.h      |  5 +++
+ include/uapi/linux/ethtool.h | 32 ++++++++++++++----
+ net/core/ethtool.c           | 64 +++++++++++++++++++++++++++---------
+ 3 files changed, 80 insertions(+), 21 deletions(-)
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 8a400a54c92e..14bcd4b0586a 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -344,6 +344,11 @@ struct ethtool_ops {
+ 			    u8 *hfunc);
+ 	int	(*set_rxfh)(struct net_device *, const u32 *indir,
+ 			    const u8 *key, const u8 hfunc);
++	int	(*get_rxfh_context)(struct net_device *, u32 *indir, u8 *key,
++				    u8 *hfunc, u32 rss_context);
++	int	(*set_rxfh_context)(struct net_device *, const u32 *indir,
++				    const u8 *key, const u8 hfunc,
++				    u32 *rss_context, bool delete);
+ 	void	(*get_channels)(struct net_device *, struct ethtool_channels *);
+ 	int	(*set_channels)(struct net_device *, struct ethtool_channels *);
+ 	int	(*get_dump_flag)(struct net_device *, struct ethtool_dump *);
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 9051a848aa3c..12c4704fbbc0 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -836,12 +836,15 @@ static inline __u64 ethtool_get_flow_spec_ring_vf(__u64 ring_cookie)
+  * @flow_type: Type of flow to be affected, e.g. %TCP_V4_FLOW
+  * @data: Command-dependent value
+  * @fs: Flow classification rule
++ * @rss_context: RSS context to be affected
+  * @rule_cnt: Number of rules to be affected
+  * @rule_locs: Array of used rule locations
+  *
+  * For %ETHTOOL_GRXFH and %ETHTOOL_SRXFH, @data is a bitmask indicating
+  * the fields included in the flow hash, e.g. %RXH_IP_SRC.  The following
+- * structure fields must not be used.
++ * structure fields must not be used, except that if @flow_type includes
++ * the %FLOW_RSS flag, then @rss_context determines which RSS context to
++ * act on.
+  *
+  * For %ETHTOOL_GRXRINGS, @data is set to the number of RX rings/queues
+  * on return.
+@@ -853,7 +856,9 @@ static inline __u64 ethtool_get_flow_spec_ring_vf(__u64 ring_cookie)
+  * set in @data then special location values should not be used.
+  *
+  * For %ETHTOOL_GRXCLSRULE, @fs.@location specifies the location of an
+- * existing rule on entry and @fs contains the rule on return.
++ * existing rule on entry and @fs contains the rule on return; if
++ * @fs.@flow_type includes the %FLOW_RSS flag, then @rss_context is
++ * filled with the RSS context ID associated with the rule.
+  *
+  * For %ETHTOOL_GRXCLSRLALL, @rule_cnt specifies the array size of the
+  * user buffer for @rule_locs on entry.  On return, @data is the size
+@@ -864,7 +869,11 @@ static inline __u64 ethtool_get_flow_spec_ring_vf(__u64 ring_cookie)
+  * For %ETHTOOL_SRXCLSRLINS, @fs specifies the rule to add or update.
+  * @fs.@location either specifies the location to use or is a special
+  * location value with %RX_CLS_LOC_SPECIAL flag set.  On return,
+- * @fs.@location is the actual rule location.
++ * @fs.@location is the actual rule location.  If @fs.@flow_type
++ * includes the %FLOW_RSS flag, @rss_context is the RSS context ID to
++ * use for flow spreading traffic which matches this rule.  The value
++ * from the rxfh indirection table will be added to @fs.@ring_cookie
++ * to choose which ring to deliver to.
+  *
+  * For %ETHTOOL_SRXCLSRLDEL, @fs.@location specifies the location of an
+  * existing rule on entry.
+@@ -885,7 +894,10 @@ struct ethtool_rxnfc {
+ 	__u32				flow_type;
+ 	__u64				data;
+ 	struct ethtool_rx_flow_spec	fs;
+-	__u32				rule_cnt;
++	union {
++		__u32			rule_cnt;
++		__u32			rss_context;
++	};
+ 	__u32				rule_locs[0];
+ };
+ 
+@@ -912,7 +924,11 @@ struct ethtool_rxfh_indir {
+ /**
+  * struct ethtool_rxfh - command to get/set RX flow hash indir or/and hash key.
+  * @cmd: Specific command number - %ETHTOOL_GRSSH or %ETHTOOL_SRSSH
+- * @rss_context: RSS context identifier.
++ * @rss_context: RSS context identifier.  Context 0 is the default for normal
++ *	traffic; other contexts can be referenced as the destination for RX flow
++ *	classification rules.  %ETH_RXFH_CONTEXT_ALLOC is used with command
++ *	%ETHTOOL_SRSSH to allocate a new RSS context; on return this field will
++ *	contain the ID of the newly allocated context.
+  * @indir_size: On entry, the array size of the user buffer for the
+  *	indirection table, which may be zero, or (for %ETHTOOL_SRSSH),
+  *	%ETH_RXFH_INDIR_NO_CHANGE.  On return from %ETHTOOL_GRSSH,
+@@ -931,7 +947,8 @@ struct ethtool_rxfh_indir {
+  * size should be returned.  For %ETHTOOL_SRSSH, an @indir_size of
+  * %ETH_RXFH_INDIR_NO_CHANGE means that indir table setting is not requested
+  * and a @indir_size of zero means the indir table should be reset to default
+- * values. An hfunc of zero means that hash function setting is not requested.
++ * values (if @rss_context == 0) or that the RSS context should be deleted.
++ * An hfunc of zero means that hash function setting is not requested.
+  */
+ struct ethtool_rxfh {
+ 	__u32   cmd;
+@@ -943,6 +960,7 @@ struct ethtool_rxfh {
+ 	__u32	rsvd32;
+ 	__u32   rss_config[0];
+ };
++#define ETH_RXFH_CONTEXT_ALLOC		0xffffffff
+ #define ETH_RXFH_INDIR_NO_CHANGE	0xffffffff
+ 
+ /**
+@@ -1511,6 +1529,8 @@ static inline int ethtool_validate_duplex(__u8 duplex)
+ /* Flag to enable additional fields in struct ethtool_rx_flow_spec */
+ #define	FLOW_EXT	0x80000000
+ #define	FLOW_MAC_EXT	0x40000000
++/* Flag to enable RSS spreading of traffic matching rule (nfc only) */
++#define	FLOW_RSS	0x20000000
+ 
+ /* L3-L4 network traffic flow hash options */
+ #define	RXH_L2DA	(1 << 1)
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index da8a8bdfb177..6d6d265d6ca1 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -990,6 +990,15 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
+ 	if (copy_from_user(&info, useraddr, info_size))
+ 		return -EFAULT;
+ 
++	/* If FLOW_RSS was requested then user-space must be using the
++	 * new definition, as FLOW_RSS is newer.
++	 */
++	if (cmd == ETHTOOL_GRXFH && info.flow_type & FLOW_RSS) {
++		info_size = sizeof(info);
++		if (copy_from_user(&info, useraddr, info_size))
++			return -EFAULT;
++	}
++
+ 	if (info.cmd == ETHTOOL_GRXCLSRLALL) {
+ 		if (info.rule_cnt > 0) {
+ 			if (info.rule_cnt <= KMALLOC_MAX_SIZE / sizeof(u32))
+@@ -1219,9 +1228,11 @@ static noinline_for_stack int ethtool_get_rxfh(struct net_device *dev,
+ 	user_key_size = rxfh.key_size;
+ 
+ 	/* Check that reserved fields are 0 for now */
+-	if (rxfh.rss_context || rxfh.rsvd8[0] || rxfh.rsvd8[1] ||
+-	    rxfh.rsvd8[2] || rxfh.rsvd32)
++	if (rxfh.rsvd8[0] || rxfh.rsvd8[1] || rxfh.rsvd8[2] || rxfh.rsvd32)
+ 		return -EINVAL;
++	/* Most drivers don't handle rss_context, check it's 0 as well */
++	if (rxfh.rss_context && !ops->get_rxfh_context)
++		return -EOPNOTSUPP;
+ 
+ 	rxfh.indir_size = dev_indir_size;
+ 	rxfh.key_size = dev_key_size;
+@@ -1244,7 +1255,12 @@ static noinline_for_stack int ethtool_get_rxfh(struct net_device *dev,
+ 	if (user_key_size)
+ 		hkey = rss_config + indir_bytes;
+ 
+-	ret = dev->ethtool_ops->get_rxfh(dev, indir, hkey, &dev_hfunc);
++	if (rxfh.rss_context)
++		ret = dev->ethtool_ops->get_rxfh_context(dev, indir, hkey,
++							 &dev_hfunc,
++							 rxfh.rss_context);
++	else
++		ret = dev->ethtool_ops->get_rxfh(dev, indir, hkey, &dev_hfunc);
+ 	if (ret)
+ 		goto out;
+ 
+@@ -1274,6 +1290,7 @@ static noinline_for_stack int ethtool_set_rxfh(struct net_device *dev,
+ 	u8 *hkey = NULL;
+ 	u8 *rss_config;
+ 	u32 rss_cfg_offset = offsetof(struct ethtool_rxfh, rss_config[0]);
++	bool delete = false;
+ 
+ 	if (!ops->get_rxnfc || !ops->set_rxfh)
+ 		return -EOPNOTSUPP;
+@@ -1287,9 +1304,11 @@ static noinline_for_stack int ethtool_set_rxfh(struct net_device *dev,
+ 		return -EFAULT;
+ 
+ 	/* Check that reserved fields are 0 for now */
+-	if (rxfh.rss_context || rxfh.rsvd8[0] || rxfh.rsvd8[1] ||
+-	    rxfh.rsvd8[2] || rxfh.rsvd32)
++	if (rxfh.rsvd8[0] || rxfh.rsvd8[1] || rxfh.rsvd8[2] || rxfh.rsvd32)
+ 		return -EINVAL;
++	/* Most drivers don't handle rss_context, check it's 0 as well */
++	if (rxfh.rss_context && !ops->set_rxfh_context)
++		return -EOPNOTSUPP;
+ 
+ 	/* If either indir, hash key or function is valid, proceed further.
+ 	 * Must request at least one change: indir size, hash key or function.
+@@ -1314,7 +1333,8 @@ static noinline_for_stack int ethtool_set_rxfh(struct net_device *dev,
+ 	if (ret)
+ 		goto out;
+ 
+-	/* rxfh.indir_size == 0 means reset the indir table to default.
++	/* rxfh.indir_size == 0 means reset the indir table to default (master
++	 * context) or delete the context (other RSS contexts).
+ 	 * rxfh.indir_size == ETH_RXFH_INDIR_NO_CHANGE means leave it unchanged.
+ 	 */
+ 	if (rxfh.indir_size &&
+@@ -1327,9 +1347,13 @@ static noinline_for_stack int ethtool_set_rxfh(struct net_device *dev,
+ 		if (ret)
+ 			goto out;
+ 	} else if (rxfh.indir_size == 0) {
+-		indir = (u32 *)rss_config;
+-		for (i = 0; i < dev_indir_size; i++)
+-			indir[i] = ethtool_rxfh_indir_default(i, rx_rings.data);
++		if (rxfh.rss_context == 0) {
++			indir = (u32 *)rss_config;
++			for (i = 0; i < dev_indir_size; i++)
++				indir[i] = ethtool_rxfh_indir_default(i, rx_rings.data);
++		} else {
++			delete = true;
++		}
+ 	}
+ 
+ 	if (rxfh.key_size) {
+@@ -1342,15 +1366,25 @@ static noinline_for_stack int ethtool_set_rxfh(struct net_device *dev,
+ 		}
+ 	}
+ 
+-	ret = ops->set_rxfh(dev, indir, hkey, rxfh.hfunc);
++	if (rxfh.rss_context)
++		ret = ops->set_rxfh_context(dev, indir, hkey, rxfh.hfunc,
++					    &rxfh.rss_context, delete);
++	else
++		ret = ops->set_rxfh(dev, indir, hkey, rxfh.hfunc);
+ 	if (ret)
+ 		goto out;
+ 
+-	/* indicate whether rxfh was set to default */
+-	if (rxfh.indir_size == 0)
+-		dev->priv_flags &= ~IFF_RXFH_CONFIGURED;
+-	else if (rxfh.indir_size != ETH_RXFH_INDIR_NO_CHANGE)
+-		dev->priv_flags |= IFF_RXFH_CONFIGURED;
++	if (copy_to_user(useraddr + offsetof(struct ethtool_rxfh, rss_context),
++			 &rxfh.rss_context, sizeof(rxfh.rss_context)))
++		ret = -EFAULT;
++
++	if (!rxfh.rss_context) {
++		/* indicate whether rxfh was set to default */
++		if (rxfh.indir_size == 0)
++			dev->priv_flags &= ~IFF_RXFH_CONFIGURED;
++		else if (rxfh.indir_size != ETH_RXFH_INDIR_NO_CHANGE)
++			dev->priv_flags |= IFF_RXFH_CONFIGURED;
++	}
+ 
+ out:
+ 	kfree(rss_config);
+-- 
+2.17.1
+

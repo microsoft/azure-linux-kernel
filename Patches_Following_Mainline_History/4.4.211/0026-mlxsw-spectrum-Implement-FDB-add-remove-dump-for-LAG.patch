@@ -1,4 +1,4 @@
-From 7793aa314370feb596e9e010592a2ddedd1382fd Mon Sep 17 00:00:00 2001
+From 0b88926616aa743ac21df59766dadec8b946fd9e Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 12:12:29 +0100
 Subject: mlxsw: spectrum: Implement FDB add/remove/dump for LAG

@@ -1,4 +1,4 @@
-From 906b22c97a1ec3e46e49ba98407bb24ae92605d7 Mon Sep 17 00:00:00 2001
+From 937c8bdc9b18a362a2d8660a5e37d2683379b00e Mon Sep 17 00:00:00 2001
 From: Moni Shoua <monis@mellanox.com>
 Date: Sun, 6 Dec 2015 18:07:39 +0200
 Subject: net/mlx4_core: Use both physical ports to dispatch link state events

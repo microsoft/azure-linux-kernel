@@ -1,0 +1,93 @@
+From 30b57023ef728ead09ea45feea658eebb6ce8617 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Thu, 6 Apr 2017 14:59:21 -0700
+Subject: netvsc: Initialize all channel related state prior to opening the
+ channel
+Reply-To: joseph.salisbury@microsoft.com
+
+Prior to opening the channel we should have all the state setup to handle
+interrupts. The current code does not do that; fix the bug. This bug
+can result in faults in the interrupt path.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit bffb184247bcc783a40a0e123a9a2de3c5b28157)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c       | 27 +++++++++++++++------------
+ drivers/net/hyperv/rndis_filter.c | 10 ++++++++--
+ 2 files changed, 23 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index c79917a3bc3e..e8608a9f7db9 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1311,6 +1311,21 @@ int netvsc_device_add(struct hv_device *device,
+ 	 */
+ 	set_channel_read_mode(device->channel, HV_CALL_ISR);
+ 
++	/* If we're reopening the device we may have multiple queues, fill the
++	 * chn_table with the default channel to use it before subchannels are
++	 * opened.
++	 * Initialize the channel state before we open;
++	 * we can be interrupted as soon as we open the channel.
++	 */
++
++	for (i = 0; i < VRSS_CHANNEL_MAX; i++) {
++		struct netvsc_channel *nvchan = &net_device->chan_table[i];
++
++		nvchan->channel = device->channel;
++		netif_napi_add(ndev, &nvchan->napi,
++			       netvsc_poll, NAPI_POLL_WEIGHT);
++	}
++
+ 	/* Open the channel */
+ 	ret = vmbus_open(device->channel, ring_size * PAGE_SIZE,
+ 			 ring_size * PAGE_SIZE, NULL, 0,
+@@ -1325,18 +1340,6 @@ int netvsc_device_add(struct hv_device *device,
+ 	/* Channel is opened */
+ 	pr_info("hv_netvsc channel opened successfully\n");
+ 
+-	/* If we're reopening the device we may have multiple queues, fill the
+-	 * chn_table with the default channel to use it before subchannels are
+-	 * opened.
+-	 */
+-	for (i = 0; i < VRSS_CHANNEL_MAX; i++) {
+-		struct netvsc_channel *nvchan = &net_device->chan_table[i];
+-
+-		nvchan->channel = device->channel;
+-		netif_napi_add(ndev, &nvchan->napi,
+-			       netvsc_poll, NAPI_POLL_WEIGHT);
+-	}
+-
+ 	/* Enable NAPI handler for init callbacks */
+ 	napi_enable(&net_device->chan_table[0].napi);
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 2b53d6167bef..848bdd2f6668 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1009,12 +1009,18 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 	if (!nvchan->mrc.buf)
+ 		return;
+ 
++	/* Because the device uses NAPI, all the interrupt batching and
++	 * control is done via Net softirq, not the channel handling
++	 */
++	set_channel_read_mode(new_sc, HV_CALL_ISR);
++
++	/* Set the channel before opening.*/
++	nvchan->channel = new_sc;
++
+ 	ret = vmbus_open(new_sc, nvscdev->ring_size * PAGE_SIZE,
+ 			 nvscdev->ring_size * PAGE_SIZE, NULL, 0,
+ 			 netvsc_channel_cb, nvchan);
+ 
+-	if (ret == 0)
+-		nvchan->channel = new_sc;
+ 
+ 	napi_enable(&nvchan->napi);
+ 
+-- 
+2.17.1
+

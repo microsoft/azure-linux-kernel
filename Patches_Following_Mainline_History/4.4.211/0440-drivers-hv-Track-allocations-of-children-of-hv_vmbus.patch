@@ -1,0 +1,89 @@
+From 606e3d26de560922f96ce88fa7ffdc1a1a48ea93 Mon Sep 17 00:00:00 2001
+From: Jake Oshins <jakeo@microsoft.com>
+Date: Tue, 5 Apr 2016 10:22:54 -0700
+Subject: drivers:hv: Track allocations of children of hv_vmbus in private
+ resource tree
+Reply-To: joseph.salisbury@microsoft.com
+
+This patch changes vmbus_allocate_mmio() and vmbus_free_mmio() so
+that when child paravirtual devices allocate memory-mapped I/O
+space, they allocate it privately from a resource tree pointed
+at by hyperv_mmio and also by the public resource tree
+iomem_resource.  This allows the region to be marked as "busy"
+in the private tree, but a "bridge window" in the public tree,
+guaranteeing that no two bridge windows will overlap each other
+but while also allowing the PCI device children of the bridge
+windows to overlap that window.
+
+One might conclude that this belongs in the pnp layer, rather
+than in this driver.  Rafael Wysocki, the maintainter of the
+pnp layer, has previously asked that we not modify the pnp layer
+as it is considered deprecated.  This patch is thus essentially
+a workaround.
+
+Signed-off-by: Jake Oshins <jakeo@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit be000f93e5d71f5d43dd722f8eb110b069f9d8a2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/vmbus_drv.c | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index f5ae6a123d71..76fa0b2b1fd1 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -1187,7 +1187,7 @@ int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
+ 			resource_size_t size, resource_size_t align,
+ 			bool fb_overlap_ok)
+ {
+-	struct resource *iter;
++	struct resource *iter, *shadow;
+ 	resource_size_t range_min, range_max, start, local_min, local_max;
+ 	const char *dev_n = dev_name(&device_obj->device);
+ 	u32 fb_end = screen_info.lfb_base + (screen_info.lfb_size << 1);
+@@ -1229,12 +1229,22 @@ int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
+ 
+ 			start = (local_min + align - 1) & ~(align - 1);
+ 			for (; start + size - 1 <= local_max; start += align) {
++				shadow = __request_region(iter, start,
++							  size,
++							  NULL,
++							  IORESOURCE_BUSY);
++				if (!shadow)
++					continue;
++
+ 				*new = request_mem_region_exclusive(start, size,
+ 								    dev_n);
+ 				if (*new) {
++					shadow->name = (char *)*new;
+ 					retval = 0;
+ 					goto exit;
+ 				}
++
++				__release_region(iter, start, size);
+ 			}
+ 		}
+ 	}
+@@ -1255,7 +1265,17 @@ EXPORT_SYMBOL_GPL(vmbus_allocate_mmio);
+  */
+ void vmbus_free_mmio(resource_size_t start, resource_size_t size)
+ {
++	struct resource *iter;
++
++	down(&hyperv_mmio_lock);
++	for (iter = hyperv_mmio; iter; iter = iter->sibling) {
++		if ((iter->start >= start + size) || (iter->end <= start))
++			continue;
++
++		__release_region(iter, start, size);
++	}
+ 	release_mem_region(start, size);
++	up(&hyperv_mmio_lock);
+ 
+ }
+ EXPORT_SYMBOL_GPL(vmbus_free_mmio);
+-- 
+2.17.1
+

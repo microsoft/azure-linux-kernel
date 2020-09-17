@@ -1,4 +1,4 @@
-From 2392e7bc81639ca26d809b86508a43e36a4bfd29 Mon Sep 17 00:00:00 2001
+From df94ddfb173382551fb1d193e945c8e62bee7fab Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:18 +0100
 Subject: mlxsw: spectrum: Flush FDB when leaving bridge

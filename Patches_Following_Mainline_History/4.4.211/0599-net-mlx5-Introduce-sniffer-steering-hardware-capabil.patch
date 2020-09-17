@@ -1,0 +1,65 @@
+From 79dd07c42037c51d54738685f56bea651f47a158 Mon Sep 17 00:00:00 2001
+From: Maor Gottlieb <maorg@mellanox.com>
+Date: Tue, 31 May 2016 14:09:09 +0300
+Subject: net/mlx5: Introduce sniffer steering hardware capabilities
+Reply-To: joseph.salisbury@microsoft.com
+
+Define needed hardware capabilities for sniffer
+RX and TX flow tables.
+
+Add the following capabilities:
+1. Sniffer RX flow table capabilities.
+2. Sniffer TX flow table capabilities.
+3. If same TIR can be used by multiple flow tables of different types.
+
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+(cherry picked from commit cea824d416522ce63d83b45fc0dc53c0f5b68cee)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/mlx5/device.h   | 12 ++++++++++++
+ include/linux/mlx5/mlx5_ifc.h |  4 +++-
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 35146aa35a88..a9d4f1f3faf2 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -970,6 +970,18 @@ enum mlx5_cap_type {
+ #define MLX5_CAP_FLOWTABLE_NIC_RX_MAX(mdev, cap) \
+ 	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_receive.cap)
+ 
++#define MLX5_CAP_FLOWTABLE_SNIFFER_RX(mdev, cap) \
++	MLX5_CAP_FLOWTABLE(mdev, flow_table_properties_nic_receive_sniffer.cap)
++
++#define MLX5_CAP_FLOWTABLE_SNIFFER_RX_MAX(mdev, cap) \
++	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_receive_sniffer.cap)
++
++#define MLX5_CAP_FLOWTABLE_SNIFFER_TX(mdev, cap) \
++	MLX5_CAP_FLOWTABLE(mdev, flow_table_properties_nic_transmit_sniffer.cap)
++
++#define MLX5_CAP_FLOWTABLE_SNIFFER_TX_MAX(mdev, cap) \
++	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_transmit_sniffer.cap)
++
+ #define MLX5_CAP_ESW_FLOWTABLE(mdev, cap) \
+ 	MLX5_GET(flow_table_eswitch_cap, \
+ 		 mdev->hca_caps_cur[MLX5_CAP_ESWITCH_FLOW_TABLE], cap)
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 433bec2f5e5a..56d089409c92 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -483,7 +483,9 @@ struct mlx5_ifc_ads_bits {
+ 
+ struct mlx5_ifc_flow_table_nic_cap_bits {
+ 	u8         nic_rx_multi_path_tirs[0x1];
+-	u8         reserved_at_1[0x1ff];
++	u8         nic_rx_multi_path_tirs_fts[0x1];
++	u8         allow_sniffer_and_nic_rx_shared_tir[0x1];
++	u8         reserved_at_3[0x1fd];
+ 
+ 	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_nic_receive;
+ 
+-- 
+2.17.1
+

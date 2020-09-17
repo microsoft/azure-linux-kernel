@@ -1,4 +1,4 @@
-From 1dd683ecb628a5609478983b0b5bebaf5a34f844 Mon Sep 17 00:00:00 2001
+From c981cdfb704bb8605860c7f52a4e8f75c4a3bb78 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Thu, 10 Dec 2015 17:12:41 +0200
 Subject: net/mlx5_core: Add flow steering lookup algorithms

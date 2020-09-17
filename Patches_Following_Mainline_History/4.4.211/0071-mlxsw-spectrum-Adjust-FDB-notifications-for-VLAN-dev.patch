@@ -1,4 +1,4 @@
-From 82f0a96ec66ccda1af6efc76afe640fd7a267896 Mon Sep 17 00:00:00 2001
+From a0c2dd6de9c32cf571b96a95db841c9fcdfae4fc Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:42 +0100
 Subject: mlxsw: spectrum: Adjust FDB notifications for VLAN devices

@@ -1,4 +1,4 @@
-From 5e133c1dfffcf2bfe4b6a47484505f740aa81c3a Mon Sep 17 00:00:00 2001
+From b02ccc8c257f8c3ef7bb2a038ac0394574231ecb Mon Sep 17 00:00:00 2001
 From: Eran Ben Elisha <eranbe@mellanox.com>
 Date: Tue, 29 Dec 2015 14:58:32 +0200
 Subject: net/mlx5e: Add PTP Hardware Clock (PHC) support

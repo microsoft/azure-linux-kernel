@@ -1,0 +1,64 @@
+From d8c787050c0cfebd97a98fb4e7fec8057cda660d Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sun, 5 Feb 2017 17:20:33 -0700
+Subject: vmbus: remove no longer used signal_policy
+Reply-To: joseph.salisbury@microsoft.com
+
+The explicit signal policy is no longer used. A different mechanism
+will be added later when xmit_more is supported.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit f6c4391553573d592212e6624cfba5e2752cd5c8)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/hyperv.h | 18 ------------------
+ 1 file changed, 18 deletions(-)
+
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 6b7924740f41..174cfb52f68d 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -686,11 +686,6 @@ struct hv_input_signal_event_buffer {
+ 	struct hv_input_signal_event event;
+ };
+ 
+-enum hv_signal_policy {
+-	HV_SIGNAL_POLICY_DEFAULT = 0,
+-	HV_SIGNAL_POLICY_EXPLICIT,
+-};
+-
+ enum hv_numa_policy {
+ 	HV_BALANCED = 0,
+ 	HV_LOCALIZED,
+@@ -855,13 +850,6 @@ struct vmbus_channel {
+ 	 * link up channels based on their CPU affinity.
+ 	 */
+ 	struct list_head percpu_list;
+-	/*
+-	 * Host signaling policy: The default policy will be
+-	 * based on the ring buffer state. We will also support
+-	 * a policy where the client driver can have explicit
+-	 * signaling control.
+-	 */
+-	enum hv_signal_policy  signal_policy;
+ 	/*
+ 	 * On the channel send side, many of the VMBUS
+ 	 * device drivers explicity serialize access to the
+@@ -898,12 +886,6 @@ static inline bool is_hvsock_channel(const struct vmbus_channel *c)
+ 		  VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER);
+ }
+ 
+-static inline void set_channel_signal_state(struct vmbus_channel *c,
+-					    enum hv_signal_policy policy)
+-{
+-	c->signal_policy = policy;
+-}
+-
+ static inline void set_channel_affinity_state(struct vmbus_channel *c,
+ 					      enum hv_numa_policy policy)
+ {
+-- 
+2.17.1
+

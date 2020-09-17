@@ -1,0 +1,47 @@
+From 7f86a922e27c2558b57862e1985eb9cade547490 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Mon, 15 Aug 2016 17:48:43 +0200
+Subject: hv_netvsc: fix bonding devices check in netvsc_netdev_event()
+Reply-To: joseph.salisbury@microsoft.com
+
+Bonding driver sets IFF_BONDING on both master (the bonding device) and
+slave (the real NIC) devices and in netvsc_netdev_event() we want to skip
+master devices only. Currently, there is an uncertainty when a slave
+interface is removed: if bonding module comes first in netdev_chain it
+clears IFF_BONDING flag on the netdev and netvsc_netdev_event() correctly
+handles NETDEV_UNREGISTER event, but in case netvsc comes first on the
+chain it sees the device with IFF_BONDING still attached and skips it. As
+we still hold vf_netdev pointer to the device we crash on the next inject.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 0dbff144a1e7310e2f8b7a957352c4be9aeb38e4)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 928dd17adfb7..5c8ae9a86e78 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1471,6 +1471,15 @@ static int netvsc_netdev_event(struct notifier_block *this,
+ {
+ 	struct net_device *event_dev = netdev_notifier_info_to_dev(ptr);
+ 
++	/* Avoid Vlan dev with same MAC registering as VF */
++	if (event_dev->priv_flags & IFF_802_1Q_VLAN)
++		return NOTIFY_DONE;
++
++	/* Avoid Bonding master dev with same MAC registering as VF */
++	if (event_dev->priv_flags & IFF_BONDING &&
++	    event_dev->flags & IFF_MASTER)
++		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 	case NETDEV_REGISTER:
+ 		return netvsc_register_vf(event_dev);
+-- 
+2.17.1
+

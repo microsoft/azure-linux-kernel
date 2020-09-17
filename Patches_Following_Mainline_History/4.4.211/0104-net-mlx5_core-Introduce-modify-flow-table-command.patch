@@ -1,4 +1,4 @@
-From fc20a24c7c738cff9bfa1acf073ae652579e6d30 Mon Sep 17 00:00:00 2001
+From 476f5299e1b3ee140a04871b0dc4b6ea5247b947 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:26:00 +0200
 Subject: net/mlx5_core: Introduce modify flow table command

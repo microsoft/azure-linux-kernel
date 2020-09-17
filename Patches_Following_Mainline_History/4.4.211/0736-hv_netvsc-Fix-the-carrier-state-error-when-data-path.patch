@@ -1,0 +1,89 @@
+From 17ff3291d66dbb3020a80b11b768ae17013693be Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Wed, 21 Jun 2017 16:40:47 -0700
+Subject: hv_netvsc: Fix the carrier state error when data path is off
+Reply-To: joseph.salisbury@microsoft.com
+
+When the VF NIC is opened, the synthetic NIC's carrier state is set to
+off. This tells the host to transitions data path to the VF device. But
+if startup script or user manipulates the admin state of the netvsc
+device directly for example:
+        # ifconfig eth0 down
+	# ifconfig eth0 up
+Then the carrier state of the synthetic NIC would be on, even though the
+data path was still over the VF NIC. This patch sets the carrier state
+of synthetic NIC with consideration of the related VF state.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 53fa1a6f33520f01f9dbee48369074b34d77616b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h | 2 ++
+ drivers/net/hyperv/netvsc.c     | 2 ++
+ drivers/net/hyperv/netvsc_drv.c | 8 +++++---
+ 3 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index cfdc1b16b616..bcfe93779a0f 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -722,6 +722,8 @@ struct net_device_context {
+ 	u32 vf_alloc;
+ 	/* Serial number of the VF to team with */
+ 	u32 vf_serial;
++
++	bool datapath;	/* 0 - synthetic, 1 - VF nic */
+ };
+ 
+ /* Per channel data */
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index a108ce3dce3d..ba082a9378b7 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -57,6 +57,8 @@ void netvsc_switch_datapath(struct net_device *ndev, bool vf)
+ 			       sizeof(struct nvsp_message),
+ 			       (unsigned long)init_pkt,
+ 			       VM_PKT_DATA_INBAND, 0);
++
++	net_device_ctx->datapath = vf;
+ }
+ 
+ 
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 3ac6af21d334..9a01d4962baa 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -66,7 +66,8 @@ static void netvsc_set_multicast_list(struct net_device *net)
+ 
+ static int netvsc_open(struct net_device *net)
+ {
+-	struct netvsc_device *nvdev = net_device_to_netvsc_device(net);
++	struct net_device_context *ndev_ctx = netdev_priv(net);
++	struct netvsc_device *nvdev = ndev_ctx->nvdev;
+ 	struct rndis_device *rdev;
+ 	int ret = 0;
+ 
+@@ -82,7 +83,7 @@ static int netvsc_open(struct net_device *net)
+ 	netif_tx_wake_all_queues(net);
+ 
+ 	rdev = nvdev->extension;
+-	if (!rdev->link_state)
++	if (!rdev->link_state && !ndev_ctx->datapath)
+ 		netif_carrier_on(net);
+ 
+ 	return ret;
+@@ -1199,7 +1200,8 @@ static void netvsc_link_change(struct work_struct *w)
+ 	case RNDIS_STATUS_MEDIA_CONNECT:
+ 		if (rdev->link_state) {
+ 			rdev->link_state = false;
+-			netif_carrier_on(net);
++			if (!ndev_ctx->datapath)
++				netif_carrier_on(net);
+ 			netif_tx_wake_all_queues(net);
+ 		} else {
+ 			notify = true;
+-- 
+2.17.1
+

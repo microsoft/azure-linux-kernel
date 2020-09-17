@@ -1,0 +1,118 @@
+From fb8249ab76ff930f76d95be6ce97f795c4c44d74 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 19 Jul 2017 11:53:17 -0700
+Subject: netvsc: need rcu_derefence when accessing internal device info
+Reply-To: joseph.salisbury@microsoft.com
+
+The netvsc_device structure should be accessed by rcu_dereference
+in the send path.  Change arguments to netvsc_send() to make
+this easier to do correctly.
+
+Remove no longer needed hv_device_to_netvsc_device.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 2a926f791211b40ba114f45e0e7bfefd2fac5d30)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   | 10 +++-------
+ drivers/net/hyperv/netvsc.c       |  8 +++++---
+ drivers/net/hyperv/netvsc_drv.c   |  6 ++++--
+ drivers/net/hyperv/rndis_filter.c |  2 +-
+ 4 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 5f5497c1f74a..34cd6d17e0ad 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -189,10 +189,12 @@ struct rndis_device {
+ /* Interface */
+ struct rndis_message;
+ struct netvsc_device;
++struct net_device_context;
++
+ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 					const struct netvsc_device_info *info);
+ void netvsc_device_remove(struct hv_device *device);
+-int netvsc_send(struct hv_device *device,
++int netvsc_send(struct net_device_context *ndc,
+ 		struct hv_netvsc_packet *packet,
+ 		struct rndis_message *rndis_msg,
+ 		struct hv_page_buffer **page_buffer,
+@@ -802,12 +804,6 @@ net_device_to_netvsc_device(struct net_device *ndev)
+ 	return ((struct net_device_context *)netdev_priv(ndev))->nvdev;
+ }
+ 
+-static inline struct netvsc_device *
+-hv_device_to_netvsc_device(struct hv_device *device)
+-{
+-	return net_device_to_netvsc_device(hv_get_drvdata(device));
+-}
+-
+ /* NdisInitialize message */
+ struct rndis_initialize_request {
+ 	u32 req_id;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 9a916aa229b9..f54a3ae5e4e7 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -823,13 +823,15 @@ static inline void move_pkt_msd(struct hv_netvsc_packet **msd_send,
+ 	msdp->count = 0;
+ }
+ 
+-int netvsc_send(struct hv_device *device,
++/* RCU already held by caller */
++int netvsc_send(struct net_device_context *ndev_ctx,
+ 		struct hv_netvsc_packet *packet,
+ 		struct rndis_message *rndis_msg,
+ 		struct hv_page_buffer **pb,
+ 		struct sk_buff *skb)
+ {
+-	struct netvsc_device *net_device = hv_device_to_netvsc_device(device);
++	struct netvsc_device *net_device = rcu_dereference(ndev_ctx->nvdev);
++	struct hv_device *device = ndev_ctx->device_ctx;
+ 	int ret = 0;
+ 	struct netvsc_channel *nvchan;
+ 	u32 pktlen = packet->total_data_buflen, msd_len = 0;
+@@ -841,7 +843,7 @@ int netvsc_send(struct hv_device *device,
+ 	bool xmit_more = (skb != NULL) ? skb->xmit_more : false;
+ 
+ 	/* If device is rescinded, return error and packet will get dropped. */
+-	if (unlikely(net_device->destroy))
++	if (unlikely(!net_device || net_device->destroy))
+ 		return -ENODEV;
+ 
+ 	/* We may race with netvsc_connect_vsp()/netvsc_init_buf() and get
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 0aa4abf96ffd..4c7490c06f9d 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -474,8 +474,10 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	packet->page_buf_cnt = init_page_array(rndis_msg, rndis_msg_size,
+ 					       skb, packet, &pb);
+ 
+-	ret = netvsc_send(net_device_ctx->device_ctx, packet,
+-			  rndis_msg, &pb, skb);
++	/* timestamp packet in software */
++	skb_tx_timestamp(skb);
++
++	ret = netvsc_send(net_device_ctx, packet, rndis_msg, &pb, skb);
+ 	if (likely(ret == 0))
+ 		return NETDEV_TX_OK;
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 9f0b109bcd2d..34e32053a376 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -243,7 +243,7 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 			pb[0].len;
+ 	}
+ 
+-	ret = netvsc_send(net_device_ctx->device_ctx, packet, NULL, &pb, NULL);
++	ret = netvsc_send(net_device_ctx, packet, NULL, &pb, NULL);
+ 	return ret;
+ }
+ 
+-- 
+2.17.1
+

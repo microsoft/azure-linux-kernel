@@ -1,0 +1,36 @@
+From 9a12baee664ecdd965a3b2d7ccd6d3f66dec6903 Mon Sep 17 00:00:00 2001
+From: Leon Romanovsky <leonro@mellanox.com>
+Date: Tue, 23 Feb 2016 10:25:21 +0200
+Subject: net/mlx5_core: Fix caching ATOMIC endian mode capability
+Reply-To: joseph.salisbury@microsoft.com
+
+Add caching of maximum device capability of ATOMIC endian mode.
+
+Fixes: f91e6d8941bf ('net/mlx5_core: Add setting ATOMIC endian mode')
+Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 91d9ed8443b88cc50b81cf5ec900172515270f6f)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 08742895785a..8c154f2ef923 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -424,6 +424,10 @@ static int handle_hca_cap_atomic(struct mlx5_core_dev *dev)
+ 					 HCA_CAP_OPMOD_GET_CUR);
+ 		if (err)
+ 			return err;
++		err = mlx5_core_get_caps(dev, MLX5_CAP_ATOMIC,
++					 HCA_CAP_OPMOD_GET_MAX);
++		if (err)
++			return err;
+ 	} else {
+ 		return 0;
+ 	}
+-- 
+2.17.1
+

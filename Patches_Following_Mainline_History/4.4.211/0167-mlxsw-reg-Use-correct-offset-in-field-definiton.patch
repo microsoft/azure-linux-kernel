@@ -1,4 +1,4 @@
-From 2bfab3d97c794cbdf7914a33b5a106512bad6c3c Mon Sep 17 00:00:00 2001
+From f5c4e344ba979530c83bd071a804eada8272608c Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:26 +0100
 Subject: mlxsw: reg: Use correct offset in field definiton

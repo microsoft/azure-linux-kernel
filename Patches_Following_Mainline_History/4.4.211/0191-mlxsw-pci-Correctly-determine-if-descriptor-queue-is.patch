@@ -1,4 +1,4 @@
-From ac6201dcc069a22c438632b8b146e5ca997a147e Mon Sep 17 00:00:00 2001
+From 64439648fd6995428ef4503cb92903c23bcd0250 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Mon, 7 Mar 2016 15:15:30 +0100
 Subject: mlxsw: pci: Correctly determine if descriptor queue is full

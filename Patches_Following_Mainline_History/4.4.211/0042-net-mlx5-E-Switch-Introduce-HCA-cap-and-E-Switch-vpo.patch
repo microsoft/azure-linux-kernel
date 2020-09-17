@@ -1,4 +1,4 @@
-From 996f1e5e316779047dffe1909691bde8bc31f8d7 Mon Sep 17 00:00:00 2001
+From cc0c6c35205c1b11fe210f3105e34f1d5d736a09 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:22 +0200
 Subject: net/mlx5: E-Switch, Introduce HCA cap and E-Switch vport context

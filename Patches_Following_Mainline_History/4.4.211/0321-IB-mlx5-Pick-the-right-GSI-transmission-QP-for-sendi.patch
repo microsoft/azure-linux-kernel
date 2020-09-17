@@ -1,0 +1,96 @@
+From 47ee4422bbce1918f2ec28594a473a5d2ec48835 Mon Sep 17 00:00:00 2001
+From: Haggai Eran <haggaie@mellanox.com>
+Date: Mon, 29 Feb 2016 15:45:10 +0200
+Subject: IB/mlx5: Pick the right GSI transmission QP for sending
+Reply-To: joseph.salisbury@microsoft.com
+
+Pick the QP to use according to the wr.ud.pkey_index field in the work
+request. If the QP doesn't exist, it means the P_Key is zero and the packet
+would have been dropped, so just generate a completion and move on.
+
+Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+Signed-off-by: Haggai Eran <haggaie@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 83cae2aff53960ab6cf5bb82654201ce43b77fb6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/gsi.c | 48 +++++++++++++++++++++++++++++++-
+ 1 file changed, 47 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/gsi.c b/drivers/infiniband/hw/mlx5/gsi.c
+index 8d040626abb2..938f6ddca4b3 100644
+--- a/drivers/infiniband/hw/mlx5/gsi.c
++++ b/drivers/infiniband/hw/mlx5/gsi.c
+@@ -443,10 +443,47 @@ static int mlx5_ib_add_outstanding_wr(struct mlx5_ib_gsi_qp *gsi,
+ 	return 0;
+ }
+ 
++/* Call with gsi->lock locked */
++static int mlx5_ib_gsi_silent_drop(struct mlx5_ib_gsi_qp *gsi,
++				    struct ib_ud_wr *wr)
++{
++	struct ib_wc wc = {
++		{ .wr_id = wr->wr.wr_id },
++		.status = IB_WC_SUCCESS,
++		.opcode = IB_WC_SEND,
++		.qp = &gsi->ibqp,
++	};
++	int ret;
++
++	ret = mlx5_ib_add_outstanding_wr(gsi, wr, &wc);
++	if (ret)
++		return ret;
++
++	generate_completions(gsi);
++
++	return 0;
++}
++
++/* Call with gsi->lock locked */
++static struct ib_qp *get_tx_qp(struct mlx5_ib_gsi_qp *gsi, struct ib_ud_wr *wr)
++{
++	struct mlx5_ib_dev *dev = to_mdev(gsi->rx_qp->device);
++	int qp_index = wr->pkey_index;
++
++	if (!mlx5_ib_deth_sqpn_cap(dev))
++		return gsi->rx_qp;
++
++	if (qp_index >= gsi->num_qps)
++		return NULL;
++
++	return gsi->tx_qps[qp_index];
++}
++
+ int mlx5_ib_gsi_post_send(struct ib_qp *qp, struct ib_send_wr *wr,
+ 			  struct ib_send_wr **bad_wr)
+ {
+ 	struct mlx5_ib_gsi_qp *gsi = gsi_qp(qp);
++	struct ib_qp *tx_qp;
+ 	unsigned long flags;
+ 	int ret;
+ 
+@@ -456,11 +493,20 @@ int mlx5_ib_gsi_post_send(struct ib_qp *qp, struct ib_send_wr *wr,
+ 		cur_wr.wr.next = NULL;
+ 
+ 		spin_lock_irqsave(&gsi->lock, flags);
++		tx_qp = get_tx_qp(gsi, &cur_wr);
++		if (!tx_qp) {
++			ret = mlx5_ib_gsi_silent_drop(gsi, &cur_wr);
++			if (ret)
++				goto err;
++			spin_unlock_irqrestore(&gsi->lock, flags);
++			continue;
++		}
++
+ 		ret = mlx5_ib_add_outstanding_wr(gsi, &cur_wr, NULL);
+ 		if (ret)
+ 			goto err;
+ 
+-		ret = ib_post_send(gsi->rx_qp, &cur_wr.wr, bad_wr);
++		ret = ib_post_send(tx_qp, &cur_wr.wr, bad_wr);
+ 		if (ret) {
+ 			/* Undo the effect of adding the outstanding wr */
+ 			gsi->outstanding_pi = (gsi->outstanding_pi - 1) %
+-- 
+2.17.1
+

@@ -1,4 +1,4 @@
-From a69b017a0d7834d0f23ce499b468a25d097d3b56 Mon Sep 17 00:00:00 2001
+From ee37b0f8f9abd1df1a82e79349bfe6d0461f8ef0 Mon Sep 17 00:00:00 2001
 From: Elad Raz <eladr@mellanox.com>
 Date: Sun, 10 Jan 2016 21:06:24 +0100
 Subject: mlxsw: reg: Add definition of multicast record for SFD register

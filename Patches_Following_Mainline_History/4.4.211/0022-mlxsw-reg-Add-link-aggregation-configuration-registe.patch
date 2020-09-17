@@ -1,4 +1,4 @@
-From ec0c8d430686c887214675965d132ccc02b3509e Mon Sep 17 00:00:00 2001
+From 729af96263a84cd40a5b7227772435671ddad070 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 12:12:25 +0100
 Subject: mlxsw: reg: Add link aggregation configuration registers definitions

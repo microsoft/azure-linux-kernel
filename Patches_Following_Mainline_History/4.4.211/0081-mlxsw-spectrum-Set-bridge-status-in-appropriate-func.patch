@@ -1,4 +1,4 @@
-From de2612c6ad34e94b36217ee3274ec19a98a1b5cf Mon Sep 17 00:00:00 2001
+From 032bd80edd8d5620a5a29fa25f751a922a6f5c2c Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Mon, 4 Jan 2016 10:42:25 +0100
 Subject: mlxsw: spectrum: Set bridge status in appropriate functions

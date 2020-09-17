@@ -1,0 +1,103 @@
+From 306b88ad726e438be761c56d0fc1cca8b277d8f7 Mon Sep 17 00:00:00 2001
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
+Date: Tue, 3 May 2016 17:13:55 +0300
+Subject: net/mlx5: E-Switch, Replace vport spin lock with synchronize_irq()
+Reply-To: joseph.salisbury@microsoft.com
+
+Vport spin lock can be replaced with synchronize_irq() in the right
+place, this will remove the need of locking inside irq context.
+Locking in esw_enable_vport is not required since vport events are yet
+to be enabled, and at esw_disable_vport it is sufficient to
+synchronize_irq() to guarantee no further vport events handlers will be
+scheduled.
+
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 831cae1daead92c4b9c3e149c6bc14853902c204)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 11 ++---------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  5 -----
+ 2 files changed, 2 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index dd066199d172..f01903a99993 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -713,7 +713,6 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
+ 			     int enable_events)
+ {
+ 	struct mlx5_vport *vport = &esw->vports[vport_num];
+-	unsigned long flags;
+ 
+ 	WARN_ON(vport->enabled);
+ 
+@@ -727,9 +726,7 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
+ 	vport->enabled_events = enable_events;
+ 	esw_vport_change_handler(&vport->vport_change_handler);
+ 
+-	spin_lock_irqsave(&vport->lock, flags);
+ 	vport->enabled = true;
+-	spin_unlock_irqrestore(&vport->lock, flags);
+ 
+ 	arm_vport_context_events_cmd(esw->dev, vport_num, enable_events);
+ 
+@@ -761,17 +758,16 @@ static void esw_cleanup_vport(struct mlx5_eswitch *esw, u16 vport_num)
+ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
+ {
+ 	struct mlx5_vport *vport = &esw->vports[vport_num];
+-	unsigned long flags;
+ 
+ 	if (!vport->enabled)
+ 		return;
+ 
+ 	esw_debug(esw->dev, "Disabling vport(%d)\n", vport_num);
+ 	/* Mark this vport as disabled to discard new events */
+-	spin_lock_irqsave(&vport->lock, flags);
+ 	vport->enabled = false;
+ 	vport->enabled_events = 0;
+-	spin_unlock_irqrestore(&vport->lock, flags);
++
++	synchronize_irq(mlx5_get_msix_vec(esw->dev, MLX5_EQ_VEC_ASYNC));
+ 
+ 	mlx5_modify_vport_admin_state(esw->dev,
+ 				      MLX5_QUERY_VPORT_STATE_IN_OP_MOD_ESW_VPORT,
+@@ -894,7 +890,6 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
+ 		vport->dev = dev;
+ 		INIT_WORK(&vport->vport_change_handler,
+ 			  esw_vport_change_handler);
+-		spin_lock_init(&vport->lock);
+ 	}
+ 
+ 	esw->total_vports = total_vports;
+@@ -942,10 +937,8 @@ void mlx5_eswitch_vport_event(struct mlx5_eswitch *esw, struct mlx5_eqe *eqe)
+ 	}
+ 
+ 	vport = &esw->vports[vport_num];
+-	spin_lock(&vport->lock);
+ 	if (vport->enabled)
+ 		queue_work(esw->work_queue, &vport->vport_change_handler);
+-	spin_unlock(&vport->lock);
+ }
+ 
+ /* Vport Administration */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 3416a428f70f..ba434513b2c1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -95,11 +95,6 @@ struct mlx5_vport {
+ 	struct hlist_head       mc_list[MLX5_L2_ADDR_HASH_SIZE];
+ 	struct work_struct      vport_change_handler;
+ 
+-	/* This spinlock protects access to vport data, between
+-	 * "esw_vport_disable" and ongoing interrupt "mlx5_eswitch_vport_event"
+-	 * once vport marked as disabled new interrupts are discarded.
+-	 */
+-	spinlock_t              lock; /* vport events sync */
+ 	bool                    enabled;
+ 	u16                     enabled_events;
+ };
+-- 
+2.17.1
+

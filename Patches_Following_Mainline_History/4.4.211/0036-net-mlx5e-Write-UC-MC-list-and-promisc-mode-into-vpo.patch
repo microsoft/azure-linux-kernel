@@ -1,4 +1,4 @@
-From 9428fbeb9a6f26ad5c60c45f6eb81dd9405e0809 Mon Sep 17 00:00:00 2001
+From 548da2a0065769bc37d4709986d31f3f395308da Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:16 +0200
 Subject: net/mlx5e: Write UC/MC list and promisc mode into vport context

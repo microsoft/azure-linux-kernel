@@ -1,4 +1,4 @@
-From 7bebf17a448fba43a4c5352c8527c183974c2972 Mon Sep 17 00:00:00 2001
+From c87a293dc1c68727d3e3871e55440cdf81075271 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:26:07 +0200
 Subject: IB/mlx5: Add flow steering support

@@ -1,4 +1,4 @@
-From 97f4ef6e89d0ac28bd1160a1d8aa5a0df3982732 Mon Sep 17 00:00:00 2001
+From 633aa44384063bbcdbd4e396c0c8151896510db5 Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Mon, 14 Dec 2015 16:01:39 -0800
 Subject: drivers:hv: Export a function that maps Linux CPU num onto Hyper-V

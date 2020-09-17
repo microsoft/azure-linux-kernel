@@ -1,4 +1,4 @@
-From 38af92ae925de9a747fef659fb0cbcb8fbeddc2d Mon Sep 17 00:00:00 2001
+From 50b6c07408920f33955ba59cf7d3947acd511f79 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:20 +0100
 Subject: mlxsw: spectrum: Disable learning according to STP state

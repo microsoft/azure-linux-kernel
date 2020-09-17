@@ -1,0 +1,43 @@
+From 36ac8c9ca155239a1488a3f76d11ba2008f21be6 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <sthemmin@microsoft.com>
+Date: Tue, 23 Aug 2016 12:17:55 -0700
+Subject: hv_netvsc: make variable local
+Reply-To: joseph.salisbury@microsoft.com
+
+The variable m_ret is only used in one basic block.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 6c4c137e5035e0e17fa40c223fa0a3167e0f65fa)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 14b1bce40a50..6e80476cf652 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -865,7 +865,7 @@ int netvsc_send(struct hv_device *device,
+ 		struct sk_buff *skb)
+ {
+ 	struct netvsc_device *net_device;
+-	int ret = 0, m_ret = 0;
++	int ret = 0;
+ 	struct vmbus_channel *out_channel;
+ 	u16 q_idx = packet->q_idx;
+ 	u32 pktlen = packet->total_data_buflen, msd_len = 0;
+@@ -954,8 +954,8 @@ int netvsc_send(struct hv_device *device,
+ 	}
+ 
+ 	if (msd_send) {
+-		m_ret = netvsc_send_pkt(device, msd_send, net_device,
+-					NULL, msd_skb);
++		int m_ret = netvsc_send_pkt(device, msd_send, net_device,
++					    NULL, msd_skb);
+ 
+ 		if (m_ret != 0) {
+ 			netvsc_free_send_slot(net_device,
+-- 
+2.17.1
+

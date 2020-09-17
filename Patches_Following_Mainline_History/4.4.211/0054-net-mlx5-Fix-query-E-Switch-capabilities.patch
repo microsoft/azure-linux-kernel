@@ -1,4 +1,4 @@
-From 23f527c09da22b6ee8e6f2aa73ab7c34a5c8d71b Mon Sep 17 00:00:00 2001
+From 19d73c4ddb8af9f6cb2994b0528d1556d4e4907b Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Thu, 10 Dec 2015 17:12:37 +0200
 Subject: net/mlx5: Fix query E-Switch capabilities

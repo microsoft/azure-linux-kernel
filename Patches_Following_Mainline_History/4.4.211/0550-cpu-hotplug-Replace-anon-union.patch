@@ -1,0 +1,242 @@
+From ff7c535e9f5894a2fc0963c7bd626d18ae660c7a Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Mon, 5 Sep 2016 15:28:36 +0200
+Subject: cpu/hotplug: Replace anon union
+Reply-To: joseph.salisbury@microsoft.com
+
+Some compilers are unhappy with the anon union in the state array. Replace
+it with a named union.
+
+While at it align the state array initializers proper and add the missing
+name tags.
+
+Fixes: cf392d10b69e "cpu/hotplug: Add multi instance support"
+Reported-by: Ingo Molnar <mingo@kernel.org>
+Reported-by: Fenguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: rt@linutronix.de
+(backported from commit 3c1627e999e45e292d5d7ea3751ed86a6383ee2c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ kernel/cpu.c | 102 +++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 67 insertions(+), 35 deletions(-)
+
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index 0b97466d9ade..3999e502df32 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -74,15 +74,15 @@ static DEFINE_PER_CPU(struct cpuhp_cpu_state, cpuhp_state);
+ struct cpuhp_step {
+ 	const char		*name;
+ 	union {
+-		int		(*startup)(unsigned int cpu);
+-		int		(*startup_multi)(unsigned int cpu,
+-						 struct hlist_node *node);
+-	};
++		int		(*single)(unsigned int cpu);
++		int		(*multi)(unsigned int cpu,
++					 struct hlist_node *node);
++	} startup;
+ 	union {
+-		int		(*teardown)(unsigned int cpu);
+-		int		(*teardown_multi)(unsigned int cpu,
+-						  struct hlist_node *node);
+-	};
++		int		(*single)(unsigned int cpu);
++		int		(*multi)(unsigned int cpu,
++					 struct hlist_node *node);
++	} teardown;
+ 	struct hlist_head	list;
+ 	bool			skip_onerr;
+ 	bool			cant_stop;
+@@ -128,7 +128,7 @@ static int cpuhp_invoke_callback(unsigned int cpu, enum cpuhp_state state,
+ 	int ret, cnt;
+ 
+ 	if (!step->multi_instance) {
+-		cb = bringup ? step->startup : step->teardown;
++		cb = bringup ? step->startup.single : step->teardown.single;
+ 		if (!cb)
+ 			return 0;
+ 		trace_cpuhp_enter(cpu, st->target, state, cb);
+@@ -136,7 +136,7 @@ static int cpuhp_invoke_callback(unsigned int cpu, enum cpuhp_state state,
+ 		trace_cpuhp_exit(cpu, st->state, state, ret);
+ 		return ret;
+ 	}
+-	cbm = bringup ? step->startup_multi : step->teardown_multi;
++	cbm = bringup ? step->startup.multi : step->teardown.multi;
+ 	if (!cbm)
+ 		return 0;
+ 
+@@ -161,7 +161,7 @@ static int cpuhp_invoke_callback(unsigned int cpu, enum cpuhp_state state,
+ 	return 0;
+ err:
+ 	/* Rollback the instances if one failed */
+-	cbm = !bringup ? step->startup_multi : step->teardown_multi;
++	cbm = !bringup ? step->startup.multi : step->teardown.multi;
+ 	if (!cbm)
+ 		return ret;
+ 
+@@ -1267,33 +1267,42 @@ core_initcall(cpu_hotplug_pm_sync_init);
+ static struct cpuhp_step cpuhp_bp_states[] = {
+ 	[CPUHP_OFFLINE] = {
+ 		.name			= "offline",
+-		.startup		= NULL,
+-		.teardown		= NULL,
++		.startup.single		= NULL,
++		.teardown.single	= NULL,
+ 	},
+ #ifdef CONFIG_SMP
+ 	[CPUHP_CREATE_THREADS]= {
+ 		.name			= "threads:create",
+-		.startup		= smpboot_create_threads,
+-		.teardown		= NULL,
++		.startup.single		= smpboot_create_threads,
++		.teardown.single	= NULL,
+ 		.cant_stop		= true,
+ 	},
++	/*
++	 * Preparatory and dead notifiers. Will be replaced once the notifiers
++	 * are converted to states.
++	 */
+ 	[CPUHP_NOTIFY_PREPARE] = {
+ 		.name			= "notify:prepare",
+-		.startup		= notify_prepare,
+-		.teardown		= notify_dead,
++		.startup.single		= notify_prepare,
++		.teardown.single	= notify_dead,
+ 		.skip_onerr		= true,
+ 		.cant_stop		= true,
+ 	},
++	/* Kicks the plugged cpu into life */
+ 	[CPUHP_BRINGUP_CPU] = {
+ 		.name			= "cpu:bringup",
+-		.startup		= bringup_cpu,
+-		.teardown		= NULL,
++		.startup.single		= bringup_cpu,
++		.teardown.single	= NULL,
+ 		.cant_stop		= true,
+ 	},
++	/*
++	 * Handled on controll processor until the plugged processor manages
++	 * this itself.
++	 */
+ 	[CPUHP_TEARDOWN_CPU] = {
+ 		.name			= "cpu:teardown",
+-		.startup		= NULL,
+-		.teardown		= takedown_cpu,
++		.startup.single		= NULL,
++		.teardown.single	= takedown_cpu,
+ 		.cant_stop		= true,
+ 	},
+ #endif
+@@ -1302,29 +1311,51 @@ static struct cpuhp_step cpuhp_bp_states[] = {
+ /* Application processor state steps */
+ static struct cpuhp_step cpuhp_ap_states[] = {
+ #ifdef CONFIG_SMP
++	/* Final state before CPU kills itself */
++	[CPUHP_AP_IDLE_DEAD] = {
++		.name			= "idle:dead",
++	},
++	/*
++	 * Last state before CPU enters the idle loop to die. Transient state
++	 * for synchronization.
++	 */
++	[CPUHP_AP_OFFLINE] = {
++		.name			= "ap:offline",
++		.cant_stop		= true,
++	},
++	/*
++	 * Low level startup.single/teardown notifiers. Run with interrupts
++	 * disabled. Will be removed once the notifiers are converted to
++	 * states.
++	 */
+ 	[CPUHP_AP_NOTIFY_STARTING] = {
+ 		.name			= "notify:starting",
+-		.startup		= notify_starting,
+-		.teardown		= notify_dying,
++		.startup.single		= notify_starting,
++		.teardown.single		= notify_dying,
+ 		.skip_onerr		= true,
+ 		.cant_stop		= true,
+ 	},
+ 	[CPUHP_AP_SMPBOOT_THREADS] = {
+ 		.name			= "smpboot:threads",
+-		.startup		= smpboot_unpark_threads,
+-		.teardown		= NULL,
++		.startup.single		= smpboot_unpark_threads,
++		.teardown.single	= NULL,
+ 	},
++
++	/*
++	 * Online/down_prepare notifiers. Will be removed once the notifiers
++	 * are converted to states.
++	 */
+ 	[CPUHP_AP_NOTIFY_ONLINE] = {
+ 		.name			= "notify:online",
+-		.startup		= notify_online,
+-		.teardown		= notify_down_prepare,
++		.startup.single		= notify_online,
++		.teardown.single	= notify_down_prepare,
+ 		.skip_onerr		= true,
+ 	},
+ #endif
+ 	[CPUHP_ONLINE] = {
+ 		.name			= "online",
+-		.startup		= NULL,
+-		.teardown		= NULL,
++		.startup.single		= NULL,
++		.teardown.single	= NULL,
+ 	},
+ };
+ 
+@@ -1347,8 +1378,8 @@ static void cpuhp_store_callbacks(enum cpuhp_state state,
+ 
+ 	mutex_lock(&cpuhp_state_mutex);
+ 	sp = cpuhp_get_step(state);
+-	sp->startup = startup;
+-	sp->teardown = teardown;
++	sp->startup.single = startup;
++	sp->teardown.single = teardown;
+ 	sp->name = name;
+ 	sp->multi_instance = multi_instance;
+ 	INIT_HLIST_HEAD(&sp->list);
+@@ -1357,7 +1388,7 @@ static void cpuhp_store_callbacks(enum cpuhp_state state,
+ 
+ static void *cpuhp_get_teardown_cb(enum cpuhp_state state)
+ {
+-	return cpuhp_get_step(state)->teardown;
++	return cpuhp_get_step(state)->teardown.single;
+ }
+ 
+ /*
+@@ -1370,7 +1401,8 @@ static int cpuhp_issue_call(int cpu, enum cpuhp_state state, bool bringup,
+ 	struct cpuhp_step *sp = cpuhp_get_step(state);
+ 	int ret;
+ 
+-	if ((bringup && !sp->startup) || (!bringup && !sp->teardown))
++	if ((bringup && !sp->startup.single) ||
++	    (!bringup && !sp->teardown.single))
+ 		return 0;
+ 	/*
+ 	 * The non AP bound callbacks can fail on bringup. On teardown
+@@ -1448,7 +1480,7 @@ int __cpuhp_state_add_instance(enum cpuhp_state state, struct hlist_node *node,
+ 
+ 	get_online_cpus();
+ 
+-	if (!invoke || !sp->startup_multi)
++	if (!invoke || !sp->startup.multi)
+ 		goto add_node;
+ 
+ 	/*
+@@ -1464,7 +1496,7 @@ int __cpuhp_state_add_instance(enum cpuhp_state state, struct hlist_node *node,
+ 
+ 		ret = cpuhp_issue_call(cpu, state, true, node);
+ 		if (ret) {
+-			if (sp->teardown_multi)
++			if (sp->teardown.multi)
+ 				cpuhp_rollback_install(cpu, state, node);
+ 			goto err;
+ 		}
+-- 
+2.17.1
+

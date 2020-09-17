@@ -1,4 +1,4 @@
-From 17ce19b2334fd819d7516442d97d4943ddd99209 Mon Sep 17 00:00:00 2001
+From 3415bb3aa4539a5d5604c4ddb4c25b612a753452 Mon Sep 17 00:00:00 2001
 From: Elad Raz <eladr@mellanox.com>
 Date: Wed, 6 Jan 2016 13:01:09 +0100
 Subject: mlxsw: Renaming local variable names for consistency

@@ -1,0 +1,149 @@
+From 47413d6516a8314cc770ffa499b81ddf1f1b4b2f Mon Sep 17 00:00:00 2001
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
+Date: Tue, 3 May 2016 17:14:04 +0300
+Subject: net/mlx5: E-Switch, Implement trust vf ndo
+Reply-To: joseph.salisbury@microsoft.com
+
+- Add support to configure trusted vf attribute through trust_vf_ndo.
+
+- Upon VF trust setting change we update vport context to refresh
+ allmulti/promisc or any trusted vf attributes that we didn't trust the
+ VF for before.
+
+- Lock the eswitch state lock on vport event in order to synchronise the
+ vport context updates , this will prevent contention with vport trust
+ setting change which will trigger vport mac list update.
+
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 1edc57e2b3d3bf8672bb1553dbd541cc94f54937)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/en_main.c |  8 ++++
+ .../net/ethernet/mellanox/mlx5/core/eswitch.c | 40 ++++++++++++++++---
+ .../net/ethernet/mellanox/mlx5/core/eswitch.h |  2 +
+ 3 files changed, 45 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 41fc1c1b20db..5e67d4b6a241 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2416,6 +2416,13 @@ static int mlx5e_set_vf_spoofchk(struct net_device *dev, int vf, bool setting)
+ 	return mlx5_eswitch_set_vport_spoofchk(mdev->priv.eswitch, vf + 1, setting);
+ }
+ 
++static int mlx5e_set_vf_trust(struct net_device *dev, int vf, bool setting)
++{
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5_core_dev *mdev = priv->mdev;
++
++	return mlx5_eswitch_set_vport_trust(mdev->priv.eswitch, vf + 1, setting);
++}
+ static int mlx5_vport_link2ifla(u8 esw_link)
+ {
+ 	switch (esw_link) {
+@@ -2586,6 +2593,7 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+ 	.ndo_set_vf_mac          = mlx5e_set_vf_mac,
+ 	.ndo_set_vf_vlan         = mlx5e_set_vf_vlan,
+ 	.ndo_set_vf_spoofchk     = mlx5e_set_vf_spoofchk,
++	.ndo_set_vf_trust        = mlx5e_set_vf_trust,
+ 	.ndo_get_vf_config       = mlx5e_get_vf_config,
+ 	.ndo_set_vf_link_state   = mlx5e_set_vf_link_state,
+ 	.ndo_get_vf_stats        = mlx5e_get_vf_stats,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index ad4bc985cc43..b84a6918a700 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -974,10 +974,8 @@ static void esw_update_vport_rx_mode(struct mlx5_eswitch *esw, u32 vport_num)
+ 				(promisc_all || promisc_mc));
+ }
+ 
+-static void esw_vport_change_handler(struct work_struct *work)
++static void esw_vport_change_handle_locked(struct mlx5_vport *vport)
+ {
+-	struct mlx5_vport *vport =
+-		container_of(work, struct mlx5_vport, vport_change_handler);
+ 	struct mlx5_core_dev *dev = vport->dev;
+ 	struct mlx5_eswitch *esw = dev->priv.eswitch;
+ 	u8 mac[ETH_ALEN];
+@@ -1015,6 +1013,17 @@ static void esw_vport_change_handler(struct work_struct *work)
+ 					     vport->enabled_events);
+ }
+ 
++static void esw_vport_change_handler(struct work_struct *work)
++{
++	struct mlx5_vport *vport =
++		container_of(work, struct mlx5_vport, vport_change_handler);
++	struct mlx5_eswitch *esw = vport->dev->priv.eswitch;
++
++	mutex_lock(&esw->state_lock);
++	esw_vport_change_handle_locked(vport);
++	mutex_unlock(&esw->state_lock);
++}
++
+ static void esw_vport_enable_egress_acl(struct mlx5_eswitch *esw,
+ 					struct mlx5_vport *vport)
+ {
+@@ -1482,7 +1491,7 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
+ 
+ 	/* Sync with current vport context */
+ 	vport->enabled_events = enable_events;
+-	esw_vport_change_handler(&vport->vport_change_handler);
++	esw_vport_change_handle_locked(vport);
+ 
+ 	vport->enabled = true;
+ 
+@@ -1522,7 +1531,7 @@ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
+ 	 * Calling vport change handler while vport is disabled will cleanup
+ 	 * the vport resources.
+ 	 */
+-	esw_vport_change_handler(&vport->vport_change_handler);
++	esw_vport_change_handle_locked(vport);
+ 	vport->enabled_events = 0;
+ 	if (vport_num) {
+ 		esw_vport_disable_egress_acl(esw, vport);
+@@ -1859,6 +1868,27 @@ int mlx5_eswitch_set_vport_spoofchk(struct mlx5_eswitch *esw,
+ 	return err;
+ }
+ 
++int mlx5_eswitch_set_vport_trust(struct mlx5_eswitch *esw,
++				 int vport, bool setting)
++{
++	struct mlx5_vport *evport;
++
++	if (!ESW_ALLOWED(esw))
++		return -EPERM;
++	if (!LEGAL_VPORT(esw, vport))
++		return -EINVAL;
++
++	evport = &esw->vports[vport];
++
++	mutex_lock(&esw->state_lock);
++	evport->trusted = setting;
++	if (evport->enabled)
++		esw_vport_change_handle_locked(evport);
++	mutex_unlock(&esw->state_lock);
++
++	return 0;
++}
++
+ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
+ 				 int vport,
+ 				 struct ifla_vf_stats *vf_stats)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index a39f18e3bd18..fd6800256d4a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -169,6 +169,8 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
+ 				int vport, u16 vlan, u8 qos);
+ int mlx5_eswitch_set_vport_spoofchk(struct mlx5_eswitch *esw,
+ 				    int vport, bool spoofchk);
++int mlx5_eswitch_set_vport_trust(struct mlx5_eswitch *esw,
++				 int vport_num, bool setting);
+ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
+ 				  int vport, struct ifla_vf_info *ivi);
+ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
+-- 
+2.17.1
+

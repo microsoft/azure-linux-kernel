@@ -1,0 +1,239 @@
+From ad228c47ec84df952ede16616411ae21653a54bd Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 15 Nov 2017 15:12:55 +0100
+Subject: hv_netvsc: preserve hw_features on mtu/channels/ringparam changes
+Reply-To: joseph.salisbury@microsoft.com
+
+rndis_filter_device_add() is called both from netvsc_probe() when we
+initially create the device and from set channels/mtu/ringparam
+routines where we basically remove the device and add it back.
+
+hw_features is reset in rndis_filter_device_add() and filled with
+host data. However, we lose all additional flags which are set outside
+of the driver, e.g. register_netdevice() adds NETIF_F_SOFT_FEATURES and
+many others.
+
+Unfortunately, calls to rndis_{query_hwcaps(), _set_offload_params()}
+calls cannot be avoided on every RNDIS reset: host expects us to set
+required features explicitly. Moreover, in theory hardware capabilities
+can change and we need to reflect the change in hw_features.
+
+Reset net->hw_features bits according to host data in
+rndis_netdev_set_hwcaps(), clear corresponding feature bits
+from net->features in case some features went missing (will never happen
+in real life I guess but let's be consistent).
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit aefd80e874e98a864915df5b7d90824a4340b450)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |   4 +
+ drivers/net/hyperv/netvsc_drv.c   |   2 +-
+ drivers/net/hyperv/rndis_filter.c | 136 +++++++++++++++++-------------
+ 3 files changed, 83 insertions(+), 59 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index f1a3b6d4c0fe..3e655f842c26 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -654,6 +654,10 @@ struct nvsp_message {
+ #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
+ #define NETVSC_SEND_BUFFER_ID			0
+ 
++#define NETVSC_SUPPORTED_HW_FEATURES (NETIF_F_RXCSUM | NETIF_F_IP_CSUM | \
++				      NETIF_F_TSO | NETIF_F_IPV6_CSUM | \
++				      NETIF_F_TSO6)
++
+ #define VRSS_SEND_TAB_SIZE 16  /* must be power of 2 */
+ #define VRSS_CHANNEL_MAX 64
+ #define VRSS_CHANNEL_DEFAULT 8
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 937a577c65df..2966c9f37e54 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1974,7 +1974,7 @@ static int netvsc_probe(struct hv_device *dev,
+ 
+ 	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
+ 
+-	/* hw_features computed in rndis_filter_device_add */
++	/* hw_features computed in rndis_netdev_set_hwcaps() */
+ 	net->features = net->hw_features |
+ 		NETIF_F_HIGHDMA | NETIF_F_SG |
+ 		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 46a002fb9d9b..b8b2cb18d3dc 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1129,69 +1129,20 @@ unlock:
+ 	rtnl_unlock();
+ }
+ 
+-struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
+-				      struct netvsc_device_info *device_info)
++static int rndis_netdev_set_hwcaps(struct rndis_device *rndis_device,
++				   struct netvsc_device *nvdev)
+ {
+-	struct net_device *net = hv_get_drvdata(dev);
++	struct net_device *net = rndis_device->ndev;
+ 	struct net_device_context *net_device_ctx = netdev_priv(net);
+-	struct netvsc_device *net_device;
+-	struct rndis_device *rndis_device;
+ 	struct ndis_offload hwcaps;
+ 	struct ndis_offload_params offloads;
+-	struct ndis_recv_scale_cap rsscap;
+-	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);
+ 	unsigned int gso_max_size = GSO_MAX_SIZE;
+-	u32 mtu, size;
+-	const struct cpumask *node_cpu_mask;
+-	u32 num_possible_rss_qs;
+-	int i, ret;
+-
+-	rndis_device = get_rndis_device();
+-	if (!rndis_device)
+-		return ERR_PTR(-ENODEV);
+-
+-	/*
+-	 * Let the inner driver handle this first to create the netvsc channel
+-	 * NOTE! Once the channel is created, we may get a receive callback
+-	 * (RndisFilterOnReceive()) before this call is completed
+-	 */
+-	net_device = netvsc_device_add(dev, device_info);
+-	if (IS_ERR(net_device)) {
+-		kfree(rndis_device);
+-		return net_device;
+-	}
+-
+-	/* Initialize the rndis device */
+-	net_device->max_chn = 1;
+-	net_device->num_chn = 1;
+-
+-	net_device->extension = rndis_device;
+-	rndis_device->ndev = net;
+-
+-	/* Send the rndis initialization message */
+-	ret = rndis_filter_init_device(rndis_device, net_device);
+-	if (ret != 0)
+-		goto err_dev_remv;
+-
+-	/* Get the MTU from the host */
+-	size = sizeof(u32);
+-	ret = rndis_filter_query_device(rndis_device, net_device,
+-					RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE,
+-					&mtu, &size);
+-	if (ret == 0 && size == sizeof(u32) && mtu < net->mtu)
+-		net->mtu = mtu;
+-
+-	/* Get the mac address */
+-	ret = rndis_filter_query_device_mac(rndis_device, net_device);
+-	if (ret != 0)
+-		goto err_dev_remv;
+-
+-	memcpy(device_info->mac_adr, rndis_device->hw_mac_adr, ETH_ALEN);
++	int ret;
+ 
+ 	/* Find HW offload capabilities */
+-	ret = rndis_query_hwcaps(rndis_device, net_device, &hwcaps);
++	ret = rndis_query_hwcaps(rndis_device, nvdev, &hwcaps);
+ 	if (ret != 0)
+-		goto err_dev_remv;
++		return ret;
+ 
+ 	/* A value of zero means "no change"; now turn on what we want. */
+ 	memset(&offloads, 0, sizeof(struct ndis_offload_params));
+@@ -1199,8 +1150,12 @@ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
+ 	/* Linux does not care about IP checksum, always does in kernel */
+ 	offloads.ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_DISABLED;
+ 
++	/* Reset previously set hw_features flags */
++	net->hw_features &= ~NETVSC_SUPPORTED_HW_FEATURES;
++	net_device_ctx->tx_checksum_mask = 0;
++
+ 	/* Compute tx offload settings based on hw capabilities */
+-	net->hw_features = NETIF_F_RXCSUM;
++	net->hw_features |= NETIF_F_RXCSUM;
+ 
+ 	if ((hwcaps.csum.ip4_txcsum & NDIS_TXCSUM_ALL_TCP4) == NDIS_TXCSUM_ALL_TCP4) {
+ 		/* Can checksum TCP */
+@@ -1244,10 +1199,75 @@ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
+ 		}
+ 	}
+ 
++	/* In case some hw_features disappeared we need to remove them from
++	 * net->features list as they're no longer supported.
++	 */
++	net->features &= ~NETVSC_SUPPORTED_HW_FEATURES | net->hw_features;
++
+ 	netif_set_gso_max_size(net, gso_max_size);
+ 
+-	ret = rndis_filter_set_offload_params(net, net_device, &offloads);
+-	if (ret)
++	ret = rndis_filter_set_offload_params(net, nvdev, &offloads);
++
++	return ret;
++}
++
++struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
++				      struct netvsc_device_info *device_info)
++{
++	struct net_device *net = hv_get_drvdata(dev);
++	struct netvsc_device *net_device;
++	struct rndis_device *rndis_device;
++	struct ndis_recv_scale_cap rsscap;
++	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);
++	u32 mtu, size;
++	const struct cpumask *node_cpu_mask;
++	u32 num_possible_rss_qs;
++	int i, ret;
++
++	rndis_device = get_rndis_device();
++	if (!rndis_device)
++		return ERR_PTR(-ENODEV);
++
++	/* Let the inner driver handle this first to create the netvsc channel
++	 * NOTE! Once the channel is created, we may get a receive callback
++	 * (RndisFilterOnReceive()) before this call is completed
++	 */
++	net_device = netvsc_device_add(dev, device_info);
++	if (IS_ERR(net_device)) {
++		kfree(rndis_device);
++		return net_device;
++	}
++
++	/* Initialize the rndis device */
++	net_device->max_chn = 1;
++	net_device->num_chn = 1;
++
++	net_device->extension = rndis_device;
++	rndis_device->ndev = net;
++
++	/* Send the rndis initialization message */
++	ret = rndis_filter_init_device(rndis_device, net_device);
++	if (ret != 0)
++		goto err_dev_remv;
++
++	/* Get the MTU from the host */
++	size = sizeof(u32);
++	ret = rndis_filter_query_device(rndis_device, net_device,
++					RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE,
++					&mtu, &size);
++	if (ret == 0 && size == sizeof(u32) && mtu < net->mtu)
++		net->mtu = mtu;
++
++	/* Get the mac address */
++	ret = rndis_filter_query_device_mac(rndis_device, net_device);
++	if (ret != 0)
++		goto err_dev_remv;
++
++	memcpy(device_info->mac_adr, rndis_device->hw_mac_adr, ETH_ALEN);
++
++	/* Query and set hardware capabilities */
++	ret = rndis_netdev_set_hwcaps(rndis_device, net_device);
++	if (ret != 0)
+ 		goto err_dev_remv;
+ 
+ 	rndis_filter_query_device_link_status(rndis_device, net_device);
+-- 
+2.17.1
+

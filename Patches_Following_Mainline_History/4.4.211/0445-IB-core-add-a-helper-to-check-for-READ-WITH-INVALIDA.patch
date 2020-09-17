@@ -1,0 +1,43 @@
+From 9a38bb31545a12610db0b142728ccba178339ab8 Mon Sep 17 00:00:00 2001
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 3 May 2016 18:01:05 +0200
+Subject: IB/core: add a helper to check for READ WITH INVALIDATE support
+Reply-To: joseph.salisbury@microsoft.com
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Tested-by: Steve Wise <swise@opengridcomputing.com>
+Reviewed-by: Steve Wise <swise@opengridcomputing.com>
+Reviewed-by: Sagi Grimberg <sagi@grimberg.me>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 002516edf5176dde2bee54addb7e6e8129a9532b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/rdma/ib_verbs.h | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index c4b68fbf85db..ecda89388ca3 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -2310,6 +2310,18 @@ static inline bool rdma_cap_roce_gid_table(const struct ib_device *device,
+ 		device->add_gid && device->del_gid;
+ }
+ 
++/*
++ * Check if the device supports READ W/ INVALIDATE.
++ */
++static inline bool rdma_cap_read_inv(struct ib_device *dev, u32 port_num)
++{
++	/*
++	 * iWarp drivers must support READ W/ INVALIDATE.  No other protocol
++	 * has support for it yet.
++	 */
++	return rdma_protocol_iwarp(dev, port_num);
++}
++
+ int ib_query_gid(struct ib_device *device,
+ 		 u8 port_num, int index, union ib_gid *gid,
+ 		 struct ib_gid_attr *attr);
+-- 
+2.17.1
+

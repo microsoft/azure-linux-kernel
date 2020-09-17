@@ -1,4 +1,4 @@
-From 6bd60c1e726d5a82a3bdc3ac0cccec1155a8d5a7 Mon Sep 17 00:00:00 2001
+From 7735e804169a378a51c3983e647900d7af036533 Mon Sep 17 00:00:00 2001
 From: Eric Dumazet <edumazet@google.com>
 Date: Wed, 18 Nov 2015 06:30:58 -0800
 Subject: mlx4: remove mlx4_en_low_latency_recv()

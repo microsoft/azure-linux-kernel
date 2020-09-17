@@ -1,0 +1,80 @@
+From 2ec5354689320feb5afacbd5f28cebcab3796667 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 12 Dec 2017 16:48:39 -0800
+Subject: hv_netvsc: remove open_cnt reference count
+Reply-To: joseph.salisbury@microsoft.com
+
+There is only ever a single instance of network device object
+referencing the internal rndis object. Therefore the open_cnt atomic
+is not necessary.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 0da6edbd3a379433814c738e932474057537107c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |  2 --
+ drivers/net/hyperv/netvsc.c       |  2 +-
+ drivers/net/hyperv/rndis_filter.c | 10 +++-------
+ 3 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index e5d78f3f5b29..a7f87b7241da 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -823,8 +823,6 @@ struct netvsc_device {
+ 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
+ 	u32 pkt_align; /* alignment bytes, e.g. 8 */
+ 
+-	atomic_t open_cnt;
+-
+ 	struct netvsc_channel chan_table[VRSS_CHANNEL_MAX];
+ 
+ 	struct rcu_head rcu;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index bf36c8dfa67b..76f9aea7d1b9 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -72,7 +72,7 @@ static struct netvsc_device *alloc_net_device(void)
+ 
+ 	init_waitqueue_head(&net_device->wait_drain);
+ 	net_device->destroy = false;
+-	atomic_set(&net_device->open_cnt, 0);
++
+ 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
+ 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 5f62f7ed6a38..710e6012683f 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1361,9 +1361,6 @@ int rndis_filter_open(struct netvsc_device *nvdev)
+ 	if (!nvdev)
+ 		return -EINVAL;
+ 
+-	if (atomic_inc_return(&nvdev->open_cnt) != 1)
+-		return 0;
+-
+ 	return rndis_filter_open_device(nvdev->extension);
+ }
+ 
+@@ -1372,13 +1369,12 @@ int rndis_filter_close(struct netvsc_device *nvdev)
+ 	if (!nvdev)
+ 		return -EINVAL;
+ 
+-	if (atomic_dec_return(&nvdev->open_cnt) != 0)
+-		return 0;
+-
+ 	return rndis_filter_close_device(nvdev->extension);
+ }
+ 
+ bool rndis_filter_opened(const struct netvsc_device *nvdev)
+ {
+-	return atomic_read(&nvdev->open_cnt) > 0;
++	const struct rndis_device *dev = nvdev->extension;
++
++	return dev->state == RNDIS_DEV_DATAINITIALIZED;
+ }
+-- 
+2.17.1
+

@@ -1,0 +1,47 @@
+From 6f3b1be4ed9511833325ef7fdfe0837bb6afc27a Mon Sep 17 00:00:00 2001
+From: Kamal Heib <kamalh@mellanox.com>
+Date: Tue, 6 Dec 2016 17:32:44 +0200
+Subject: net/mlx5: Remove duplicate pci dev name print
+Reply-To: joseph.salisbury@microsoft.com
+
+Remove duplicate pci dev name printing from mlx5_core_warn/dbg.
+
+Fixes: 5a7883989b1c ('net/mlx5_core: Improve mlx5 messages')
+Signed-off-by: Kamal Heib <kamalh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 9e5b2fc1d39b3122e2028849d0edc5df1d1a4761)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index 07edcea2ff7a..87c2b3457454 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -47,8 +47,8 @@
+ extern uint mlx5_core_debug_mask;
+ 
+ #define mlx5_core_dbg(__dev, format, ...)				\
+-	dev_dbg(&(__dev)->pdev->dev, "%s:%s:%d:(pid %d): " format,	\
+-		 (__dev)->priv.name, __func__, __LINE__, current->pid,	\
++	dev_dbg(&(__dev)->pdev->dev, "%s:%d:(pid %d): " format,		\
++		 __func__, __LINE__, current->pid,			\
+ 		 ##__VA_ARGS__)
+ 
+ #define mlx5_core_dbg_mask(__dev, mask, format, ...)			\
+@@ -63,8 +63,8 @@ do {									\
+ 	       ##__VA_ARGS__)
+ 
+ #define mlx5_core_warn(__dev, format, ...)				\
+-	dev_warn(&(__dev)->pdev->dev, "%s:%s:%d:(pid %d): " format,	\
+-		(__dev)->priv.name, __func__, __LINE__, current->pid,	\
++	dev_warn(&(__dev)->pdev->dev, "%s:%d:(pid %d): " format,	\
++		 __func__, __LINE__, current->pid,			\
+ 		##__VA_ARGS__)
+ 
+ #define mlx5_core_info(__dev, format, ...)				\
+-- 
+2.17.1
+

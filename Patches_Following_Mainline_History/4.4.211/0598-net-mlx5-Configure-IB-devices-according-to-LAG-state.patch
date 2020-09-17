@@ -1,0 +1,76 @@
+From ed510f6bd9b80410b5e08dba63e3cfac274d7e64 Mon Sep 17 00:00:00 2001
+From: Aviv Heller <avivh@mellanox.com>
+Date: Mon, 30 May 2016 18:32:32 +0300
+Subject: net/mlx5: Configure IB devices according to LAG state
+Reply-To: joseph.salisbury@microsoft.com
+
+When mlx5_ib is loaded, we would like each card's IB devices
+to be added according to its LAG state (one IB device, instead of
+two, is to be added if LAG is active).
+
+Signed-off-by: Aviv Heller <avivh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+(cherry picked from commit 917b41aab7b3afb2221ac0895f302ee32431fa6e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/lag.c   | 17 +++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/main.c  |  3 +++
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h |  2 ++
+ 3 files changed, 22 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lag.c b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+index 618e46abcce6..cb6e2488d14a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/lag.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+@@ -582,3 +582,20 @@ unlock:
+ 	return ndev;
+ }
+ EXPORT_SYMBOL(mlx5_lag_get_roce_netdev);
++
++bool mlx5_lag_intf_add(struct mlx5_interface *intf, struct mlx5_priv *priv)
++{
++	struct mlx5_core_dev *dev = container_of(priv, struct mlx5_core_dev,
++						 priv);
++	struct mlx5_lag *ldev;
++
++	if (intf->protocol != MLX5_INTERFACE_PROTOCOL_IB)
++		return true;
++
++	ldev = mlx5_lag_dev_get(dev);
++	if (!ldev || !mlx5_lag_is_bonded(ldev) || ldev->pf[0].dev == dev)
++		return true;
++
++	/* If bonded, we do not add an IB device for PF1. */
++	return false;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index ca7b095c350e..4b17a0ace520 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -782,6 +782,9 @@ static void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
+ 	struct mlx5_device_context *dev_ctx;
+ 	struct mlx5_core_dev *dev = container_of(priv, struct mlx5_core_dev, priv);
+ 
++	if (!mlx5_lag_intf_add(intf, priv))
++		return;
++
+ 	dev_ctx = kmalloc(sizeof(*dev_ctx), GFP_KERNEL);
+ 	if (!dev_ctx)
+ 		return;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index ee6423526c13..12469a7bcb75 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -104,6 +104,8 @@ void mlx5_lag_remove(struct mlx5_core_dev *dev);
+ void mlx5_add_dev_by_protocol(struct mlx5_core_dev *dev, int protocol);
+ void mlx5_remove_dev_by_protocol(struct mlx5_core_dev *dev, int protocol);
+ 
++bool mlx5_lag_intf_add(struct mlx5_interface *intf, struct mlx5_priv *priv);
++
+ void mlx5e_init(void);
+ void mlx5e_cleanup(void);
+ 
+-- 
+2.17.1
+

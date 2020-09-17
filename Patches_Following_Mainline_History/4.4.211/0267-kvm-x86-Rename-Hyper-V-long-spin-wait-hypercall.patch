@@ -1,0 +1,57 @@
+From 995318f6491f3c0c45fba29caa0330bf42b461aa Mon Sep 17 00:00:00 2001
+From: Andrey Smetanin <asmetanin@virtuozzo.com>
+Date: Thu, 11 Feb 2016 16:44:57 +0300
+Subject: kvm/x86: Rename Hyper-V long spin wait hypercall
+Reply-To: joseph.salisbury@microsoft.com
+
+Rename HV_X64_HV_NOTIFY_LONG_SPIN_WAIT by HVCALL_NOTIFY_LONG_SPIN_WAIT,
+so the name is more consistent with the other hypercalls.
+
+Signed-off-by: Andrey Smetanin <asmetanin@virtuozzo.com>
+Reviewed-by: Roman Kagan <rkagan@virtuozzo.com>
+CC: Gleb Natapov <gleb@kernel.org>
+CC: Paolo Bonzini <pbonzini@redhat.com>
+CC: Joerg Roedel <joro@8bytes.org>
+CC: "K. Y. Srinivasan" <kys@microsoft.com>
+CC: Haiyang Zhang <haiyangz@microsoft.com>
+CC: Roman Kagan <rkagan@virtuozzo.com>
+CC: Denis V. Lunev <den@openvz.org>
+CC: qemu-devel@nongnu.org
+[Change name, Andrey used HV_X64_HCALL_NOTIFY_LONG_SPIN_WAIT. - Paolo]
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 8ed6d76781dd01451546d402a2136b6389861d81)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/include/uapi/asm/hyperv.h | 2 +-
+ arch/x86/kvm/hyperv.c              | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/include/uapi/asm/hyperv.h b/arch/x86/include/uapi/asm/hyperv.h
+index a41cdee88adb..937ede3ef0b4 100644
+--- a/arch/x86/include/uapi/asm/hyperv.h
++++ b/arch/x86/include/uapi/asm/hyperv.h
+@@ -226,7 +226,7 @@
+ 		(~((1ull << HV_X64_MSR_HYPERCALL_PAGE_ADDRESS_SHIFT) - 1))
+ 
+ /* Declare the various hypercall operations. */
+-#define HV_X64_HV_NOTIFY_LONG_SPIN_WAIT		0x0008
++#define HVCALL_NOTIFY_LONG_SPIN_WAIT		0x0008
+ 
+ #define HV_X64_MSR_APIC_ASSIST_PAGE_ENABLE		0x00000001
+ #define HV_X64_MSR_APIC_ASSIST_PAGE_ADDRESS_SHIFT	12
+diff --git a/arch/x86/kvm/hyperv.c b/arch/x86/kvm/hyperv.c
+index 62cf8c915e95..fad937690695 100644
+--- a/arch/x86/kvm/hyperv.c
++++ b/arch/x86/kvm/hyperv.c
+@@ -384,7 +384,7 @@ int kvm_hv_hypercall(struct kvm_vcpu *vcpu)
+ 	trace_kvm_hv_hypercall(code, fast, rep_cnt, rep_idx, ingpa, outgpa);
+ 
+ 	switch (code) {
+-	case HV_X64_HV_NOTIFY_LONG_SPIN_WAIT:
++	case HVCALL_NOTIFY_LONG_SPIN_WAIT:
+ 		kvm_vcpu_on_spin(vcpu);
+ 		break;
+ 	default:
+-- 
+2.17.1
+

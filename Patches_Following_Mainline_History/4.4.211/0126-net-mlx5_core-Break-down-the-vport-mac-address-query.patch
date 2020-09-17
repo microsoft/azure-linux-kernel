@@ -1,4 +1,4 @@
-From f0a5eb9cd868991f5794800a4ba1e2b53bef2b14 Mon Sep 17 00:00:00 2001
+From df959417a052e984422bd1d9e3e2771bec7edef0 Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Wed, 23 Dec 2015 18:47:18 +0200
 Subject: net/mlx5_core: Break down the vport mac address query function
