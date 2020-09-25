@@ -1,4 +1,4 @@
-From 90bff343540f4c0a639a86388fadd91090fd665c Mon Sep 17 00:00:00 2001
+From ad78bc3e8275fd4177fe880d6bb4349f820a5d61 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Thu, 9 Jun 2016 12:44:03 +0200
 Subject: netvsc: get rid of completion timeouts

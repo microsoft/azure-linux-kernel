@@ -1,4 +1,4 @@
-From 04cd5571df7504b13b0d7a13cdfa81ed7117f897 Mon Sep 17 00:00:00 2001
+From 73fa2f71b389ef721daa3e75dc889fe7ae91f430 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:26:01 +0200
 Subject: net/mlx5_core: Connect flow tables

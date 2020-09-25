@@ -1,4 +1,4 @@
-From d48c9b096b74d6234cc61765290a53caeafe5498 Mon Sep 17 00:00:00 2001
+From 46c5ec6ef08002b03b6ad22a53256c7f94b5be3a Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 4 Jul 2016 17:23:09 +0300
 Subject: net/mlx5e: Support l3/l4 flow type specs in ethtool flow steering

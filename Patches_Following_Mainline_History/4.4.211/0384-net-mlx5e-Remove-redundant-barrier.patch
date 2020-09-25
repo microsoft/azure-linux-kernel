@@ -1,4 +1,4 @@
-From 2b57724f44509594a863344dd87cb8d9431ff09a Mon Sep 17 00:00:00 2001
+From c0e723d087aa6223523daa055d59b764cdc4799d Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 20 Apr 2016 22:02:17 +0300
 Subject: net/mlx5e: Remove redundant barrier

@@ -1,4 +1,4 @@
-From 9470950c4e5fcf1c708839ac40bc71f800628bb2 Mon Sep 17 00:00:00 2001
+From 1573013c9f6b5f9566e56e99685419302fb80e5b Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Fri, 9 Sep 2016 17:35:25 +0300
 Subject: net/mlx5e: Implement mlx5e interface attach/detach callbacks

@@ -1,4 +1,4 @@
-From 4a0a332c462a5e050e692f3156e34fdf5be4c6ed Mon Sep 17 00:00:00 2001
+From 3c9148b030c7666670cac9b49b329501af4cecf0 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 19 Jul 2017 11:53:19 -0700
 Subject: netvsc: add rtnl annotations in rndis

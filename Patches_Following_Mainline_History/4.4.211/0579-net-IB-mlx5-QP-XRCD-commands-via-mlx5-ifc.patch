@@ -1,4 +1,4 @@
-From c2d55b69266565dfd0ee5afb6172cd80ae2ffb50 Mon Sep 17 00:00:00 2001
+From 29b4a487fff52b6aca24a57a5b062bd9ff68677f Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 19 Jul 2016 01:17:59 +0300
 Subject: {net,IB}/mlx5: QP/XRCD commands via mlx5 ifc

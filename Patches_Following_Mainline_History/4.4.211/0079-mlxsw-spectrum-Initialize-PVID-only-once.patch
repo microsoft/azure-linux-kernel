@@ -1,4 +1,4 @@
-From 7cac674dc455ebc8e83f64ad1dd5eb1a230eccc5 Mon Sep 17 00:00:00 2001
+From 391e2e89d165b499589c877cae3b6b1ce7ccfa6f Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Mon, 4 Jan 2016 10:42:23 +0100
 Subject: mlxsw: spectrum: Initialize PVID only once

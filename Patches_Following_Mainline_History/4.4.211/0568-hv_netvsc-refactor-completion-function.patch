@@ -1,4 +1,4 @@
-From bb75dffe9ffeb10914f3514efc4a0066af7e5d30 Mon Sep 17 00:00:00 2001
+From d2bc1405733ab61ce336047854aa3b3c0c9cac7b Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Tue, 23 Aug 2016 12:17:53 -0700
 Subject: hv_netvsc: refactor completion function

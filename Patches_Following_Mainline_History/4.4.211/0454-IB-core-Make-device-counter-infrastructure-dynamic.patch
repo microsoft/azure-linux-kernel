@@ -1,4 +1,4 @@
-From 35ad084f42d260c4308da077857438867695ada3 Mon Sep 17 00:00:00 2001
+From fcb2a90b548a5fdb7094c41e61bb17188ce885c2 Mon Sep 17 00:00:00 2001
 From: Christoph Lameter <cl@linux.com>
 Date: Mon, 16 May 2016 12:49:33 -0500
 Subject: IB/core: Make device counter infrastructure dynamic

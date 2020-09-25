@@ -1,4 +1,4 @@
-From 9a38bb31545a12610db0b142728ccba178339ab8 Mon Sep 17 00:00:00 2001
+From 9ee475c374d70f325ed5fdcdcd0a901a825d6443 Mon Sep 17 00:00:00 2001
 From: Christoph Hellwig <hch@lst.de>
 Date: Tue, 3 May 2016 18:01:05 +0200
 Subject: IB/core: add a helper to check for READ WITH INVALIDATE support

@@ -1,4 +1,4 @@
-From aa695bbc35219c7e9fe0b6c98a7e952ecb80e224 Mon Sep 17 00:00:00 2001
+From 3ae7bc8d7f98a84c88a5e355321c2eb8e5c0bfdd Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Thu, 22 Sep 2016 16:56:32 -0700
 Subject: hv_netvsc: improve VF device matching

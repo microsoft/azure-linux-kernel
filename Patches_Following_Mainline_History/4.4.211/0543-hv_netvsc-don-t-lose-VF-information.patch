@@ -1,4 +1,4 @@
-From 4e94e4219b3bfffc0628800afb3cbd3ebcf4b556 Mon Sep 17 00:00:00 2001
+From 8379d3fbb241499fa310ef32b791be83386aa846 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Mon, 15 Aug 2016 17:48:39 +0200
 Subject: hv_netvsc: don't lose VF information

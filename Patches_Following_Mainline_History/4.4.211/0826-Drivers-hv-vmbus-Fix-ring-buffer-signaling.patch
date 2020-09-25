@@ -1,4 +1,4 @@
-From 0d8662472d32afd18faf57d5981a9dd78a023409 Mon Sep 17 00:00:00 2001
+From 66e7c2f6099903d46b100abf14f388b2a3e530fe Mon Sep 17 00:00:00 2001
 From: Michael Kelley <mhkelley@outlook.com>
 Date: Sun, 4 Mar 2018 22:24:08 -0700
 Subject: Drivers: hv: vmbus: Fix ring buffer signaling

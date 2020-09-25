@@ -1,4 +1,4 @@
-From 5740f014ce3bfcebe128add90b92c63b21d44dcc Mon Sep 17 00:00:00 2001
+From 4959b8af30bccd20b91866dbc351933a910082aa Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Mon, 22 Feb 2016 18:17:28 +0200
 Subject: net/mlx5e: Implement DCBNL IEEE max rate

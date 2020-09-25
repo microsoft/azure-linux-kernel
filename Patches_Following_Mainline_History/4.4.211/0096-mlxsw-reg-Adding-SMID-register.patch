@@ -1,4 +1,4 @@
-From ff1cf8e49cc06dc60b25500fb04cf79986ac6ba8 Mon Sep 17 00:00:00 2001
+From 20052e3cea4bec4a34a61a146fe75b047f1a4f38 Mon Sep 17 00:00:00 2001
 From: Elad Raz <eladr@mellanox.com>
 Date: Sun, 10 Jan 2016 21:06:25 +0100
 Subject: mlxsw: reg: Adding SMID register

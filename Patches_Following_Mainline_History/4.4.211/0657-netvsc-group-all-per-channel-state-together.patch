@@ -1,4 +1,4 @@
-From be3c1712c410fd07cd1ab0549b7e828f67fc7ea6 Mon Sep 17 00:00:00 2001
+From c1b638a94b875bcbf9834fadb3f0707f1fbe9ab7 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:07 -0800
 Subject: netvsc: group all per-channel state together

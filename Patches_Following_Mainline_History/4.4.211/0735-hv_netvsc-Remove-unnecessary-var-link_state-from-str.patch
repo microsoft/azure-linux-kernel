@@ -1,4 +1,4 @@
-From 1810d75b28311354241fe0b445e4f4b75e89848b Mon Sep 17 00:00:00 2001
+From 53f26b1e6858541c9197f9e079ba318d824a9128 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Wed, 21 Jun 2017 16:40:46 -0700
 Subject: hv_netvsc: Remove unnecessary var link_state from struct

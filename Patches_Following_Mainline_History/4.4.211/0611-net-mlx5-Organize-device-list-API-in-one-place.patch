@@ -1,4 +1,4 @@
-From 401e50a17cbc8e9ede857998ad1e7552781c601d Mon Sep 17 00:00:00 2001
+From 5ef4a9355858ceba5bfb514859af94ca726c1ae6 Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Fri, 9 Sep 2016 17:35:27 +0300
 Subject: net/mlx5: Organize device list API in one place

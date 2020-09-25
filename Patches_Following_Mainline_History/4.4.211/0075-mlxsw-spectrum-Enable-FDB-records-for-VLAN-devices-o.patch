@@ -1,4 +1,4 @@
-From eddc9d0affdcd512fc3d9ee04f6c3d52ce190330 Mon Sep 17 00:00:00 2001
+From 3c8e6067ffdb103fee5e72b31cc6f3dd4a582d7b Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:46 +0100
 Subject: mlxsw: spectrum: Enable FDB records for VLAN devices on top of LAG

@@ -1,4 +1,4 @@
-From 4b5f512591c608e8a1a0bb289020906c9c6f91ab Mon Sep 17 00:00:00 2001
+From f2a13f5d622f5c51c631bd5091af70461fe22ae8 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:08 -0800
 Subject: netvsc: optimize receive path

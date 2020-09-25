@@ -1,4 +1,4 @@
-From fca89e61dcbb2781ebd6d7e2b2535155787188c6 Mon Sep 17 00:00:00 2001
+From e1489c61aa1617c37eabdb2f4c4ed74b7a261700 Mon Sep 17 00:00:00 2001
 From: Michael Kelley <mikelley@microsoft.com>
 Date: Tue, 5 Jun 2018 13:37:51 -0700
 Subject: Drivers: hv: vmbus: Add comments on ring buffer signaling

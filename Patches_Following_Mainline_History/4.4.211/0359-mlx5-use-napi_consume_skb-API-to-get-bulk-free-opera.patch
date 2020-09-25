@@ -1,4 +1,4 @@
-From b88a84ca4491dea84ae51b76ab9f43b3f767496b Mon Sep 17 00:00:00 2001
+From 4df2aa82f9e9fd65b804ab5a2804b00d4d8c5e7e Mon Sep 17 00:00:00 2001
 From: Jesper Dangaard Brouer <brouer@redhat.com>
 Date: Fri, 11 Mar 2016 09:44:17 +0100
 Subject: mlx5: use napi_consume_skb API to get bulk free operations

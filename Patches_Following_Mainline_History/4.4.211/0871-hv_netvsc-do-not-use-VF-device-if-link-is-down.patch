@@ -1,4 +1,4 @@
-From 2656ba2c97ced8ffe654fdb80789917beebf8c5c Mon Sep 17 00:00:00 2001
+From 1586d456025a3d5f435b5696a1da381ef41ca14a Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 4 Aug 2020 09:54:15 -0700
 Subject: hv_netvsc: do not use VF device if link is down

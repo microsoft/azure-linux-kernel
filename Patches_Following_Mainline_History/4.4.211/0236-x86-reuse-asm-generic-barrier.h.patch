@@ -1,4 +1,4 @@
-From ceb3f45b56060b411fba35d9f3fa9e74735f71bb Mon Sep 17 00:00:00 2001
+From 6ddf8e7fd32e831b7e12017ecb445acb7d60d740 Mon Sep 17 00:00:00 2001
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Date: Mon, 21 Dec 2015 09:22:18 +0200
 Subject: x86: reuse asm-generic/barrier.h

@@ -1,4 +1,4 @@
-From fb42d9c54657a2847c9c63a37176f4293ba41399 Mon Sep 17 00:00:00 2001
+From a31bb3d5108291361bdae8b0a08e5fc09ee7d2b5 Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Thu, 2 Aug 2018 03:08:23 +0000
 Subject: Drivers: hv: vmbus: Reset the channel callback in

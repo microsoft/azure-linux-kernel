@@ -1,4 +1,4 @@
-From db28acb71232877cb1abc75a65cd79bc17cb4b51 Mon Sep 17 00:00:00 2001
+From 4f5127f7624dbf5a9ccf0e1f3a4e150e0f0f046d Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 19 Jan 2017 11:51:50 -0700
 Subject: Drivers: hv: vmbus: Move the code to signal end of message

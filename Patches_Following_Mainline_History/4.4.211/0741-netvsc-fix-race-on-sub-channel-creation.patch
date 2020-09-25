@@ -1,4 +1,4 @@
-From f4af666586516b1152829cf828b9a872e5fc065d Mon Sep 17 00:00:00 2001
+From 93645d8a2351124c2a3fe5b09aece40a3f4c0143 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Thu, 3 Aug 2017 17:13:54 -0700
 Subject: netvsc: fix race on sub channel creation

@@ -1,4 +1,4 @@
-From eafbb47b294638378c541e6995ea6cf220463d50 Mon Sep 17 00:00:00 2001
+From 36df067dab5edbd0e9b1aff53c6c6f8ab3dc888e Mon Sep 17 00:00:00 2001
 From: Erez Shitrit <erezsh@mellanox.com>
 Date: Sun, 21 Feb 2016 16:27:18 +0200
 Subject: IB/mlx5: Add support for CSUM in RX flow

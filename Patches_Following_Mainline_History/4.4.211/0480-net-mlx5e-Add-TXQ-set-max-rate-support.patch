@@ -1,4 +1,4 @@
-From f9a52583ca5f1d89d5798166b15c00fb10a001bb Mon Sep 17 00:00:00 2001
+From 2d66030dccda2ff0e157fd12003d79edb579164c Mon Sep 17 00:00:00 2001
 From: Yevgeny Petrilin <yevgenyp@mellanox.com>
 Date: Thu, 23 Jun 2016 17:02:38 +0300
 Subject: net/mlx5e: Add TXQ set max rate support

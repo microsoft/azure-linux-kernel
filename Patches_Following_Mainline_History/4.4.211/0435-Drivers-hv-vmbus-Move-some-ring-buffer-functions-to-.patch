@@ -1,4 +1,4 @@
-From 571dfe1fff9e3e000e99814b0621beda20807170 Mon Sep 17 00:00:00 2001
+From 20864e9a4c4510a8d15a8c713e3ac3da8dd9b110 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Sat, 2 Apr 2016 17:59:50 -0700
 Subject: Drivers: hv: vmbus: Move some ring buffer functions to hyperv.h

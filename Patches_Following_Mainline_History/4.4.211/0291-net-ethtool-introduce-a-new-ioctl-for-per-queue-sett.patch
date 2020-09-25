@@ -1,4 +1,4 @@
-From cff9234ed62ba64d3701d2da2cc2ea21a53fc589 Mon Sep 17 00:00:00 2001
+From f591a4a5006550a7a6acefe9bff84f9c184772ff Mon Sep 17 00:00:00 2001
 From: Kan Liang <kan.liang@intel.com>
 Date: Fri, 19 Feb 2016 09:24:01 -0500
 Subject: net/ethtool: introduce a new ioctl for per queue setting

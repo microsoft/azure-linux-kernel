@@ -1,4 +1,4 @@
-From 17ff3291d66dbb3020a80b11b768ae17013693be Mon Sep 17 00:00:00 2001
+From 371b0bfe13e43a91f252174db3e231f1675e3f39 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Wed, 21 Jun 2017 16:40:47 -0700
 Subject: hv_netvsc: Fix the carrier state error when data path is off

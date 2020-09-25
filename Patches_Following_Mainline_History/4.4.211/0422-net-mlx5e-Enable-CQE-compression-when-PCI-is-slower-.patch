@@ -1,4 +1,4 @@
-From b6a6cac5ec3c00b019921be2bf00f8d35086b586 Mon Sep 17 00:00:00 2001
+From cb925954aebcac39c7e50eaec9ca9f279bb79412 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Wed, 11 May 2016 00:29:16 +0300
 Subject: net/mlx5e: Enable CQE compression when PCI is slower than link

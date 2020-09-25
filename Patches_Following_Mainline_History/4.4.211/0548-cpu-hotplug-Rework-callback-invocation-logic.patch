@@ -1,4 +1,4 @@
-From 8282afb9d4f6110fc5afc2df36309c0eb8dd8014 Mon Sep 17 00:00:00 2001
+From c9e40618d761caf308e6bd01b47bd10565c669f3 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 12 Aug 2016 19:49:38 +0200
 Subject: cpu/hotplug: Rework callback invocation logic

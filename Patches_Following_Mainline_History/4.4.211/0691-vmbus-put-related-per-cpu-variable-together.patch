@@ -1,4 +1,4 @@
-From 52b05d6ba9ffe2ee6fc7b78572876c523ff3b7a2 Mon Sep 17 00:00:00 2001
+From 7e992c3b35917bb48e2db12dff3ec980395c7fe0 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 11 Feb 2017 23:02:19 -0700
 Subject: vmbus: put related per-cpu variable together

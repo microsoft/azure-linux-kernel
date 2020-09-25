@@ -1,4 +1,4 @@
-From 36ac8c9ca155239a1488a3f76d11ba2008f21be6 Mon Sep 17 00:00:00 2001
+From ef45e5bdddde7e5fe6ae126ff9f286bd72981819 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Tue, 23 Aug 2016 12:17:55 -0700
 Subject: hv_netvsc: make variable local

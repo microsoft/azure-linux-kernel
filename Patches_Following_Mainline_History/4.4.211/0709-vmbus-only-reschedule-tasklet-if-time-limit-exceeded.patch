@@ -1,4 +1,4 @@
-From 3d88bd27997b23060209bc04582be7197e1c3fdf Mon Sep 17 00:00:00 2001
+From 6d7f15029b1fffb1c26f8855b0b87ef2306aade0 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 4 Mar 2017 18:27:10 -0700
 Subject: vmbus: only reschedule tasklet if time limit exceeded

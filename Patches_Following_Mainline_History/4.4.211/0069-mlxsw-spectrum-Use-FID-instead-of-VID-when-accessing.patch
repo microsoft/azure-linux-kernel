@@ -1,4 +1,4 @@
-From c2e31a4c4a60b09cf809cc64a7d053b80a79c1de Mon Sep 17 00:00:00 2001
+From 7944ca9deb14bfc74a8477a066f07c19b8cbfcde Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:40 +0100
 Subject: mlxsw: spectrum: Use FID instead of VID when accessing FDB

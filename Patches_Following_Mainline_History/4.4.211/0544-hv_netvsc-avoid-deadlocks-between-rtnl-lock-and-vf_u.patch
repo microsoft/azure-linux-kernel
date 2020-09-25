@@ -1,4 +1,4 @@
-From 6a4d8f5f584f8e814e98fcec026c4fff04559b28 Mon Sep 17 00:00:00 2001
+From 7398e0f31d15df3380805b94c0d5d6a529d711da Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Mon, 15 Aug 2016 17:48:40 +0200
 Subject: hv_netvsc: avoid deadlocks between rtnl lock and vf_use_cnt wait

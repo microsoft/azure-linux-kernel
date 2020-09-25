@@ -1,4 +1,4 @@
-From d2ca4a78d08807410ade1616b79dfd373b6f745b Mon Sep 17 00:00:00 2001
+From 9e0430534ac70220d8ad31413ef23fec1c00b530 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 19 Jul 2017 11:53:18 -0700
 Subject: netvsc: save pointer to parent netvsc_device in channel table

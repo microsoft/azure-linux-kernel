@@ -1,4 +1,4 @@
-From bffbfb0c2e77eabab61fb7cb8ccda92a5bc4557e Mon Sep 17 00:00:00 2001
+From c9910f2aaf3bc336b1f55d91d954092abdb5855c Mon Sep 17 00:00:00 2001
 From: KY Srinivasan <kys@microsoft.com>
 Date: Tue, 1 Dec 2015 16:43:04 -0800
 Subject: hv_netvsc: Rearrange the hv_negtvsc_packet to be space efficient

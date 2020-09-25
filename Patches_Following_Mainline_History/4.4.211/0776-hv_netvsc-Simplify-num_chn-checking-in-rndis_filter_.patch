@@ -1,4 +1,4 @@
-From 430fb500e6559a7d26b014868099e18082a5fc7d Mon Sep 17 00:00:00 2001
+From 89df0e0a82504cf3e6ea161d6cb8e81b31efce4f Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 1 Sep 2017 14:30:05 -0700
 Subject: hv_netvsc: Simplify num_chn checking in rndis_filter_device_add()

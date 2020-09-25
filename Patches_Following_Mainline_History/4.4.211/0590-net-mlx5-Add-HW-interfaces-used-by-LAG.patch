@@ -1,4 +1,4 @@
-From e09522c88d429ee0104832a0fa19886bb0679897 Mon Sep 17 00:00:00 2001
+From 77a05990eae9bab1760d5ef5632611beb74057e1 Mon Sep 17 00:00:00 2001
 From: Aviv Heller <avivh@mellanox.com>
 Date: Tue, 10 May 2016 13:47:50 +0300
 Subject: net/mlx5: Add HW interfaces used by LAG

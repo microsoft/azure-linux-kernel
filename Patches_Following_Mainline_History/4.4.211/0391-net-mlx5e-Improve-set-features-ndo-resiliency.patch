@@ -1,4 +1,4 @@
-From 47a30ebf46953487f464ace98e9e3d3c5987cf90 Mon Sep 17 00:00:00 2001
+From 37b82d6a2b7b10373ef0f41edd831e7212269baa Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Sun, 24 Apr 2016 22:51:51 +0300
 Subject: net/mlx5e: Improve set features ndo resiliency

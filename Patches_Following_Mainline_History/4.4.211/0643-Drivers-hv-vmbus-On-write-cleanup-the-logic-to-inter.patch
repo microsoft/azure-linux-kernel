@@ -1,4 +1,4 @@
-From 1757d62a6ed8ade25334caf1218ba0a0ebb13f74 Mon Sep 17 00:00:00 2001
+From 39724e75e0f6cbbaa944b532e718d67d3a38abf3 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Sun, 6 Nov 2016 13:14:17 -0800
 Subject: Drivers: hv: vmbus: On write cleanup the logic to interrupt the host

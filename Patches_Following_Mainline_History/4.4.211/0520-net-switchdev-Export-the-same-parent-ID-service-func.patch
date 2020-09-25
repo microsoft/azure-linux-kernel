@@ -1,4 +1,4 @@
-From 74d6c2dd7898714466957fe9243b0b44c7928f6c Mon Sep 17 00:00:00 2001
+From aa0b44fff387a70eed7f33694f6465698bcf3986 Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Thu, 14 Jul 2016 10:32:43 +0300
 Subject: net/switchdev: Export the same parent ID service function

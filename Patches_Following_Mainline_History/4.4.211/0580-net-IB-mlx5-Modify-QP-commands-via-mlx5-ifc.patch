@@ -1,4 +1,4 @@
-From 38c81e808ec12144baa60e65bf67b0fb15f31071 Mon Sep 17 00:00:00 2001
+From 0f3dde78191001f4a7b98cff6e2519e9ce3168e1 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 19 Jul 2016 18:03:21 +0300
 Subject: {net,IB}/mlx5: Modify QP commands via mlx5 ifc

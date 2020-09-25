@@ -1,4 +1,4 @@
-From aa9fdd2dc6af19dc3f5eeb510baf44838f828705 Mon Sep 17 00:00:00 2001
+From 7e25161a67845179dcb6e7d18e2cb1e00146c154 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Fri, 27 Nov 2015 13:45:56 +0100
 Subject: mlxsw: reg: Add definition of temperature management registers

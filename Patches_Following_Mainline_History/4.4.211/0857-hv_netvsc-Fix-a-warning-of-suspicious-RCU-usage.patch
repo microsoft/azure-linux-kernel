@@ -1,4 +1,4 @@
-From c44c4ea28e998cf7d13548f04629ccd6a3934d7e Mon Sep 17 00:00:00 2001
+From b38492c939129eef268fbf8f8b6a09f1bfaccb9f Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Fri, 9 Aug 2019 01:58:08 +0000
 Subject: hv_netvsc: Fix a warning of suspicious RCU usage

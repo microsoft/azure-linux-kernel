@@ -1,4 +1,4 @@
-From ce4484f2ea58903bf0d46cde47950f1c1139a5e1 Mon Sep 17 00:00:00 2001
+From 6ac59b91f6a5f7b2bdd1f7b76e31e8baffced0c7 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Thu, 23 Jun 2016 17:02:45 +0300
 Subject: net/mlx5e: Use new ethtool get/set link ksettings API

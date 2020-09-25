@@ -1,4 +1,4 @@
-From 2de38485b8fc806b78861eaf935eff3d1ffea5c2 Mon Sep 17 00:00:00 2001
+From b35f63b4fe4d764d230ef7b7c75ae7f025a00fae Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Fri, 17 Jun 2016 15:14:51 +0300
 Subject: IB/mlx5: Enable flow steering for IPv6 traffic

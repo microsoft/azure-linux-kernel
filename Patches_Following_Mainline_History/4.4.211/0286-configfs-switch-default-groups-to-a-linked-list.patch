@@ -1,4 +1,4 @@
-From aed114956931eec0701b582d162f7953afe6f1f9 Mon Sep 17 00:00:00 2001
+From 8ceed44ce98de3b5b64f79c703d5a96a0cedb68c Mon Sep 17 00:00:00 2001
 From: Christoph Hellwig <hch@lst.de>
 Date: Fri, 26 Feb 2016 11:02:14 +0100
 Subject: configfs: switch ->default groups to a linked list

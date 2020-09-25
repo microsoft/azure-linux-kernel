@@ -1,4 +1,4 @@
-From ad228c47ec84df952ede16616411ae21653a54bd Mon Sep 17 00:00:00 2001
+From f64d87ec015b6d1398ffaee0c8b6164f295ea3d7 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 15 Nov 2017 15:12:55 +0100
 Subject: hv_netvsc: preserve hw_features on mtu/channels/ringparam changes

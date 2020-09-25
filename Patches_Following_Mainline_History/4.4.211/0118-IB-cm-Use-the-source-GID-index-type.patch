@@ -1,4 +1,4 @@
-From bb16dff7379d5220b256df0c22926ab859b01f93 Mon Sep 17 00:00:00 2001
+From bb1500a557f543ec1a94a97637e5f301614e9769 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Wed, 23 Dec 2015 14:56:48 +0200
 Subject: IB/cm: Use the source GID index type

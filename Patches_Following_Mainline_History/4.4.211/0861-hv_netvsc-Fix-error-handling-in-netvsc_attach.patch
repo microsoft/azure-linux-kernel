@@ -1,4 +1,4 @@
-From 864cfa10c997eb334b345821a691c9e870783fb6 Mon Sep 17 00:00:00 2001
+From f1abedcdac6d3527ac8e66367be98f44158904d6 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Wed, 30 Oct 2019 15:32:13 +0000
 Subject: hv_netvsc: Fix error handling in netvsc_attach()

@@ -1,4 +1,4 @@
-From f6c724a61c48d704a07ed8209a6e8ab860d55574 Mon Sep 17 00:00:00 2001
+From aa2fca7a0eb744841dd46daf2dd98b5d3b311fc6 Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 11 May 2016 00:29:15 +0300
 Subject: net/mlx5e: Expand WQE stride when CQE compression is enabled

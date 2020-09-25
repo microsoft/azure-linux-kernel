@@ -1,4 +1,4 @@
-From 001b9aa1ad7de4edc8b287389af7c5dc513d5aa0 Mon Sep 17 00:00:00 2001
+From 6581a5d6d2c9821128df8f1c50b050f1e7410726 Mon Sep 17 00:00:00 2001
 From: KY Srinivasan <kys@microsoft.com>
 Date: Tue, 1 Dec 2015 16:43:19 -0800
 Subject: hv_netvsc: Eliminate vlan_tci from struct hv_netvsc_packet

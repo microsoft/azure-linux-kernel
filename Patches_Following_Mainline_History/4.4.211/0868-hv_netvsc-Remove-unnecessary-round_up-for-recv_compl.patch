@@ -1,4 +1,4 @@
-From 24da483b59cdcc12ac01638cde304f6e8f62e1bd Mon Sep 17 00:00:00 2001
+From d5b5bd4f4c7995411c9b09b20e635713a26084b9 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Mon, 30 Mar 2020 12:29:13 -0700
 Subject: hv_netvsc: Remove unnecessary round_up for recv_completion_cnt

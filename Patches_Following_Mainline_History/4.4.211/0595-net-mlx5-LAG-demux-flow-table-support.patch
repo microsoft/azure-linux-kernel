@@ -1,4 +1,4 @@
-From 585de8010fe9ea59cf86cd1087e6372e94a61b72 Mon Sep 17 00:00:00 2001
+From ea21e6910850dcbc5d31eb4b941739e15b8fb376 Mon Sep 17 00:00:00 2001
 From: Aviv Heller <avivh@mellanox.com>
 Date: Mon, 9 May 2016 09:57:05 +0000
 Subject: net/mlx5: LAG demux flow table support

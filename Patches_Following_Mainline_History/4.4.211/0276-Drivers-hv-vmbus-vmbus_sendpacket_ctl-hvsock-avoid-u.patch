@@ -1,4 +1,4 @@
-From 97547cc526823664656cd91dff4a1a0149698468 Mon Sep 17 00:00:00 2001
+From 7551693aebec48b4fec23be394fd7d15d9a07139 Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Wed, 27 Jan 2016 22:29:39 -0800
 Subject: Drivers: hv: vmbus: vmbus_sendpacket_ctl: hvsock: avoid unnecessary

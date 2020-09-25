@@ -1,4 +1,4 @@
-From 2f657f499c24515410eef0db3bc051ac50ccd3b5 Mon Sep 17 00:00:00 2001
+From a094058e4bc0c0caaeea93e63c18acb7689db780 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Sun, 24 Apr 2016 22:51:55 +0300
 Subject: net/mlx5e: Add ethtool support for rxvlan-offload (vlan stripping)

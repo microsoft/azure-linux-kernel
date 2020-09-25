@@ -1,4 +1,4 @@
-From 9bc56fe457550bf15fd00fc09044a71dd729db0e Mon Sep 17 00:00:00 2001
+From 2cc1e658ea74922e2db16e93954178713a8c24fc Mon Sep 17 00:00:00 2001
 From: Eric Dumazet <edumazet@google.com>
 Date: Sat, 4 Feb 2017 15:25:02 -0800
 Subject: net: remove __napi_complete()

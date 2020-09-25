@@ -1,4 +1,4 @@
-From b48256af023ce0e21c2bea1ab0ca0994a2343584 Mon Sep 17 00:00:00 2001
+From e3554788253feba84fa08c55ba0b1b7461f2de37 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:41 +0000
 Subject: cpu/hotplug: Let upcoming cpu bring itself fully up

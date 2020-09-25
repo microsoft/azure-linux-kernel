@@ -1,4 +1,4 @@
-From 507207c7b2cf5cb1dd6c0ecba8a7fc91c8278eb0 Mon Sep 17 00:00:00 2001
+From 60fcaefa126d012d1458e4e6f1d1fb8fdf481461 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 10:12:03 +0100
 Subject: mlxsw: core: Change BUG to WARN in hwmon code

@@ -1,4 +1,4 @@
-From 7f454276cd8f06c60e08ac36a41d4a929482cae6 Mon Sep 17 00:00:00 2001
+From 35f61d47c5e31013674e50b4dbde5762c923311c Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Mon, 14 Dec 2015 16:01:49 -0800
 Subject: Drivers: hv: vmbus: fix rescind-offer handling for device without a

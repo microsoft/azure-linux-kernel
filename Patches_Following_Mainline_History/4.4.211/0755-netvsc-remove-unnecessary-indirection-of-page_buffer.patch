@@ -1,4 +1,4 @@
-From 20853e279961c9abdd8e21af6c78fb899d94572e Mon Sep 17 00:00:00 2001
+From 8d531bc836f46444346238d3334a20cdb2432db5 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Fri, 28 Jul 2017 08:59:44 -0700
 Subject: netvsc: remove unnecessary indirection of page_buffer

@@ -1,4 +1,4 @@
-From 887f6bb054e71b06563062cfa4a9b3b24b7ba828 Mon Sep 17 00:00:00 2001
+From 961290b25c53e939098141828aad2a1e154961b7 Mon Sep 17 00:00:00 2001
 From: Majd Dibbiny <majd@mellanox.com>
 Date: Fri, 22 Apr 2016 00:33:07 +0300
 Subject: net/mlx5: Add pci shutdown callback

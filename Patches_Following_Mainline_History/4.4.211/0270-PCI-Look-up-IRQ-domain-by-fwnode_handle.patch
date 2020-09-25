@@ -1,4 +1,4 @@
-From 993292a43b4a921c6dcba3169b1fcb6847b16272 Mon Sep 17 00:00:00 2001
+From 717254980ca8e50854356eee65d99fabfc739182 Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Tue, 16 Feb 2016 21:56:22 +0000
 Subject: PCI: Look up IRQ domain by fwnode_handle

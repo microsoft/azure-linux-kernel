@@ -1,4 +1,4 @@
-From 04212c1fe40692e417557f299b28f1218016255f Mon Sep 17 00:00:00 2001
+From 2440d5155f5abdd83664121b39ff6406545dcaed Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 26 Dec 2016 22:58:19 +0100
 Subject: smp/hotplug: Undo tglxs brainfart

@@ -1,4 +1,4 @@
-From 8d009058e10c67227f2885cca850ebaf0208bd9b Mon Sep 17 00:00:00 2001
+From b545e7bae05c3293a9efe78beff2a7ffcc3f2933 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Wed, 28 Oct 2015 16:52:40 +0200
 Subject: IB/core: Change per-entry lock in RoCE GID table to one lock

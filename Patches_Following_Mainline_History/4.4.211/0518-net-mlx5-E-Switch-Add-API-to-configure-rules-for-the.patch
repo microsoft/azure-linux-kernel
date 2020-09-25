@@ -1,4 +1,4 @@
-From 4c975d3a37a5bdeaed2c8b1d39bbcef5fa1c352b Mon Sep 17 00:00:00 2001
+From a264e3e23283fe1d097f38131e24806271f7db46 Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Thu, 14 Jul 2016 10:32:41 +0300
 Subject: net/mlx5: E-Switch, Add API to configure rules for the offloaded mode

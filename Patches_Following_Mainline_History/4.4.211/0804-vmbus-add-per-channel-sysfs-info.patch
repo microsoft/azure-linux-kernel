@@ -1,4 +1,4 @@
-From 58e9fe5b4876f1b578183862dd4c01555f0809ca Mon Sep 17 00:00:00 2001
+From fa87555d4958a3e47c7b9e5dbc178001028aeda2 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Thu, 21 Sep 2017 20:58:49 -0700
 Subject: vmbus: add per-channel sysfs info

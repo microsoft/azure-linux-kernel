@@ -1,4 +1,4 @@
-From f919d18813edd65a7eb21939a15a34e0c1281ec3 Mon Sep 17 00:00:00 2001
+From 04da20154ab897129f520eb0345313d53686c683 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Sun, 10 Jan 2016 09:32:16 +0100
 Subject: mlxsw: spectrum: Add FDB lock to prevent session interleaving

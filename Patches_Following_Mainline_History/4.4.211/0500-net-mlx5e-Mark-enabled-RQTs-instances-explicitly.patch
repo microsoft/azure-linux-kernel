@@ -1,4 +1,4 @@
-From dad6cad474386f58bb872231dfd392502386fdf3 Mon Sep 17 00:00:00 2001
+From e6513a3206d83bced4d38485c5f036a0675276ec Mon Sep 17 00:00:00 2001
 From: Hadar Hen Zion <hadarh@mellanox.com>
 Date: Fri, 1 Jul 2016 14:51:06 +0300
 Subject: net/mlx5e: Mark enabled RQTs instances explicitly

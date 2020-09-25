@@ -1,4 +1,4 @@
-From 54dd5b5ac464c2c9d8bafe800a878331f21f704f Mon Sep 17 00:00:00 2001
+From 553fdc05e4ed5da5f23857416735b043e6e9d8db Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Mon, 29 Feb 2016 18:05:30 +0200
 Subject: IB/mlx5: Add memory windows allocation support

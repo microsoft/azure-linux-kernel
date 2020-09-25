@@ -1,4 +1,4 @@
-From be30bbe94b0391911875b63045a707aa3ca58878 Mon Sep 17 00:00:00 2001
+From 4eb159ce8311f2886fcc80d572a20422f5418ed0 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Sat, 2 Apr 2016 17:59:51 -0700
 Subject: Drivers: hv: vmbus: Implement APIs to support "in place" consumption

@@ -1,4 +1,4 @@
-From 099aa715961c909381adcef0d6287fb4142d32e0 Mon Sep 17 00:00:00 2001
+From ed76d12d3315a10dac136af82d2f2b32b1290885 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 19 Jan 2018 13:26:43 -0700
 Subject: hv_netvsc: Use the num_online_cpus() for channel limit

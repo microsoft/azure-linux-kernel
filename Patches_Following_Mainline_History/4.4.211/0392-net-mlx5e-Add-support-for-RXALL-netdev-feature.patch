@@ -1,4 +1,4 @@
-From 33c8bc8b4999216f158e2397eeb87b8572bf00fa Mon Sep 17 00:00:00 2001
+From 697d09b0831687a79cc61af5a9ea12dc34e3592f Mon Sep 17 00:00:00 2001
 From: Eran Ben Elisha <eranbe@mellanox.com>
 Date: Sun, 24 Apr 2016 22:51:52 +0300
 Subject: net/mlx5e: Add support for RXALL netdev feature

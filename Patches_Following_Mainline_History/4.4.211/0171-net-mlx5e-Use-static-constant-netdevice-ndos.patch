@@ -1,4 +1,4 @@
-From 9a55c6abc9679add2485aae7cb7d941d15ddaaed Mon Sep 17 00:00:00 2001
+From 2b613733affab007260d0a4d6b6a07e3d62d29f3 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 9 Feb 2016 14:57:44 +0200
 Subject: net/mlx5e: Use static constant netdevice ndos

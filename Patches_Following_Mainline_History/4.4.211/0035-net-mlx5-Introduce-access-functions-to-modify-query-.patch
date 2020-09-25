@@ -1,4 +1,4 @@
-From 8c1d5000ef12dc6282f2e5c2f0adb77eb2f1bd35 Mon Sep 17 00:00:00 2001
+From 9f14ffa49742bd01c46c338158681f9a72de914a Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:15 +0200
 Subject: net/mlx5: Introduce access functions to modify/query vport vlans

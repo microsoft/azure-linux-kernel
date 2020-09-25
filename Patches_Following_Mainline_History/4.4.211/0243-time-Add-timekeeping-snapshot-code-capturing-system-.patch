@@ -1,4 +1,4 @@
-From c88a52bddeb08206300b6b108f775be2d6643e51 Mon Sep 17 00:00:00 2001
+From 4b679b9081feca32716daa6b7e4f52927ae7e6fc Mon Sep 17 00:00:00 2001
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
 Date: Mon, 22 Feb 2016 03:15:20 -0800
 Subject: time: Add timekeeping snapshot code capturing system time and counter

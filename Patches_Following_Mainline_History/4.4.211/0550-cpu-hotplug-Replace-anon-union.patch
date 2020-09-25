@@ -1,4 +1,4 @@
-From ff7c535e9f5894a2fc0963c7bd626d18ae660c7a Mon Sep 17 00:00:00 2001
+From c7869415184b7c39e6eea643985321d1fd8dd20e Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 5 Sep 2016 15:28:36 +0200
 Subject: cpu/hotplug: Replace anon union

@@ -1,4 +1,4 @@
-From c666b2f05ddefef962871b6d0428eeb82d57ba1a Mon Sep 17 00:00:00 2001
+From f009a8a88a1a62f5e647b5f24f99f0e5bb9e3372 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 21 Dec 2016 20:19:49 +0100
 Subject: cpu/hotplug: Prevent overwriting of callbacks

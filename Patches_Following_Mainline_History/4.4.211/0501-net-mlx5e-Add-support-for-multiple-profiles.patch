@@ -1,4 +1,4 @@
-From 30219a72caaa95fcce1bb125968a4f1f80f3650b Mon Sep 17 00:00:00 2001
+From 5c597b416be91093a0b52854f1eef8ecf7b1de12 Mon Sep 17 00:00:00 2001
 From: Hadar Hen Zion <hadarh@mellanox.com>
 Date: Fri, 1 Jul 2016 14:51:07 +0300
 Subject: net/mlx5e: Add support for multiple profiles

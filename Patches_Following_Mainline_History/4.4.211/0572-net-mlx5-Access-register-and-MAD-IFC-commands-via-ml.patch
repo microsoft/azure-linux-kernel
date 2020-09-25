@@ -1,4 +1,4 @@
-From de38e53e6f46471ddf620c18e1e735eb3b925d06 Mon Sep 17 00:00:00 2001
+From 3aff0d1218023d3ea40728f489e6f9508a93b932 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Sun, 17 Jul 2016 00:46:41 +0300
 Subject: net/mlx5: Access register and MAD IFC commands via mlx5 ifc

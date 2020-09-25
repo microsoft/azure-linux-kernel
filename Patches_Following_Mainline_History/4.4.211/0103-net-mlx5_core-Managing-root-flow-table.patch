@@ -1,4 +1,4 @@
-From e98bfa88871d1fd1fca2e30aaf5e7dac0fb6e131 Mon Sep 17 00:00:00 2001
+From d17b6ee49b41c54ffb7d62d03d5ded525016365e Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:25:59 +0200
 Subject: net/mlx5_core: Managing root flow table

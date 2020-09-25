@@ -1,4 +1,4 @@
-From a85fb9a5ec67e2ad3770fc482976562b228a2f1b Mon Sep 17 00:00:00 2001
+From 044342e7bd93799048b21cf72bbf6575a4ec5d5b Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Fri, 16 Mar 2018 15:44:28 -0700
 Subject: hv_netvsc: add trace points

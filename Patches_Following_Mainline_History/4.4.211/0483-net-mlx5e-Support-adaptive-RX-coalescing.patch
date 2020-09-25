@@ -1,4 +1,4 @@
-From bcad184a29a69266b1baa7ab261c735be2a67918 Mon Sep 17 00:00:00 2001
+From 707a871482b93543be531e0bd97fecce1b589b35 Mon Sep 17 00:00:00 2001
 From: Gil Rockah <gilr@mellanox.com>
 Date: Thu, 23 Jun 2016 17:02:41 +0300
 Subject: net/mlx5e: Support adaptive RX coalescing

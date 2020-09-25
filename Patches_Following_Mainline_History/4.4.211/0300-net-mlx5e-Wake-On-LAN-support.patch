@@ -1,4 +1,4 @@
-From 186f41c3be9a050b011c84296af1524dc9abc07e Mon Sep 17 00:00:00 2001
+From 0b3aa7125df3c333acb5cb1f58c92da722be0591 Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Mon, 22 Feb 2016 18:17:29 +0200
 Subject: net/mlx5e: Wake On LAN support

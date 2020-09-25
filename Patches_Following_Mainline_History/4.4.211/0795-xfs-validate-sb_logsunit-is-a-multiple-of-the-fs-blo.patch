@@ -1,4 +1,4 @@
-From fa75354f49ba3e8495f46085b6d2037082a753fb Mon Sep 17 00:00:00 2001
+From 8abfd24111663a4f05edbba2389462af1cf3a8d0 Mon Sep 17 00:00:00 2001
 From: "Darrick J. Wong" <darrick.wong@oracle.com>
 Date: Wed, 25 Oct 2017 16:59:43 -0700
 Subject: xfs: validate sb_logsunit is a multiple of the fs blocksize

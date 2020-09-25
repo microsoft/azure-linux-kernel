@@ -1,4 +1,4 @@
-From bddd6fe177ca5f3570004bcf771b2eb672c78862 Mon Sep 17 00:00:00 2001
+From 770a530217a9eaa089129c8b981746d04d63d8fa Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Fri, 1 Jul 2016 14:50:58 +0300
 Subject: net/mlx5: Introduce offloads steering namespace

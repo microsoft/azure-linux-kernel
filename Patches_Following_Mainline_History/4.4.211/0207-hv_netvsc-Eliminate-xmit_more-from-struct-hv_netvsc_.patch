@@ -1,4 +1,4 @@
-From cb258eb515c435c9ceced69dcc4adc6d0bbb2b4a Mon Sep 17 00:00:00 2001
+From 99af80b2436bd6a6e421e19e4155a8bc48a667b0 Mon Sep 17 00:00:00 2001
 From: KY Srinivasan <kys@microsoft.com>
 Date: Tue, 1 Dec 2015 16:43:17 -0800
 Subject: hv_netvsc: Eliminate xmit_more from struct hv_netvsc_packet

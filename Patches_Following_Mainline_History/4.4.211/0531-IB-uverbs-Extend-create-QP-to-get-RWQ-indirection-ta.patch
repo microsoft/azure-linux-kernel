@@ -1,4 +1,4 @@
-From 245a449b2ac576e9d12e81dbb29e8d6c53ba0832 Mon Sep 17 00:00:00 2001
+From c7d379bd9aa7c491bd29786f0d78d28e8ff1914a Mon Sep 17 00:00:00 2001
 From: Yishai Hadas <yishaih@mellanox.com>
 Date: Mon, 23 May 2016 15:20:55 +0300
 Subject: IB/uverbs: Extend create QP to get RWQ indirection table

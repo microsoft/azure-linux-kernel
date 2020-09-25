@@ -1,4 +1,4 @@
-From a7e3d45efd928ffd11ef9373363f0758562771ea Mon Sep 17 00:00:00 2001
+From e476ea196a18fd8d8a924dd1eb53ce2efb667aa3 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:24 +0000
 Subject: cpu/hotplug: Restructure cpu_up code

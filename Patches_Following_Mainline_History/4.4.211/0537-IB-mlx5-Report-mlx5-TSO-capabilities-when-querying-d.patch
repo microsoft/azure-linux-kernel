@@ -1,4 +1,4 @@
-From 56febc71d3e1b3b7fc3d583597a6e97ef1ba4727 Mon Sep 17 00:00:00 2001
+From d61eb0be5a6fe4b11564c15b8f1a6b69804350ce Mon Sep 17 00:00:00 2001
 From: Bodong Wang <bodong@mellanox.com>
 Date: Fri, 17 Jun 2016 15:02:20 +0300
 Subject: IB/mlx5: Report mlx5 TSO capabilities when querying device

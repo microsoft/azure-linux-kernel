@@ -1,4 +1,4 @@
-From 9277d85a7cc9a1b60102195145f3f7c48a0057cd Mon Sep 17 00:00:00 2001
+From ebe5fb1bb01fb456b679e8756c8782f8a77e3c41 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Thu, 8 Jun 2017 16:21:23 -0700
 Subject: netvsc: fold in get_outbound_net_device

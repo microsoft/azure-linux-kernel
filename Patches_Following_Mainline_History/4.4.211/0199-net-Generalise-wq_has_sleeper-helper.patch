@@ -1,4 +1,4 @@
-From 8f6930d64b42dc4343c2c139d65ec7e656208cf3 Mon Sep 17 00:00:00 2001
+From b34099df55f24697094db9849be32b8a082f8e4a Mon Sep 17 00:00:00 2001
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Date: Thu, 26 Nov 2015 13:55:39 +0800
 Subject: net: Generalise wq_has_sleeper helper

@@ -1,4 +1,4 @@
-From 6ab5abce51aa0297021673cf360dedf8ade84fff Mon Sep 17 00:00:00 2001
+From 956aec67aebd03c1be58480af1cd8276c328fcc1 Mon Sep 17 00:00:00 2001
 From: Hadar Hen Zion <hadarh@mellanox.com>
 Date: Wed, 3 Aug 2016 17:27:30 +0300
 Subject: net/mlx5: Enable setting minimum inline header mode for VFs

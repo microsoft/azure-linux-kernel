@@ -1,4 +1,4 @@
-From 6536615c8d023487c291cf0df14339f8a6a4da7b Mon Sep 17 00:00:00 2001
+From bace36c657e5f9cc0ef5965841d2c12928adb80d Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Thu, 10 Dec 2015 17:12:44 +0200
 Subject: net/mlx5: Use flow steering infrastructure for mlx5_en

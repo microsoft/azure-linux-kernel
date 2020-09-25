@@ -1,4 +1,4 @@
-From 27bd036995606fc64141da65db274a8ebed9a862 Mon Sep 17 00:00:00 2001
+From 1d6cf3c9289e671ac78389f9548277ecc821665c Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Fri, 9 Sep 2016 17:35:19 +0300
 Subject: net/mlx5: Introduce attach/detach to interface API

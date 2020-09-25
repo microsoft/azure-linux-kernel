@@ -1,4 +1,4 @@
-From 0370a342d6de766331d8f9f769af60afda719190 Mon Sep 17 00:00:00 2001
+From cf020982992e6ab4b0f5ba7c1aa11a7585260956 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:12 +0200
 Subject: net/mlx5: Introduce access functions to modify/query vport mac lists

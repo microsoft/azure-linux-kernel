@@ -1,4 +1,4 @@
-From 9bfc00b6999e654b9379b5303d9aac5ea73c0841 Mon Sep 17 00:00:00 2001
+From 10b3df237d602678fc6c6a0402e048f77cdfa305 Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 20 Apr 2016 22:02:11 +0300
 Subject: net/mlx5e: Use only close NUMA node for default RSS

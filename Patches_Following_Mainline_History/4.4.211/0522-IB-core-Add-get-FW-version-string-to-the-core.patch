@@ -1,4 +1,4 @@
-From e2d88406c940f59d47290d85eb0072d506ea30c4 Mon Sep 17 00:00:00 2001
+From bab0b820778471d6fc63408160d606f9ac7b152b Mon Sep 17 00:00:00 2001
 From: Ira Weiny <ira.weiny@intel.com>
 Date: Wed, 15 Jun 2016 02:21:56 -0400
 Subject: IB/core: Add get FW version string to the core

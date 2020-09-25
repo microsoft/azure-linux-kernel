@@ -1,4 +1,4 @@
-From 291a0189c76d3433b7e13288571c75dc21faca66 Mon Sep 17 00:00:00 2001
+From 2649542e39189a8d76685c6976242228b5e2541b Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 12:12:27 +0100
 Subject: mlxsw: reg: Add definition of LAG unicast record for SFN register

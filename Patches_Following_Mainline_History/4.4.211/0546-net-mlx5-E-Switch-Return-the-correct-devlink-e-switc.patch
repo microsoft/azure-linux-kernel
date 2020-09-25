@@ -1,4 +1,4 @@
-From bad6be022a42e31c7cf0e12249b417d28398079c Mon Sep 17 00:00:00 2001
+From d77b844ce4473093307d4e524164ee06f584d440 Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Thu, 18 Aug 2016 21:09:09 +0300
 Subject: net/mlx5: E-Switch, Return the correct devlink e-switch mode

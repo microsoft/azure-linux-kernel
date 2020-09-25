@@ -1,4 +1,4 @@
-From 697e191dc6303ea4249793a2faf2c79b7ab57888 Mon Sep 17 00:00:00 2001
+From e5f9624dc73984a69c86b7931f51d38942cbf39b Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 13 May 2016 13:55:21 +0200
 Subject: hv_netvsc: use start_remove flag to protect netvsc_link_change()

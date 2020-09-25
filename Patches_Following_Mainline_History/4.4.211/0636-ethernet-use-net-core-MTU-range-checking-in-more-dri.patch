@@ -1,4 +1,4 @@
-From 79e29ffcec226e104a1fc548c24d9896f39f8bde Mon Sep 17 00:00:00 2001
+From 36545510e0fc98dc0f8400405fe39706ad1467ad Mon Sep 17 00:00:00 2001
 From: Jarod Wilson <jarod@redhat.com>
 Date: Thu, 20 Oct 2016 13:55:16 -0400
 Subject: ethernet: use net core MTU range checking in more drivers

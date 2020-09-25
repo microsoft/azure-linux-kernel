@@ -1,4 +1,4 @@
-From e1bf52b8af51f6f22ce05b60dc5315df959e706e Mon Sep 17 00:00:00 2001
+From 6009d8988eba3413eb3b5f9b40a496e9a04d816c Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 9 Aug 2017 17:46:05 -0700
 Subject: netvsc: propagate MAC address change to VF slave

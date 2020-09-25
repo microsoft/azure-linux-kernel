@@ -1,4 +1,4 @@
-From cabd4c665d89bd9c2f9b87092e523e3823669872 Mon Sep 17 00:00:00 2001
+From 9d2b8f5638c3dde1b65e440e1e845de33eff0c4d Mon Sep 17 00:00:00 2001
 From: Leon Romanovsky <leonro@mellanox.com>
 Date: Tue, 23 Feb 2016 10:25:22 +0200
 Subject: net/mlx5_core: Refactor device capability function

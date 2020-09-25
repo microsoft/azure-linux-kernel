@@ -1,4 +1,4 @@
-From 243f99aeb1656ba7313ac0517d85ee93257ee360 Mon Sep 17 00:00:00 2001
+From e4082ac1fc8c9c9a8cc8e0dfdc767c43a7ed793d Mon Sep 17 00:00:00 2001
 From: Long Li <longli@microsoft.com>
 Date: Thu, 23 Mar 2017 14:58:32 -0700
 Subject: PCI: hv: Lock PCI bus on device eject

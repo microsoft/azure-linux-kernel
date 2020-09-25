@@ -1,4 +1,4 @@
-From 3d362b172fa9a3494de7c4a6bf79216f16a3a779 Mon Sep 17 00:00:00 2001
+From db5461ee1eb48a6d90104306878fc8c1309e4652 Mon Sep 17 00:00:00 2001
 From: Yishai Hadas <yishaih@mellanox.com>
 Date: Mon, 23 May 2016 15:20:48 +0300
 Subject: IB/core: Introduce Work Queue object and its verbs

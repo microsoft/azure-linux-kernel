@@ -1,4 +1,4 @@
-From 80fd860ffbb000040345d72eae7873a12ab007d3 Mon Sep 17 00:00:00 2001
+From c669c030044cce100baf79e3ac0f70dc8ecccbf7 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Fri, 14 Sep 2018 09:10:15 -0700
 Subject: vmbus: pass channel to hv_process_channel_removal

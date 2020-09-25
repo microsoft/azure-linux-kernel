@@ -1,4 +1,4 @@
-From 9a169d4ce32b7ee433d70a01d7e91f90c4438154 Mon Sep 17 00:00:00 2001
+From dc695e9e7f3e0ad36713ee44a886953c08f181ea Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Thu, 18 Feb 2016 11:30:01 +0100
 Subject: mlxsw: reg: Add the Switch Port Acceptable Frame Types register

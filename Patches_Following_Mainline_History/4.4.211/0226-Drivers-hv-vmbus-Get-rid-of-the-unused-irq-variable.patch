@@ -1,4 +1,4 @@
-From bbe2eced1a762fc7192f847341309d78009da525 Mon Sep 17 00:00:00 2001
+From f08e67566638af671b2c133556558c91fcadc60b Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Mon, 14 Dec 2015 16:01:46 -0800
 Subject: Drivers: hv: vmbus: Get rid of the unused irq variable

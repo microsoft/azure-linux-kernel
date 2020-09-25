@@ -1,4 +1,4 @@
-From edf7f868abb4a2156d9cc90474ffde66928572da Mon Sep 17 00:00:00 2001
+From 93abfc92f420d3f3b6c1b77cee6e883b246c59a0 Mon Sep 17 00:00:00 2001
 From: Aviv Heller <avivh@mellanox.com>
 Date: Mon, 30 May 2016 18:31:13 +0300
 Subject: net/mlx5e: Avoid port remapping of mlx5e netdev TISes

@@ -1,4 +1,4 @@
-From 072c7d72ee29d1c3256f4b2a75433cde8411e391 Mon Sep 17 00:00:00 2001
+From d3020639fca25085806b6241db7a5f60e76d9ebd Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Sun, 6 Dec 2015 18:07:38 +0200
 Subject: net/mlx4_core: Use both physical ports to set the VF link state

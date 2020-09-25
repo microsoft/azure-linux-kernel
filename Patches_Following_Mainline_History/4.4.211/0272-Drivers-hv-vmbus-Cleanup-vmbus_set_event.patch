@@ -1,4 +1,4 @@
-From 7686d1a4a5b8013db9ac021408808e1e2c4aa3df Mon Sep 17 00:00:00 2001
+From 7e6dcf91908a1264e3245dfc019676b391e09818 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Mon, 21 Dec 2015 15:12:20 -0800
 Subject: Drivers: hv: vmbus: Cleanup vmbus_set_event()

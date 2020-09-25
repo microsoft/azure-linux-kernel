@@ -1,4 +1,4 @@
-From f1f8c7f57f48b3fced7dbf70fe9422546fd126c8 Mon Sep 17 00:00:00 2001
+From 6e85a141484b2d25cf6388f29baf9e45608fe567 Mon Sep 17 00:00:00 2001
 From: Jarod Wilson <jarod@redhat.com>
 Date: Fri, 7 Oct 2016 22:04:34 -0400
 Subject: net: deprecate eth_change_mtu, remove usage

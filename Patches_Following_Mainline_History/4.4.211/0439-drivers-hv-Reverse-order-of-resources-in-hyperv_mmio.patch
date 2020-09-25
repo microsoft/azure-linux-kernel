@@ -1,4 +1,4 @@
-From 9de34d8134a41cc402dbe7529960f2464714fa93 Mon Sep 17 00:00:00 2001
+From c67d13deb0a083fd19cc4086a012dbd6f31e5888 Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Tue, 5 Apr 2016 10:22:53 -0700
 Subject: drivers:hv: Reverse order of resources in hyperv_mmio

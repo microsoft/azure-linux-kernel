@@ -1,4 +1,4 @@
-From f5f8a051819eff11aa6ee9e5fcb28c55e3732906 Mon Sep 17 00:00:00 2001
+From 0e68d01314722a3a9c55052e2fb273bafee26a83 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 9 Jan 2018 10:29:06 -0800
 Subject: vmbus: add monitor_id and subchannel_id to sysfs per channel

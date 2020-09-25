@@ -1,4 +1,4 @@
-From 3b83c720bb69c3110ca74747f94bd86a08d62453 Mon Sep 17 00:00:00 2001
+From 3753b5905c27a5d9901875701566e45051bd52d2 Mon Sep 17 00:00:00 2001
 From: Christoph Hellwig <hch@lst.de>
 Date: Fri, 11 Dec 2015 11:53:03 -0800
 Subject: IB: add a proper completion queue abstraction

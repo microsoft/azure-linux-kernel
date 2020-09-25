@@ -1,4 +1,4 @@
-From 0de6c70c9edf7edfc26d85d26106d57c6fbfcacb Mon Sep 17 00:00:00 2001
+From e07c5e756d57f86e46925db6526200433953ea86 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Wed, 23 Dec 2015 14:56:50 +0200
 Subject: IB/core: Add ROCE_UDP_ENCAP (RoCE V2) type

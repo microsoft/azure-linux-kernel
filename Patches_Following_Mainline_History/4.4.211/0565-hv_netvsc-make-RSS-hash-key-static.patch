@@ -1,4 +1,4 @@
-From 0840d96525894dc257f64145cc7ac4487f8adf32 Mon Sep 17 00:00:00 2001
+From aab49e839a207c60ee919b99fa710dc11ea286cb Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Tue, 23 Aug 2016 12:17:45 -0700
 Subject: hv_netvsc: make RSS hash key static

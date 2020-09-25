@@ -1,4 +1,4 @@
-From 2cb81aa654369c4ff0627a87ba3908a8722db57a Mon Sep 17 00:00:00 2001
+From 7dfdf1faccdfc14fee2ff240f04c059b1520298f Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Thu, 26 Apr 2018 14:34:25 -0700
 Subject: hv_netvsc: simplify receive side calling arguments

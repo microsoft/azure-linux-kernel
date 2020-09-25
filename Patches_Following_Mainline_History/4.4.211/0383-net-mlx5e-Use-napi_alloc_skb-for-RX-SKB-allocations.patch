@@ -1,4 +1,4 @@
-From c992a99896c4435a26a83b4e0baaa7b42ce57b6e Mon Sep 17 00:00:00 2001
+From a30b1fd9c73407e7c036ec58cb5bac3c4c1a5b57 Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 20 Apr 2016 22:02:16 +0300
 Subject: net/mlx5e: Use napi_alloc_skb for RX SKB allocations

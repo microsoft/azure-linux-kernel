@@ -1,4 +1,4 @@
-From 9cdca8e48a0bec50669eeab69a97799bc7803592 Mon Sep 17 00:00:00 2001
+From a133629089e11924fb775d41e6a9d71f824b64a6 Mon Sep 17 00:00:00 2001
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Date: Wed, 3 Feb 2016 04:04:36 +0100
 Subject: ethtool: add speed/duplex validation functions

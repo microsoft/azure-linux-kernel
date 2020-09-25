@@ -1,4 +1,4 @@
-From 07a6fede2e590205f4fae9a969a8fb1d992cfb4c Mon Sep 17 00:00:00 2001
+From 3db9f4ac9eb717a52667a206f177359f62c319f4 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:44 +0100
 Subject: mlxsw: spectrum: Add support for VLAN devices bridging

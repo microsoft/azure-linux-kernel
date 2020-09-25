@@ -1,4 +1,4 @@
-From 0006e6b146da521f9b903840ac1c0e4abfd8a78b Mon Sep 17 00:00:00 2001
+From 24cc04f79a8a8b50f9e9092fd15d9465b6494e97 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Mon, 21 Aug 2017 19:22:37 -0700
 Subject: hv_netvsc: Clean up unused parameter from netvsc_get_hash()

@@ -1,4 +1,4 @@
-From bf788be7fcc5f8e94073db582cfbc7dea55ec665 Mon Sep 17 00:00:00 2001
+From b469c50f4d969f50ecd6659f7c49ade9f454a4c6 Mon Sep 17 00:00:00 2001
 From: Christoph Hellwig <hch@lst.de>
 Date: Tue, 3 May 2016 18:01:09 +0200
 Subject: IB/core: generic RDMA READ/WRITE API

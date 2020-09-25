@@ -1,4 +1,4 @@
-From d5497b13f375666363bfb61e1bec068ba0059db7 Mon Sep 17 00:00:00 2001
+From b6371ac773f20028d6ae2f2205088f78289658bc Mon Sep 17 00:00:00 2001
 From: "Andrea Parri (Microsoft)" <parri.andrea@gmail.com>
 Date: Mon, 6 Apr 2020 02:15:07 +0200
 Subject: hv_netvsc: Disable NAPI before closing the VMBus channel

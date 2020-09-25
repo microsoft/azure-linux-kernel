@@ -1,4 +1,4 @@
-From c1878b73cab7af62c839ef2beae3079fb4c885ed Mon Sep 17 00:00:00 2001
+From a9fdc24ed0394869bf90cfdc28035d651608f6ca Mon Sep 17 00:00:00 2001
 From: Andrey Smetanin <asmetanin@virtuozzo.com>
 Date: Mon, 30 Nov 2015 19:22:15 +0300
 Subject: drivers/hv: Move struct hv_message into UAPI Hyper-V x86 header

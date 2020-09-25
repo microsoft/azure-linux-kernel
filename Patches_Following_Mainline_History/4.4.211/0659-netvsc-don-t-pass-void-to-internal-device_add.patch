@@ -1,4 +1,4 @@
-From ab473bf81404b44196cb83515299b3020e36b4af Mon Sep 17 00:00:00 2001
+From 8191a6358c76c04cf12b9c5ced35f71eb214131b Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Tue, 24 Jan 2017 13:06:09 -0800
 Subject: netvsc: don't pass void * to internal device_add

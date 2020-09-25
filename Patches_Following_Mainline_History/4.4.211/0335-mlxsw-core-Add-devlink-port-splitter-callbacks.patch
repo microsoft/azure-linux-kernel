@@ -1,4 +1,4 @@
-From 97c0847893d38ff73f0235933713e3678d7bbba4 Mon Sep 17 00:00:00 2001
+From a07fbd8be4dec037c2dd4a69e0b3778db1c39c68 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Fri, 26 Feb 2016 17:32:27 +0100
 Subject: mlxsw: core: Add devlink port splitter callbacks

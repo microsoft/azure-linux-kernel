@@ -1,4 +1,4 @@
-From 88d47f56e2a78450d979d2df9f5b232ba2b0a4fc Mon Sep 17 00:00:00 2001
+From d05a1ac6ae584bbbf200fd60cfa4aa15d0668879 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 11 Feb 2017 23:02:25 -0700
 Subject: vmbus: replace modulus operation with subtraction

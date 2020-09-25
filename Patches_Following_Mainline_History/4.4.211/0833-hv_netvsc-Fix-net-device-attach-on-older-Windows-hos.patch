@@ -1,4 +1,4 @@
-From 0c673d231e505feb2fc38b01d364643912872f16 Mon Sep 17 00:00:00 2001
+From 0299ff6794e4a1e7f2b342489d3dd7fab8750785 Mon Sep 17 00:00:00 2001
 From: Mohammed Gamal <mgamal@redhat.com>
 Date: Wed, 9 May 2018 10:17:34 +0200
 Subject: hv_netvsc: Fix net device attach on older Windows hosts

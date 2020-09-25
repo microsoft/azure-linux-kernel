@@ -1,4 +1,4 @@
-From 3399202228e44a6a489915ad1295e2420bdb27c4 Mon Sep 17 00:00:00 2001
+From 161cb29066f9dcfa5d18444d1a2b3a9128db2c3e Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Mon, 3 Dec 2018 00:54:35 +0000
 Subject: Drivers: hv: vmbus: Offload the handling of channels to two

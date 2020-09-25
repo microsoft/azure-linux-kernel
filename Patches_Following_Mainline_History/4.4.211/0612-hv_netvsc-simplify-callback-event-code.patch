@@ -1,4 +1,4 @@
-From 799b7e06f85f220414221579a948074f1c056695 Mon Sep 17 00:00:00 2001
+From da2af4abeaca70c19e7784df547bbf4743248d69 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Thu, 22 Sep 2016 16:56:31 -0700
 Subject: hv_netvsc: simplify callback event code

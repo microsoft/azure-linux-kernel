@@ -1,4 +1,4 @@
-From e5e4606c310018b249acbfd92413912e5cf61d8e Mon Sep 17 00:00:00 2001
+From 7f22a569c2d7806cca484ab170c77b1432e00ff5 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Mon, 7 Mar 2016 15:15:29 +0100
 Subject: mlxsw: spectrum: Always decrement bridge's ref count

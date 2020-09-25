@@ -1,4 +1,4 @@
-From 4367d21bc55df02b198e6a422cf6454b029c5421 Mon Sep 17 00:00:00 2001
+From 05363e5e2adf07638d512f9bf33ebbc26c1fab37 Mon Sep 17 00:00:00 2001
 From: Meny Yossefi <menyy@mellanox.com>
 Date: Thu, 18 Feb 2016 18:14:59 +0200
 Subject: net/mlx5_core: Add helper function to read virtual port counters

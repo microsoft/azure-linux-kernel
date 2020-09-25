@@ -1,4 +1,4 @@
-From 9d672458be48aa1f74eed2d0472c9cbce25b41ab Mon Sep 17 00:00:00 2001
+From 4d138368c0e8df026ee99b026d6284483475f761 Mon Sep 17 00:00:00 2001
 From: Yishai Hadas <yishaih@mellanox.com>
 Date: Mon, 23 May 2016 15:20:56 +0300
 Subject: IB/mlx5: Add RSS QP support

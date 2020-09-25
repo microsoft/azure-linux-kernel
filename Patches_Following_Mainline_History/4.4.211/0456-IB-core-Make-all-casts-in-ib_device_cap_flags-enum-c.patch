@@ -1,4 +1,4 @@
-From 59cd43dd1a879a7ad86d2d2f3cf72b025e62c21f Mon Sep 17 00:00:00 2001
+From a1424697116e410a9f05f3dfea70a800e5f9f8c5 Mon Sep 17 00:00:00 2001
 From: Max Gurtovoy <maxg@mellanox.com>
 Date: Mon, 6 Jun 2016 19:34:40 +0300
 Subject: IB/core: Make all casts in ib_device_cap_flags enum consistent

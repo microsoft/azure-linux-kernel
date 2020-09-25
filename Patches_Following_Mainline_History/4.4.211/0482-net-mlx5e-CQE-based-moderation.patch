@@ -1,4 +1,4 @@
-From f378af487886704cbe21afdfb48a2abcd857f90f Mon Sep 17 00:00:00 2001
+From 1a53f69324a0f00b8d5001d3acfc88f88a61e31c Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Thu, 23 Jun 2016 17:02:40 +0300
 Subject: net/mlx5e: CQE based moderation

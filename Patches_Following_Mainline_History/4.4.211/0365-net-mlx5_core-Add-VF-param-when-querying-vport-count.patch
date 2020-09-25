@@ -1,4 +1,4 @@
-From 8a7c113a69457ec561341954072f8ed4543bcbac Mon Sep 17 00:00:00 2001
+From b0ca40dff5634ea938bc5819a9eae7aa8514fc96 Mon Sep 17 00:00:00 2001
 From: Eli Cohen <eli@mellanox.com>
 Date: Fri, 11 Mar 2016 22:58:40 +0200
 Subject: net/mlx5_core: Add VF param when querying vport counter

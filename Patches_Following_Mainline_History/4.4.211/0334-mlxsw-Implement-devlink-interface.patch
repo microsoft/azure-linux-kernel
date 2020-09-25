@@ -1,4 +1,4 @@
-From 5f6f689de28d026d63c260dca3b9068589708aea Mon Sep 17 00:00:00 2001
+From 9c42392b1258f14648999672ac8ea739cfd33460 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Fri, 26 Feb 2016 17:32:26 +0100
 Subject: mlxsw: Implement devlink interface

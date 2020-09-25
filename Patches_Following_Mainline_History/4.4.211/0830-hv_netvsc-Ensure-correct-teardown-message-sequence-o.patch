@@ -1,4 +1,4 @@
-From df863eb8a2186d62ecabf5be7dca5c98f2dd6de0 Mon Sep 17 00:00:00 2001
+From c522ed64487109e1e6a7074dc75339b401b9a724 Mon Sep 17 00:00:00 2001
 From: Mohammed Gamal <mgamal@redhat.com>
 Date: Thu, 5 Apr 2018 21:09:20 +0200
 Subject: hv_netvsc: Ensure correct teardown message sequence order

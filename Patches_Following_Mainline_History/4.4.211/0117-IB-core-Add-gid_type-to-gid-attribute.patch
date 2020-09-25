@@ -1,4 +1,4 @@
-From faf946a2ebc93e320e0bfad4bb27463c7d4cfbd2 Mon Sep 17 00:00:00 2001
+From 260e18a470a2c95cf774516a6143e281d5ceda89 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Wed, 23 Dec 2015 14:56:47 +0200
 Subject: IB/core: Add gid_type to gid attribute

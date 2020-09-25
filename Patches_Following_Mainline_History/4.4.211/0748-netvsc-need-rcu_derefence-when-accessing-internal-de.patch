@@ -1,4 +1,4 @@
-From fb8249ab76ff930f76d95be6ce97f795c4c44d74 Mon Sep 17 00:00:00 2001
+From d2b7fad2f7de496bd84d3fa525cf8658d2717896 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 19 Jul 2017 11:53:17 -0700
 Subject: netvsc: need rcu_derefence when accessing internal device info

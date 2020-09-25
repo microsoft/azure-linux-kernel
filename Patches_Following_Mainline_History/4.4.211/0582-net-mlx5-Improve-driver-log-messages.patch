@@ -1,4 +1,4 @@
-From 617f366c69249f46c945e542496e8db700589bb6 Mon Sep 17 00:00:00 2001
+From 40050922d1aea34c9d950a0e603fb5795c701166 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Thu, 28 Jul 2016 16:43:17 +0300
 Subject: net/mlx5: Improve driver log messages

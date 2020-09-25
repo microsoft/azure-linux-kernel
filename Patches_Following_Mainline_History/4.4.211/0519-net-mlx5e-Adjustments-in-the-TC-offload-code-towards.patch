@@ -1,4 +1,4 @@
-From 14dc0399c33e575e2353001361c1376b0cdc7d64 Mon Sep 17 00:00:00 2001
+From db37399791b9aaaad8455e9bb427d197d83ef84e Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Thu, 14 Jul 2016 10:32:42 +0300
 Subject: net/mlx5e: Adjustments in the TC offload code towards reuse for SRIOV

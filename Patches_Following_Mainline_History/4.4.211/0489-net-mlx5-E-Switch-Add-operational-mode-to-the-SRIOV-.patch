@@ -1,4 +1,4 @@
-From a9250cbb61bcb5cdcb539bdd79f0b6421edc12f5 Mon Sep 17 00:00:00 2001
+From 49433e4d16a594c31f0a9851e05a22368a0070d7 Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Fri, 1 Jul 2016 14:50:54 +0300
 Subject: net/mlx5: E-Switch, Add operational mode to the SRIOV e-Switch

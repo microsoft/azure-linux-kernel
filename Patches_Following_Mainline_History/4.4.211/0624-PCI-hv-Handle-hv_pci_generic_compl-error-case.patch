@@ -1,4 +1,4 @@
-From 663643577c20856b2a4f0660f1fc5bb6c10b9190 Mon Sep 17 00:00:00 2001
+From 84a5966e95107dc72d7d6d10ac2020aaa27768f1 Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Tue, 23 Aug 2016 04:49:22 +0000
 Subject: PCI: hv: Handle hv_pci_generic_compl() error case

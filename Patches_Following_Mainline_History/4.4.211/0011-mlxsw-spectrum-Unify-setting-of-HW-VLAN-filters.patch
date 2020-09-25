@@ -1,4 +1,4 @@
-From e3b5f50b1170b6b876e03a90c33ee96e15663877 Mon Sep 17 00:00:00 2001
+From d53b759a067848f6c886beea83f8fb4da71a7eda Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Thu, 19 Nov 2015 12:27:39 +0100
 Subject: mlxsw: spectrum: Unify setting of HW VLAN filters

@@ -1,4 +1,4 @@
-From 53e5b38022ac00d4780ed8d88609f173ba9ced4f Mon Sep 17 00:00:00 2001
+From 7bec9d8a2b97688eabc19c869f55f03f3b5c3961 Mon Sep 17 00:00:00 2001
 From: Amir Vadai <amirva@mellanox.com>
 Date: Fri, 13 May 2016 12:55:40 +0000
 Subject: net/mlx5_core: Introduce flow steering destination of type counter

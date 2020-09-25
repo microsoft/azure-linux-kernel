@@ -1,4 +1,4 @@
-From 7b3db5c45ce37c758c2e88636d39b2014ba57c38 Mon Sep 17 00:00:00 2001
+From 611a206396261ff98c74d26e0e97bba537d730d6 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 9 Aug 2017 17:46:11 -0700
 Subject: netvsc: allow controlling send/recv buffer size

@@ -1,4 +1,4 @@
-From 30b57023ef728ead09ea45feea658eebb6ce8617 Mon Sep 17 00:00:00 2001
+From 2f2e18d93fd063697068774c171fa06485464635 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Thu, 6 Apr 2017 14:59:21 -0700
 Subject: netvsc: Initialize all channel related state prior to opening the

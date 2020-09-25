@@ -1,4 +1,4 @@
-From 47c2088ae267472ec85e0fa9c817cb7372af7525 Mon Sep 17 00:00:00 2001
+From 90c2df42e5f075dd46cd867655a1f34c4ebc7e7c Mon Sep 17 00:00:00 2001
 From: Eli Cohen <eli@mellanox.com>
 Date: Fri, 11 Mar 2016 22:58:41 +0200
 Subject: net/mlx5_core: Implement modify HCA vport command

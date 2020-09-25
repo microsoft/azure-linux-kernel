@@ -1,4 +1,4 @@
-From 79dd07c42037c51d54738685f56bea651f47a158 Mon Sep 17 00:00:00 2001
+From 891ef2815b5c7aa0ea83a2b65dd763762784fb3f Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Tue, 31 May 2016 14:09:09 +0300
 Subject: net/mlx5: Introduce sniffer steering hardware capabilities

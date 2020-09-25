@@ -1,4 +1,4 @@
-From 8cf180bf45efa8330b5b18659b5e33c6e13417c6 Mon Sep 17 00:00:00 2001
+From d0e432d8e0c04780166b549f4b60af206b534dfe Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Tue, 5 Apr 2016 10:22:51 -0700
 Subject: drivers:hv: Make a function to free mmio regions through vmbus

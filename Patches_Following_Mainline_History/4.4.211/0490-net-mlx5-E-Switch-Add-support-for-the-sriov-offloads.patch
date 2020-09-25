@@ -1,4 +1,4 @@
-From 36a8d72c98cab80fbefe34a0f360734d4692ec06 Mon Sep 17 00:00:00 2001
+From 21b616143880eb2e5f088fa77adb316726bf0081 Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Fri, 1 Jul 2016 14:50:55 +0300
 Subject: net/mlx5: E-Switch, Add support for the sriov offloads mode

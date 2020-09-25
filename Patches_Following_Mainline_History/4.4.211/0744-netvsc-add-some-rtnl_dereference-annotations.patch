@@ -1,4 +1,4 @@
-From ecd328b71bd154ba98d7fefff0f51090e7eb42dc Mon Sep 17 00:00:00 2001
+From 85c24ce46157a6eb75766bfe6320a162148a0db8 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 19 Jul 2017 11:53:13 -0700
 Subject: netvsc: add some rtnl_dereference annotations

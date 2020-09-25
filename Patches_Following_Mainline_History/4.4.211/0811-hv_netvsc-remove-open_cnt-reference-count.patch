@@ -1,4 +1,4 @@
-From 2ec5354689320feb5afacbd5f28cebcab3796667 Mon Sep 17 00:00:00 2001
+From 5778b4428df2b3984e653d85641948d185a7b899 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 12 Dec 2017 16:48:39 -0800
 Subject: hv_netvsc: remove open_cnt reference count

@@ -1,4 +1,4 @@
-From 76ec779b3e0cb3ac6118b47f08547c5c007b17d1 Mon Sep 17 00:00:00 2001
+From 5492b520b68cc5f97aac47917f1d0db6a1315ccb Mon Sep 17 00:00:00 2001
 From: Alex Ng <alexng@microsoft.com>
 Date: Fri, 2 Sep 2016 05:58:24 -0700
 Subject: Drivers: hv: utils: Continue to poll VSS channel after handling

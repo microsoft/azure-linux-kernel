@@ -1,4 +1,4 @@
-From 9a12baee664ecdd965a3b2d7ccd6d3f66dec6903 Mon Sep 17 00:00:00 2001
+From 998d4b3f51f65f12c0ce5ba3bdfa4f07b7f90918 Mon Sep 17 00:00:00 2001
 From: Leon Romanovsky <leonro@mellanox.com>
 Date: Tue, 23 Feb 2016 10:25:21 +0200
 Subject: net/mlx5_core: Fix caching ATOMIC endian mode capability

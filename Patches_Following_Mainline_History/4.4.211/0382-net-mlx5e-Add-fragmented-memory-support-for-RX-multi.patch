@@ -1,4 +1,4 @@
-From 2e3ef8970ff9e81982755756c0c8b329a860fab4 Mon Sep 17 00:00:00 2001
+From bbb5b26ee9df9b9f04ae4b841230e728d78fb90c Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 20 Apr 2016 22:02:15 +0300
 Subject: net/mlx5e: Add fragmented memory support for RX multi packet WQE

@@ -1,4 +1,4 @@
-From 36307afd6fc0db4a25bfa78714b3ced45428caed Mon Sep 17 00:00:00 2001
+From 1acfb78e4723954f0c1f66f1dfc1b1f47d2bfa4e Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Mon, 4 Jul 2016 17:23:11 +0300
 Subject: net/mlx5e: Expose RDMA VPort counters to ethtool

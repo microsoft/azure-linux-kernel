@@ -1,4 +1,4 @@
-From 812ada7cfe05f8aa739970b9e9b3ce9b483308c6 Mon Sep 17 00:00:00 2001
+From e13fbc560e1428d90227128e9d8050c5e1e657c3 Mon Sep 17 00:00:00 2001
 From: John Fastabend <john.fastabend@gmail.com>
 Date: Tue, 16 Feb 2016 21:17:37 -0800
 Subject: net: add tc offload feature flag

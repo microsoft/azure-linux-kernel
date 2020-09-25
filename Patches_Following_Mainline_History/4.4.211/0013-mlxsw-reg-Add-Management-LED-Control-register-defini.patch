@@ -1,4 +1,4 @@
-From 70a20ebda75b3ae13aa9b5233700ec982cc1593b Mon Sep 17 00:00:00 2001
+From 3bf7107b12cf381ff2977d41b9354740f7acec61 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Fri, 27 Nov 2015 13:45:54 +0100
 Subject: mlxsw: reg: Add Management LED Control register definition

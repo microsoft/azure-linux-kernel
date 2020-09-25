@@ -1,4 +1,4 @@
-From ec0567474d308f5b90738ec1bb738a9785dd776b Mon Sep 17 00:00:00 2001
+From a35edd1d3c0d30a23f576881b58ed8bee3a3bf4c Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sat, 4 Mar 2017 18:13:59 -0700
 Subject: Drivers: hv: util: move waiting for release to hv_utils_transport

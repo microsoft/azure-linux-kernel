@@ -1,4 +1,4 @@
-From 6ac562aae2aed8811f5ccd18615c0c8cd31e668e Mon Sep 17 00:00:00 2001
+From cdececad9cbbf3e8dd8fb009a1a7061c307140ba Mon Sep 17 00:00:00 2001
 From: Noa Osherovich <noaos@mellanox.com>
 Date: Sun, 26 Jun 2016 12:43:24 +0300
 Subject: net/mlx5: Expose mlx5e_link_mode

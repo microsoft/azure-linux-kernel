@@ -1,4 +1,4 @@
-From 306b88ad726e438be761c56d0fc1cca8b277d8f7 Mon Sep 17 00:00:00 2001
+From 8ba27986885565149f8750d9cda4c8cafd96ace2 Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Tue, 3 May 2016 17:13:55 +0300
 Subject: net/mlx5: E-Switch, Replace vport spin lock with synchronize_irq()

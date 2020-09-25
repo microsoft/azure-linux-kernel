@@ -1,4 +1,4 @@
-From fe09c82fb023cd3e95015396d409bbca0c3dd1ba Mon Sep 17 00:00:00 2001
+From 59f620d10b2c93cdb83745fb04659c3694f74982 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Tue, 1 Dec 2015 16:43:11 -0800
 Subject: hv_netvsc: move subchannel existence check to netvsc_select_queue()

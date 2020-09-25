@@ -1,4 +1,4 @@
-From 6bd8d86421fcad050d7940acfaddc25d3a66c667 Mon Sep 17 00:00:00 2001
+From 3a1728c011b4871b3d33a1e18655793d8bb11bda Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Wed, 18 Jan 2017 16:45:01 -0700
 Subject: Drivers: hv: vmbus: Move the definition of generate_guest_id()

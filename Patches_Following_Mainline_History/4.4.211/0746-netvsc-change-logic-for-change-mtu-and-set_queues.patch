@@ -1,4 +1,4 @@
-From 139c8c34c136c9a0dba140007c52e672d146c4ef Mon Sep 17 00:00:00 2001
+From f389f4425a7dc4eb032f59212615e0be20f8e79c Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 19 Jul 2017 11:53:15 -0700
 Subject: netvsc: change logic for change mtu and set_queues

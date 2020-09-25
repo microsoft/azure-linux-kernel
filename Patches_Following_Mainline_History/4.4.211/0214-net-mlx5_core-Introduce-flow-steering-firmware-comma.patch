@@ -1,4 +1,4 @@
-From 0e37d18d5555193a5a8342491df4a0d2fc257436 Mon Sep 17 00:00:00 2001
+From 8848e76317cb984426718031a9c109ff914285c9 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Thu, 10 Dec 2015 17:12:39 +0200
 Subject: net/mlx5_core: Introduce flow steering firmware commands

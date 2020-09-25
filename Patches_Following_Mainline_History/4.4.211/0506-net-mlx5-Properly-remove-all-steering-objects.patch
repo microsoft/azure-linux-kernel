@@ -1,4 +1,4 @@
-From e6cfb11deb5ca1d9a38534b111e38b8e24103e8c Mon Sep 17 00:00:00 2001
+From 75febf9b065477fb89918f14c5cdc0a2c4700af6 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 4 Jul 2016 17:23:07 +0300
 Subject: net/mlx5: Properly remove all steering objects

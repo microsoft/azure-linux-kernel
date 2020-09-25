@@ -1,4 +1,4 @@
-From d377c92c03925a27d362dc733b06a3b87d293ddc Mon Sep 17 00:00:00 2001
+From dbc812ed497afd6d0f22b3b7ae73657487d1e589 Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Fri, 1 Jul 2016 14:51:02 +0300
 Subject: net/mlx5: Add devlink interface

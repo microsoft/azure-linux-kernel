@@ -1,4 +1,4 @@
-From 5320181a9241f483c49278ad75c897f3fed1d154 Mon Sep 17 00:00:00 2001
+From 5633959457f17003afff84c24196c6f02d6b1e81 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Mon, 27 Jun 2016 12:08:35 +0300
 Subject: net/mlx5e: Check for BlueFlame capability before allocating SQ uar

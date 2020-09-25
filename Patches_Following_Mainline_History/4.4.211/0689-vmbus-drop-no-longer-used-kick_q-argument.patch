@@ -1,4 +1,4 @@
-From 8fbd5376dca8e4aae1042211d53471268ec7250f Mon Sep 17 00:00:00 2001
+From 0b885887059001ceebb704b7f653a8e3243ef115 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sun, 5 Feb 2017 17:20:32 -0700
 Subject: vmbus: drop no longer used kick_q argument

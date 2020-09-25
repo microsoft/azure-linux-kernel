@@ -1,4 +1,4 @@
-From 8288a2d963d3a9745014a592de04eae78d3f5708 Mon Sep 17 00:00:00 2001
+From 405fd0a53ec75afb46ab8651647d8f6ccfa7d711 Mon Sep 17 00:00:00 2001
 From: Aviv Heller <avivh@mellanox.com>
 Date: Mon, 9 May 2016 10:02:29 +0000
 Subject: net/mlx5: Add LAG flow steering namespace

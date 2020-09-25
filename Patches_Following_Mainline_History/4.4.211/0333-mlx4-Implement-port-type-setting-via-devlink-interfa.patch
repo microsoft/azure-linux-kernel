@@ -1,4 +1,4 @@
-From e566c9847b4a16b05c013176580ce4f03add558d Mon Sep 17 00:00:00 2001
+From ac1d64c253b4dcad0032fb4b565fce79b1dec0ed Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Fri, 26 Feb 2016 17:32:25 +0100
 Subject: mlx4: Implement port type setting via devlink interface

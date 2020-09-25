@@ -1,4 +1,4 @@
-From 9ae2d1e528dc1bfc959d8f405b23adca5de6a315 Mon Sep 17 00:00:00 2001
+From 46e77fabf0235bd2200bf5bdea6a05902497be41 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Fri, 17 Jun 2016 15:14:50 +0300
 Subject: IB/core: Add IPv6 support to flow steering

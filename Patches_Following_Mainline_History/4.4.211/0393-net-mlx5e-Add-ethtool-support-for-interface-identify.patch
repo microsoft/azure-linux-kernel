@@ -1,4 +1,4 @@
-From 432f9efa1a5b550fd53108191d35c0be9f5e4d23 Mon Sep 17 00:00:00 2001
+From d2a1bba0c5d1526d6747a5ca92cdd7c9655a1f32 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Sun, 24 Apr 2016 22:51:53 +0300
 Subject: net/mlx5e: Add ethtool support for interface identify (LED blinking)

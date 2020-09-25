@@ -1,4 +1,4 @@
-From a3ffb72d67c8fc97f666099606f1e0b8b81de0e4 Mon Sep 17 00:00:00 2001
+From a0462f2ebcf85a6a2c4789ff36b04a65f39d948b Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Mon, 21 Aug 2017 19:22:40 -0700
 Subject: hv_netvsc: Update netvsc Document for UDP hash level setting

@@ -1,4 +1,4 @@
-From eb12652b7c635c7d3dc4bcddd1ad0384eda9d0c0 Mon Sep 17 00:00:00 2001
+From 4b9d52b50f3850277ff4ea32954a0f104d686428 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:15 +0200
 Subject: x86/hyper-v: Introduce fast hypercall implementation

@@ -1,4 +1,4 @@
-From 71505d8931734643b5995700dd0f03513c1b6e0d Mon Sep 17 00:00:00 2001
+From ee444fd9ae291ad1c154357374a934894c96fa1b Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Tue, 5 Apr 2016 10:22:52 -0700
 Subject: drivers:hv: Use new vmbus_mmio_free() from client drivers.

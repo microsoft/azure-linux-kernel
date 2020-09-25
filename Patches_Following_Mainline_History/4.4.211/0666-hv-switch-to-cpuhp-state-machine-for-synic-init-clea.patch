@@ -1,4 +1,4 @@
-From dda00c50af11c25d7c5d4c5f1b3d9d4d5b772ab9 Mon Sep 17 00:00:00 2001
+From 85a53e5f612752c7f095c1fd704d7cf9d8c13a0c Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 7 Dec 2016 14:53:11 -0800
 Subject: hv: switch to cpuhp state machine for synic init/cleanup

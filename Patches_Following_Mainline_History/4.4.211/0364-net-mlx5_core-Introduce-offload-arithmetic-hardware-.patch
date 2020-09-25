@@ -1,4 +1,4 @@
-From 326928fd97a4854aacafcf0883ae0fd6c761e876 Mon Sep 17 00:00:00 2001
+From f6589643d94795b69fb28a048e3fbd7cdbb618d2 Mon Sep 17 00:00:00 2001
 From: Sagi Grimberg <sagig@mellanox.com>
 Date: Tue, 23 Feb 2016 10:25:23 +0200
 Subject: net/mlx5_core: Introduce offload arithmetic hardware capabilities

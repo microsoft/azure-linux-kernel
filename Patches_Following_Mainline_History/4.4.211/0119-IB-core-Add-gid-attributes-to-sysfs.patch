@@ -1,4 +1,4 @@
-From fcc56cc258222bebb9758ebbe96e2b00c46091a5 Mon Sep 17 00:00:00 2001
+From 553d0f34cf109347238a5df288af61a37c36bb12 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Wed, 23 Dec 2015 14:56:49 +0200
 Subject: IB/core: Add gid attributes to sysfs

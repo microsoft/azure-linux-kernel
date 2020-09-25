@@ -1,4 +1,4 @@
-From 7b7db05099f4c1530491c69f18cd2cdc37b96a72 Mon Sep 17 00:00:00 2001
+From b9b0a49cdbeeb8237312e30975155594824f371d Mon Sep 17 00:00:00 2001
 From: Haggai Eran <haggaie@mellanox.com>
 Date: Mon, 29 Feb 2016 15:45:06 +0200
 Subject: IB/mlx5: Create multiple transmission GSI QPs

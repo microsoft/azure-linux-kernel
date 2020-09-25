@@ -1,4 +1,4 @@
-From bc1a0c773533f5bbfdccb9b7eec14740675d71d7 Mon Sep 17 00:00:00 2001
+From 1debb26e7510ce790b801189c2a19ad564ae0e6c Mon Sep 17 00:00:00 2001
 From: Chi Song <chisong@linux.microsoft.com>
 Date: Thu, 23 Jul 2020 21:14:26 -0700
 Subject: net: hyperv: dump TX indirection table to ethtool regs

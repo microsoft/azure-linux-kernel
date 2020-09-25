@@ -1,4 +1,4 @@
-From 6dfb304ce088b816ddb15ccc4b2a7d29f8218581 Mon Sep 17 00:00:00 2001
+From 19a3484e382dd2c5c6bb7e505fcfa87ef72d2947 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:21 +0200
 Subject: tracing/hyper-v: Trace hyperv_mmu_flush_tlb_others()

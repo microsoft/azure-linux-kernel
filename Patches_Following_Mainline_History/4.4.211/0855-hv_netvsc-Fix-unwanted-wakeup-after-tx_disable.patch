@@ -1,4 +1,4 @@
-From b0e9f816b656fd3d3c7c3bdc1c746d1870f8dd90 Mon Sep 17 00:00:00 2001
+From fc77ae8c9125a64f0c19a1b0424d48ae8c155cd3 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 28 Mar 2019 19:40:36 +0000
 Subject: hv_netvsc: Fix unwanted wakeup after tx_disable

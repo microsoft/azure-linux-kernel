@@ -1,4 +1,4 @@
-From e03eb7772272922640eb8a9d800237fe0d2e815b Mon Sep 17 00:00:00 2001
+From c3ffa053b1be2b233bd099536a89e9304d7ccab1 Mon Sep 17 00:00:00 2001
 From: Alex Vesker <valex@mellanox.com>
 Date: Thu, 4 Aug 2016 17:32:02 +0300
 Subject: net/mlx5: Modify RQ bitmask from mlx5 ifc

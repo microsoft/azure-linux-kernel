@@ -1,4 +1,4 @@
-From b55e523df88cbff540101b79547b40c306e1a58d Mon Sep 17 00:00:00 2001
+From 2bb393d959017094f5f9e5968631a13f4d8d0600 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 4 Aug 2016 10:42:14 -0700
 Subject: hv_netvsc: Add query for initial physical link speed

@@ -1,4 +1,4 @@
-From 98b3dc9c604108d9db475877b86759de1871065a Mon Sep 17 00:00:00 2001
+From 6099257767ba9a8f8828c0dc892ce1a21bf1d472 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:40 +0000
 Subject: arch/hotplug: Call into idle with a proper state

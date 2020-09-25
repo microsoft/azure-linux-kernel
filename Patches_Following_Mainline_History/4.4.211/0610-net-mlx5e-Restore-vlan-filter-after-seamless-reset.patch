@@ -1,4 +1,4 @@
-From 8b477820dd2577c3484db79f515b08185a791b2e Mon Sep 17 00:00:00 2001
+From cb5ac2f5a30016cf14ec577abb642bcc7d6e07b0 Mon Sep 17 00:00:00 2001
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 Date: Fri, 9 Sep 2016 17:35:26 +0300
 Subject: net/mlx5e: Restore vlan filter after seamless reset

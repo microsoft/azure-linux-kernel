@@ -1,4 +1,4 @@
-From 6645a833da917713e8e75e99e0d98e0d949d2e87 Mon Sep 17 00:00:00 2001
+From 9f0ce0dc594a45268e14edb1c87c4961b20126d3 Mon Sep 17 00:00:00 2001
 From: Ilya Lesokhin <ilyal@mellanox.com>
 Date: Tue, 23 Feb 2016 13:25:22 +0200
 Subject: net/mlx5: Introduce alloc_encap and dealloc_encap commands

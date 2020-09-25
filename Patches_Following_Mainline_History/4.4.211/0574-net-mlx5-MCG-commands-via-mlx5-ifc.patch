@@ -1,4 +1,4 @@
-From 7215bbf0813954e7576b509e6334d42191a05327 Mon Sep 17 00:00:00 2001
+From c1e61bd15f48e39f2a4ef78f8eed30719909b9a9 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Sun, 17 Jul 2016 02:01:45 +0300
 Subject: net/mlx5: MCG commands via mlx5 ifc

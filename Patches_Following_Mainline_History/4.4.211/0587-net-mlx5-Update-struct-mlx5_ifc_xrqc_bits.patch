@@ -1,4 +1,4 @@
-From 59b4689e232b37610c00d58071a85fd262b68bf0 Mon Sep 17 00:00:00 2001
+From 99f1a3f02d10d92bb95ede94bd2d76d987ea8ecf Mon Sep 17 00:00:00 2001
 From: Artemy Kovalyov <artemyko@mellanox.com>
 Date: Sun, 3 Jul 2016 14:57:33 +0300
 Subject: net/mlx5: Update struct mlx5_ifc_xrqc_bits

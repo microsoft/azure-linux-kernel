@@ -1,4 +1,4 @@
-From 90b6382d463941f4f6e38c3b91b9b95b7e1dfa86 Mon Sep 17 00:00:00 2001
+From f39c0a8dbe4684b69303d8d002cec2020669c177 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 8 Apr 2016 14:40:15 +0200
 Subject: cpu/hotplug: Fix rollback during error-out in __cpu_disable()

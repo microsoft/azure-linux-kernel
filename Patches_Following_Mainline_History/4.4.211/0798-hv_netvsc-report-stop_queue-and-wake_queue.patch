@@ -1,4 +1,4 @@
-From acc135baaa2c4ef1d4ef77516b44bf2987475ca6 Mon Sep 17 00:00:00 2001
+From 11fc89433acd3b2f0ebf34451146a7a2acc5a1f9 Mon Sep 17 00:00:00 2001
 From: Simon Xiao <sixiao@microsoft.com>
 Date: Fri, 29 Sep 2017 11:39:46 -0700
 Subject: hv_netvsc: report stop_queue and wake_queue

@@ -1,4 +1,4 @@
-From e53ede51d6de89896836f0bec9e7c6f17441c08e Mon Sep 17 00:00:00 2001
+From 0ce7de6f848b8da1bdbdc49f32dbee1527684847 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:39 +0000
 Subject: cpu/hotplug: Move online calls to hotplugged cpu

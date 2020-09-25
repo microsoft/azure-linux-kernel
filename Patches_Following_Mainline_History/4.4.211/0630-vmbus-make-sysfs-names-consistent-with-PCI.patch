@@ -1,4 +1,4 @@
-From 99974aa2fc4f4acfd7f41916796e7ccaf7077821 Mon Sep 17 00:00:00 2001
+From 9f87aac488672e2d51ab3c651f8b3ec2093c6211 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Tue, 1 Nov 2016 00:01:59 -0700
 Subject: vmbus: make sysfs names consistent with PCI

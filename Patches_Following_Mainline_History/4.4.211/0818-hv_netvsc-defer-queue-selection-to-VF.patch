@@ -1,4 +1,4 @@
-From 94be17c07aa97f3554a8dbdb0fd3e7ec9aa57b54 Mon Sep 17 00:00:00 2001
+From dc98b7e294f023c89509db67bd33a044ab60aa74 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Fri, 2 Mar 2018 13:49:07 -0800
 Subject: hv_netvsc: defer queue selection to VF

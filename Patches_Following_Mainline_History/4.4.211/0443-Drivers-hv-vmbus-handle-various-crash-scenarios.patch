@@ -1,4 +1,4 @@
-From 1a765d6b643cafa218b7cfe46c5c082477006696 Mon Sep 17 00:00:00 2001
+From 57983ef33dd690277a75821beda1936ff447e77e Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sat, 30 Apr 2016 19:21:34 -0700
 Subject: Drivers: hv: vmbus: handle various crash scenarios

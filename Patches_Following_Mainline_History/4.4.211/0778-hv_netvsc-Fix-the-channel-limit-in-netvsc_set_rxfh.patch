@@ -1,4 +1,4 @@
-From d18c02be68a4a9d41e9c82ab9ffa826601b3bfeb Mon Sep 17 00:00:00 2001
+From 45a1345daab6d0976ad3ebcf65adc5d7a798b587 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 1 Sep 2017 14:30:07 -0700
 Subject: hv_netvsc: Fix the channel limit in netvsc_set_rxfh()

@@ -1,4 +1,4 @@
-From 658a9a69e38d9471b502b5a1c59baba4e75e2618 Mon Sep 17 00:00:00 2001
+From c8b796a6c8a6e71094f104c4f1659d987f982045 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:16:43 +0100
 Subject: switchdev: Require RTNL mutex to be held when sending FDB

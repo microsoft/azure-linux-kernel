@@ -1,4 +1,4 @@
-From 275f4909917bcb21a7efeb1ca3ba8d2cc35e1e04 Mon Sep 17 00:00:00 2001
+From 61a3e94d197b66dcabba6a41ac3e9b115c442746 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Thu, 18 May 2017 10:46:04 -0700
 Subject: hv_utils: fix TimeSync work on pre-TimeSync-v4 hosts

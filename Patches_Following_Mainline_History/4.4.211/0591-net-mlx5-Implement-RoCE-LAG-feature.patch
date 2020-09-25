@@ -1,4 +1,4 @@
-From 6475459f4bcfe74f826bfaa410380a66d0bc4368 Mon Sep 17 00:00:00 2001
+From 668e5ce9be85dd68c34ba0d24dabc07f0abaab67 Mon Sep 17 00:00:00 2001
 From: Aviv Heller <avivh@mellanox.com>
 Date: Sun, 17 Apr 2016 16:57:32 +0300
 Subject: net/mlx5: Implement RoCE LAG feature

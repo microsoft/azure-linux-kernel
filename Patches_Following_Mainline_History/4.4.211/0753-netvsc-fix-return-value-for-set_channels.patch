@@ -1,4 +1,4 @@
-From b3da3fe75d214a056ba86e1c474e68f32dbdaba9 Mon Sep 17 00:00:00 2001
+From 1dded7381955ae4be69a8e8d35f27ff86f0483d5 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Fri, 28 Jul 2017 08:59:41 -0700
 Subject: netvsc: fix return value for set_channels

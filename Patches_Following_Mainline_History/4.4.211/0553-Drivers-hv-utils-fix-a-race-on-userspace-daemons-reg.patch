@@ -1,4 +1,4 @@
-From 20a1dd61ce6bf5aac84688633a2b75a51616999c Mon Sep 17 00:00:00 2001
+From 938278a030028d5bef9f7e9d2d74fe7429bca80f Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Thu, 9 Jun 2016 17:08:57 -0700
 Subject: Drivers: hv: utils: fix a race on userspace daemons registration

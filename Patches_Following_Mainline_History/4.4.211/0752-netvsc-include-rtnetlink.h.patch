@@ -1,4 +1,4 @@
-From cc7ae50ab859821e35f5f95b8e92e6a4523618b9 Mon Sep 17 00:00:00 2001
+From c0d837c4cf4e391e78b368d597ccf70f3d1bfe34 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Mon, 24 Jul 2017 10:57:29 -0700
 Subject: netvsc: include rtnetlink.h

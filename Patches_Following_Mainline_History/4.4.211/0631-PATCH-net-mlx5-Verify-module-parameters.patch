@@ -1,4 +1,4 @@
-From 25c527c6558567ef58814783b05e347a9ebd7c82 Mon Sep 17 00:00:00 2001
+From 7e877617b88f41a411181c535e9ecc9a809f7873 Mon Sep 17 00:00:00 2001
 From: Kamal Heib <kamalh@mellanox.com>
 Date: Tue, 6 Dec 2016 17:32:43 +0200
 Subject: [PATCH] net/mlx5: Verify module parameters

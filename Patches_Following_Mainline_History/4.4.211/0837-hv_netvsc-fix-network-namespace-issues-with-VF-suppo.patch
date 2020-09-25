@@ -1,4 +1,4 @@
-From 5432679da91e0cabc708aea9302444c99e99e550 Mon Sep 17 00:00:00 2001
+From df82c121b6b9931dce481f8b34afa3d31ed8008c Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Mon, 11 Jun 2018 12:44:55 -0700
 Subject: hv_netvsc: fix network namespace issues with VF support

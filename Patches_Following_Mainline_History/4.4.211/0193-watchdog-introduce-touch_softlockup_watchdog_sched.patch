@@ -1,4 +1,4 @@
-From de19439e2fc045d809735e69505b8e6d99fee9bf Mon Sep 17 00:00:00 2001
+From 88b4c60a03bddd675cf048b9b1251c18bba44de0 Mon Sep 17 00:00:00 2001
 From: Tejun Heo <tj@kernel.org>
 Date: Tue, 8 Dec 2015 11:28:04 -0500
 Subject: watchdog: introduce touch_softlockup_watchdog_sched()

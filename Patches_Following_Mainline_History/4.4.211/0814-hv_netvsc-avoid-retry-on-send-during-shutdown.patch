@@ -1,4 +1,4 @@
-From 5bb20bf74af0b316640402368acbc8e68d61eb66 Mon Sep 17 00:00:00 2001
+From 1d2a0059ae0190120e46a1e4f45bf73f5c8b56bd Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Fri, 2 Mar 2018 13:49:01 -0800
 Subject: hv_netvsc: avoid retry on send during shutdown

@@ -1,4 +1,4 @@
-From f6b4a9e3b156558e4ad753e2d2d01b20c5ef08b2 Mon Sep 17 00:00:00 2001
+From 968702a0c4d48059d50572a716fe3d6c5898e267 Mon Sep 17 00:00:00 2001
 From: Majd Dibbiny <majd@mellanox.com>
 Date: Mon, 27 Jun 2016 12:08:33 +0300
 Subject: net/mlx5: Add ConnectX-5 PCIe 4.0 to list of supported devices

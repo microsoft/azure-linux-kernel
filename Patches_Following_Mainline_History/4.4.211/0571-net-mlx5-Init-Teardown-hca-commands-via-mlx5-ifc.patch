@@ -1,4 +1,4 @@
-From 97cdc2f854da99ea8e3b32ebb17908a8765b2019 Mon Sep 17 00:00:00 2001
+From f3d02f7cd5b8ba918c916b4332316a3e48acec8a Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Sun, 17 Jul 2016 01:28:47 +0300
 Subject: net/mlx5: Init/Teardown hca commands via mlx5 ifc

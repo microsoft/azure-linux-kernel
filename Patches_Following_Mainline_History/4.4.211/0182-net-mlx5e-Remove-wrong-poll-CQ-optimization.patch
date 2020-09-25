@@ -1,4 +1,4 @@
-From 8d97cda3776f21b3ecfaa89e42f61572464ecadf Mon Sep 17 00:00:00 2001
+From 3f54a13ca4c3f97825c1fc391c37ca57236e2a0e Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Mon, 29 Feb 2016 21:17:09 +0200
 Subject: net/mlx5e: Remove wrong poll CQ optimization

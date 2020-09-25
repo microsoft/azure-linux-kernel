@@ -1,4 +1,4 @@
-From ca987ebb0380fc2c4c2582e187eb22577747592b Mon Sep 17 00:00:00 2001
+From 4d90a38a2da95ec1ce4954ea2dff817dba361d99 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 19 Aug 2016 14:47:09 -0700
 Subject: hv_netvsc: Implement batching of receive completions

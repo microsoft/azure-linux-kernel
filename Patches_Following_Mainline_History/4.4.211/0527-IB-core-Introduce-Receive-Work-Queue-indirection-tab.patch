@@ -1,4 +1,4 @@
-From 89f2042b7c531bb8a9ca9f2a5f8934dae9ff5e48 Mon Sep 17 00:00:00 2001
+From d7bbd3e214fd9a10c68e1a1235f7564910dbc062 Mon Sep 17 00:00:00 2001
 From: Yishai Hadas <yishaih@mellanox.com>
 Date: Mon, 23 May 2016 15:20:51 +0300
 Subject: IB/core: Introduce Receive Work Queue indirection table

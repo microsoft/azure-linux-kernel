@@ -1,4 +1,4 @@
-From f5f61510282f16a01ad174f8ca4f667e3f168f7f Mon Sep 17 00:00:00 2001
+From c2a4982f212dbb4bc8d662d0d04eb4508e5c7000 Mon Sep 17 00:00:00 2001
 From: Eric Dumazet <edumazet@google.com>
 Date: Thu, 9 Jun 2016 07:45:12 -0700
 Subject: net: add netdev_lockdep_set_classes() helper

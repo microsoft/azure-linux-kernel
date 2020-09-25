@@ -1,4 +1,4 @@
-From fed51c9dd30e051947b7e676eef00a666f8acd2f Mon Sep 17 00:00:00 2001
+From e1a1a2a43283c683b9c843e87ae32ac089cf842e Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Tue, 23 Aug 2016 04:47:23 +0000
 Subject: PCI: hv: Remove the unused 'wrk' in struct hv_pcibus_device

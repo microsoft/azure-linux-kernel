@@ -1,4 +1,4 @@
-From 00c9307d3dc1fff3e7bdcd7d5a5fd487a06644a7 Mon Sep 17 00:00:00 2001
+From 8a50d5292ab565d4b4a2a97a485182f231b85b32 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Fri, 29 Apr 2016 01:36:36 +0300
 Subject: net/mlx5: Support different attributes for priorities in namespace

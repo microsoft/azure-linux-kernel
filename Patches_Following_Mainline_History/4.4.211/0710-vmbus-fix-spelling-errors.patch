@@ -1,4 +1,4 @@
-From 0513a35138e3ede3c6200f57916ca301c379b21a Mon Sep 17 00:00:00 2001
+From 93827c24ea8171ccd47cc1459364dee22e7b6ee9 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Sat, 4 Mar 2017 18:27:14 -0700
 Subject: vmbus: fix spelling errors

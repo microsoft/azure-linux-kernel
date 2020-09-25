@@ -1,4 +1,4 @@
-From 5f745a2d1db896490c6db21931b957f2b2dd7350 Mon Sep 17 00:00:00 2001
+From 0948c41c899c61ebb8d9281cb51cb9f48b6ee8a2 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:13 +0200
 Subject: net/mlx5: Introduce access functions to modify/query vport state

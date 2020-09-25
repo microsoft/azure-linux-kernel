@@ -1,4 +1,4 @@
-From 1ebc6a95a749f5aa101d87813f3d5069c7a2c5d6 Mon Sep 17 00:00:00 2001
+From 4289baca678bc774b49f062f20ea7e78d7b6349e Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Tue, 23 Aug 2016 12:17:44 -0700
 Subject: hv_netvsc: fix rtnl locking in callback

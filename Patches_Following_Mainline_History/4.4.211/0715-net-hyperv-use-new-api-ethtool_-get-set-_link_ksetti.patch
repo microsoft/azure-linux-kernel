@@ -1,4 +1,4 @@
-From e37b15656046ce41bbe4fcd51c7c623f27dad8ec Mon Sep 17 00:00:00 2001
+From 5f630b435928fc1dfd0c41a17038e415330ebbf5 Mon Sep 17 00:00:00 2001
 From: Philippe Reynes <tremyfr@gmail.com>
 Date: Wed, 8 Mar 2017 23:41:04 +0100
 Subject: net: hyperv: use new api ethtool_{get|set}_link_ksettings

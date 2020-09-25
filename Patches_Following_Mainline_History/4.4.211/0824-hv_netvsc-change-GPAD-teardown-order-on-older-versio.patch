@@ -1,4 +1,4 @@
-From 4b968417082b0c049eb0176646a747d08bbd9da0 Mon Sep 17 00:00:00 2001
+From 1aef5053abbf83b30562d8b4870ed00b6f5caf3b Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 20 Mar 2018 15:03:04 -0700
 Subject: hv_netvsc: change GPAD teardown order on older versions

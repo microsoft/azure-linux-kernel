@@ -1,4 +1,4 @@
-From 1d00488540705489a669b8f671c74f20d434b4d1 Mon Sep 17 00:00:00 2001
+From 93b69f179f602449b30941cf7ac1538a621768bb Mon Sep 17 00:00:00 2001
 From: Yishai Hadas <yishaih@mellanox.com>
 Date: Mon, 23 May 2016 15:20:53 +0300
 Subject: IB/mlx5: Add Receive Work Queue Indirection table operations

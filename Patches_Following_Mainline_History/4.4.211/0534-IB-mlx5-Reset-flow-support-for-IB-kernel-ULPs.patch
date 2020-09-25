@@ -1,4 +1,4 @@
-From 36268dfd9511d57a4d4fdc9244cac17d51a37bf2 Mon Sep 17 00:00:00 2001
+From 1573b1fb9869e5be79f8eb1f8ea8f3d36e455160 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Fri, 17 Jun 2016 15:01:38 +0300
 Subject: IB/mlx5: Reset flow support for IB kernel ULPs

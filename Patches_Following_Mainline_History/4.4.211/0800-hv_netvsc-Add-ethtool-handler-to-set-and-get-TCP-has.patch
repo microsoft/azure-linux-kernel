@@ -1,4 +1,4 @@
-From 5edcd7a408b9a74f44b93e8720fdd06b0ca98214 Mon Sep 17 00:00:00 2001
+From df56d850348729816e13c6cecf322374e0e70f28 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 6 Oct 2017 08:33:58 -0700
 Subject: hv_netvsc: Add ethtool handler to set and get TCP hash levels

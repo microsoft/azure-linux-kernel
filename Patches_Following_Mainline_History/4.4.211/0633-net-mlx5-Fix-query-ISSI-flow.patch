@@ -1,4 +1,4 @@
-From d9859e958fb5975bfd6c497722158af9cf3ec158 Mon Sep 17 00:00:00 2001
+From a01fe072e44fb0380354a25455a6c5bab6642ca5 Mon Sep 17 00:00:00 2001
 From: Kamal Heib <kamalh@mellanox.com>
 Date: Tue, 6 Dec 2016 17:32:45 +0200
 Subject: net/mlx5: Fix query ISSI flow

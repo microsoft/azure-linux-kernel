@@ -1,4 +1,4 @@
-From 794721c559433a0e31bf6fa7e6093a73d580e686 Mon Sep 17 00:00:00 2001
+From 18946f6257b33514c5a69e799ce1237deca9b48a Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Wed, 27 Jan 2016 22:29:45 -0800
 Subject: Drivers: hv: vmbus: Give control over how the ring access is

@@ -1,4 +1,4 @@
-From c55a78f089df0fd1d89f832b75e3cd0d197fb96b Mon Sep 17 00:00:00 2001
+From 8c3f4569533c1e984538599848350f68ba35dee0 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 13 Oct 2017 12:28:05 -0700
 Subject: hv_netvsc: Add initialization of tx_table in netvsc_device_add()

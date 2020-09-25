@@ -1,4 +1,4 @@
-From d58d701f49db516bc39e500d745e3ad9339e3697 Mon Sep 17 00:00:00 2001
+From 8bc50731b2852c41556f97ad7aa2e9f12747f99a Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Sat, 4 Feb 2017 09:57:13 -0700
 Subject: hv: export current Hyper-V clocksource

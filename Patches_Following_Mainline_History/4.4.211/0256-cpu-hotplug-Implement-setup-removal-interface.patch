@@ -1,4 +1,4 @@
-From 245a124e89cadf357a740f2af4e4ca1b8a888d13 Mon Sep 17 00:00:00 2001
+From 61a95ea8fcc9fab62ec3f9ad1762498ed4ccfa92 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:33 +0000
 Subject: cpu/hotplug: Implement setup/removal interface

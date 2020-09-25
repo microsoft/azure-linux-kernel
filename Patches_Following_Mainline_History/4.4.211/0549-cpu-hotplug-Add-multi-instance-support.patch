@@ -1,4 +1,4 @@
-From 68176daa896ee00a1b8613e8a29c4eed9cd8b128 Mon Sep 17 00:00:00 2001
+From 7412fde9c3ca6708c2f2ee26421dbffc2eb04231 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 12 Aug 2016 19:49:39 +0200
 Subject: cpu/hotplug: Add multi instance support

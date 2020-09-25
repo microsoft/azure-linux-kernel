@@ -1,4 +1,4 @@
-From 5647a08f8d0cdc3666dabb95837dfecd9794c04d Mon Sep 17 00:00:00 2001
+From 9ada5853c7bf9a0e9f2cd29ed2f4079126947a29 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 20 Mar 2018 15:03:03 -0700
 Subject: hv_netvsc: use RCU to fix concurrent rx and queue changes

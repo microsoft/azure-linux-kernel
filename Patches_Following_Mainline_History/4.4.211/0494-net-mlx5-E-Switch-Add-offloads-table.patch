@@ -1,4 +1,4 @@
-From 8998a666dc993f273557252ed6bd793690250648 Mon Sep 17 00:00:00 2001
+From 235f0e4940507c47c33e1e5cc620ba34ae0d11cb Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Fri, 1 Jul 2016 14:50:59 +0300
 Subject: net/mlx5: E-Switch, Add offloads table

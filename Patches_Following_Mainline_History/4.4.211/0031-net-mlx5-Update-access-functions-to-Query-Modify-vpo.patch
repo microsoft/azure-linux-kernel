@@ -1,4 +1,4 @@
-From b0f610c9a9d74d2a3ff0c6a3a9588832df5a985a Mon Sep 17 00:00:00 2001
+From 10bf9ccaac89c4cc7da58f917b75d74dce25467d Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:11 +0200
 Subject: net/mlx5: Update access functions to Query/Modify vport MAC address

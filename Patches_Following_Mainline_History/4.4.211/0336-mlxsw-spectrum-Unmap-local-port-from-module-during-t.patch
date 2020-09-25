@@ -1,4 +1,4 @@
-From 96f301e10ca46df789dd91f93110fc13391d8d0f Mon Sep 17 00:00:00 2001
+From f2bfefa3006a11d50f8a18354d45bc6dda38e8cb Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Fri, 26 Feb 2016 17:32:28 +0100
 Subject: mlxsw: spectrum: Unmap local port from module during teardown

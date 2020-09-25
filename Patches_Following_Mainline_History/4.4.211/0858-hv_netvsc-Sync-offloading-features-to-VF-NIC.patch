@@ -1,4 +1,4 @@
-From db9bd88c584712b2931348fa4cb3a5dadcd97a04 Mon Sep 17 00:00:00 2001
+From 985c89f9cbe8fcc8f9e0331a73398ec290333ccc Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 5 Sep 2019 23:23:12 +0000
 Subject: hv_netvsc: Sync offloading features to VF NIC

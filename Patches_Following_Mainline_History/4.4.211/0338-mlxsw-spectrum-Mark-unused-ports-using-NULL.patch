@@ -1,4 +1,4 @@
-From 4370aa8c6b3c1959c111225ece8d56b3cb656c80 Mon Sep 17 00:00:00 2001
+From e6f15294e8e10ab120bccdd5be8e4d5f6e748b71 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Fri, 26 Feb 2016 17:32:30 +0100
 Subject: mlxsw: spectrum: Mark unused ports using NULL

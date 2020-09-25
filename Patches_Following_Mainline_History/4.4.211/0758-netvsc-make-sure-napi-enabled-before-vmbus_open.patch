@@ -1,4 +1,4 @@
-From f0d6eff4cbe8e3959e38c115fe0203e76dd9cf0f Mon Sep 17 00:00:00 2001
+From 5de9f015e00cabc9290a8000e1d91fc1a34b0053 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 3 May 2017 16:59:21 -0700
 Subject: netvsc: make sure napi enabled before vmbus_open

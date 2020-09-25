@@ -1,4 +1,4 @@
-From ca063b76915e0c5e04bef4496660f2a5d8175522 Mon Sep 17 00:00:00 2001
+From b9fef219f1ba873c6cfe68508ef5493d857082e8 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Fri, 2 Mar 2018 13:49:09 -0800
 Subject: hv_netvsc: propagate rx filters to VF

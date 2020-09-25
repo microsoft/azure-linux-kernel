@@ -1,4 +1,4 @@
-From 5279d5051beeaf254050411107620fdd09b9b655 Mon Sep 17 00:00:00 2001
+From 6feb10be7f47552a35f7fc1cc4f84954d35e187d Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Wed, 22 Mar 2017 14:51:02 -0700
 Subject: netvsc: use refcount_t for keeping track of sub channels

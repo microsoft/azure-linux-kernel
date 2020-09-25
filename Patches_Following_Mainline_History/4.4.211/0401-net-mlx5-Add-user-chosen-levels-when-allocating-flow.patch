@@ -1,4 +1,4 @@
-From 4c80b7172186c9a7bd98ec921b085fb02db1eb51 Mon Sep 17 00:00:00 2001
+From 041cdfdcbf76bbec86b1a10fecdd144b583c89a7 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Fri, 29 Apr 2016 01:36:35 +0300
 Subject: net/mlx5: Add user chosen levels when allocating flow tables

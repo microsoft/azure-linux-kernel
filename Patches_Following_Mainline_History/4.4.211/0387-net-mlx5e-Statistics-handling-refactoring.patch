@@ -1,4 +1,4 @@
-From 05a62038cbc2b7a616016a2d558cf9982788d528 Mon Sep 17 00:00:00 2001
+From 5ccc91d0388355a484106b4a5848d6ee2cb5e675 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Sun, 24 Apr 2016 22:51:47 +0300
 Subject: net/mlx5e: Statistics handling refactoring

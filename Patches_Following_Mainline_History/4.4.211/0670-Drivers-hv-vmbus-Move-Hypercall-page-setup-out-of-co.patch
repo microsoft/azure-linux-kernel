@@ -1,4 +1,4 @@
-From b1468ef9e819163b18dc922bfe5123b81d0a9bcc Mon Sep 17 00:00:00 2001
+From e4465a055cad8cf707f455e874121b16954ca87a Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Wed, 18 Jan 2017 16:45:02 -0700
 Subject: Drivers: hv vmbus: Move Hypercall page setup out of common code

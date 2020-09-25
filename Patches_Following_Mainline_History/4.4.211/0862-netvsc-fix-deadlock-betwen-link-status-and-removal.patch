@@ -1,4 +1,4 @@
-From 16f12ab577556ef1f4c041e0285e5eda05c2a3fd Mon Sep 17 00:00:00 2001
+From a6605f22bc23218753981f43a3bf748aee08b7b4 Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Thu, 24 Aug 2017 16:49:16 -0700
 Subject: netvsc: fix deadlock betwen link status and removal

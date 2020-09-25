@@ -1,4 +1,4 @@
-From 8cd80de74068a197ed0c6884f68b56bb1afea1a3 Mon Sep 17 00:00:00 2001
+From a38e7c5e4c283f65b582912b0f800ff01516b957 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Thu, 2 Nov 2017 11:35:30 +0100
 Subject: hv_netvsc: netvsc_teardown_gpadl() split

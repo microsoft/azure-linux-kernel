@@ -1,4 +1,4 @@
-From 18c7b17e4d986158be8163653981c9f1c183a0d9 Mon Sep 17 00:00:00 2001
+From fb2a49d354342f034bb64825d1369c85e10a149d Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 1 Sep 2017 14:30:06 -0700
 Subject: hv_netvsc: Simplify the limit check in netvsc_set_channels()

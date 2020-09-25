@@ -1,4 +1,4 @@
-From 67446f813cf24e7b1fe75a8bc2f2a176581ade3d Mon Sep 17 00:00:00 2001
+From f98afe0ec7b8a1b6c4feb44b467837ee21f83d43 Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Thu, 14 Jul 2016 10:32:40 +0300
 Subject: net/mlx5: E-Switch, Use two priorities for SRIOV offloads mode

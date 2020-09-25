@@ -1,4 +1,4 @@
-From 9a2e35e8c1576a38b270b3da3e4d076400618233 Mon Sep 17 00:00:00 2001
+From 8e763707a65e64ffae54d5e87716eb1c26dac6f2 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <sthemmin@microsoft.com>
 Date: Tue, 23 Aug 2016 12:17:50 -0700
 Subject: hv_netvsc: make device_remove void

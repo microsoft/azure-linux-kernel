@@ -1,4 +1,4 @@
-From 9a990063adff71edb8a856bdec8aee73f60cd393 Mon Sep 17 00:00:00 2001
+From a75d8520709d9cdc0b1c658309e5f23356e50ddd Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 20 Mar 2018 15:03:05 -0700
 Subject: hv_netvsc: common detach logic

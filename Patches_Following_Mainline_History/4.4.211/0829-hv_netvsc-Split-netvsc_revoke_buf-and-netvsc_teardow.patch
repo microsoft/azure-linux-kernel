@@ -1,4 +1,4 @@
-From 98ff85c9f12562be4a7fd650ae2e22e8e3f8c694 Mon Sep 17 00:00:00 2001
+From 1013f79b267aaaff98b9c5ce2271cb59838a0993 Mon Sep 17 00:00:00 2001
 From: Mohammed Gamal <mgamal@redhat.com>
 Date: Thu, 5 Apr 2018 21:09:19 +0200
 Subject: hv_netvsc: Split netvsc_revoke_buf() and netvsc_teardown_gpadl()
