@@ -1,4 +1,4 @@
-From 18d8296261e7964e1017b27762803fb9dbf57be3 Mon Sep 17 00:00:00 2001
+From 5fde60f585bb02a9237f94b88a596ff74375f1f3 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Wed, 2 Mar 2016 00:13:38 +0200
 Subject: net/mlx5e: Don't modify CQ before it was created

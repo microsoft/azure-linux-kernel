@@ -1,4 +1,4 @@
-From 23facead5a2603b20ad1086e07ba0e9a53849460 Mon Sep 17 00:00:00 2001
+From a1e21c60099ae687e11eca2ce0cb50eafbfe3a7c Mon Sep 17 00:00:00 2001
 From: Elad Raz <eladr@mellanox.com>
 Date: Wed, 6 Jan 2016 13:01:11 +0100
 Subject: mlxsw: Remember untagged VLANs

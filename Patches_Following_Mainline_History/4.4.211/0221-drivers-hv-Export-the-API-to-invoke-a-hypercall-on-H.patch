@@ -1,4 +1,4 @@
-From df164a54818415f1418ad0a05d922272a5b2bf24 Mon Sep 17 00:00:00 2001
+From 240e669b0a428f58e34da0224a1f27c1317a9fee Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Mon, 14 Dec 2015 16:01:40 -0800
 Subject: drivers:hv: Export the API to invoke a hypercall on Hyper-V

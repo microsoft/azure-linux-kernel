@@ -1,4 +1,4 @@
-From 267ab0ad630a836c79b4ce9d1f2f194a2a9745cf Mon Sep 17 00:00:00 2001
+From 58097212cda5d5cc0b402870d02bbdeaec3aa6cc Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 2 Mar 2016 00:13:32 +0200
 Subject: net/mlx5e: Replace async events spinlock with synchronize_irq()

@@ -1,0 +1,115 @@
+From 074a77c9aff7a91b33658b1d0e703983bcb73be4 Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Sat, 4 Mar 2017 18:13:58 -0700
+Subject: vmbus: remove hv_event_tasklet_disable/enable
+Reply-To: joseph.salisbury@microsoft.com
+
+With the recent introduction of per-channel tasklet, we need to update
+the way we handle the 3 concurrency issues:
+
+1. hv_process_channel_removal -> percpu_channel_deq vs.
+   vmbus_chan_sched -> list_for_each_entry(..., percpu_list);
+
+2. vmbus_process_offer -> percpu_channel_enq/deq vs. vmbus_chan_sched.
+
+3. vmbus_close_internal vs. the per-channel tasklet vmbus_on_event;
+
+The first 2 issues can be handled by Stephen's recent patch
+"vmbus: use rcu for per-cpu channel list", and the third issue
+can be handled by calling tasklet_disable in vmbus_close_internal here.
+
+We don't need the original hv_event_tasklet_disable/enable since we
+now use per-channel tasklet instead of the previous per-CPU tasklet,
+and actually we must remove them due to the side effect now:
+vmbus_process_offer -> hv_event_tasklet_enable -> tasklet_schedule will
+start the per-channel callback prematurely, cauing NULL dereferencing
+(the channel may haven't been properly configured to run the callback yet).
+
+Fixes: 631e63a9f346 ("vmbus: change to per channel tasklet")
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Tested-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit dad72a1d28442b03aac86836a42de2d00a1014ab)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel.c      | 15 ++++++---------
+ drivers/hv/channel_mgmt.c | 15 ++-------------
+ 2 files changed, 8 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index f881be17b01d..29f83f08d399 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -540,16 +540,13 @@ static int vmbus_close_internal(struct vmbus_channel *channel)
+ 	int ret;
+ 
+ 	/*
+-	 * vmbus_on_event(), running in the tasklet, can race
++	 * vmbus_on_event(), running in the per-channel tasklet, can race
+ 	 * with vmbus_close_internal() in the case of SMP guest, e.g., when
+ 	 * the former is accessing channel->inbound.ring_buffer, the latter
+-	 * could be freeing the ring_buffer pages.
+-	 *
+-	 * To resolve the race, we can serialize them by disabling the
+-	 * tasklet when the latter is running here.
++	 * could be freeing the ring_buffer pages, so here we must stop it
++	 * first.
+ 	 */
+-	tasklet = hv_context.event_dpc[channel->target_cpu];
+-	tasklet_disable(tasklet);
++	tasklet_disable(&channel->callback_event);
+ 
+ 	/*
+ 	 * In case a device driver's probe() fails (e.g.,
+@@ -616,8 +613,8 @@ static int vmbus_close_internal(struct vmbus_channel *channel)
+ 		get_order(channel->ringbuffer_pagecount * PAGE_SIZE));
+ 
+ out:
+-	tasklet_enable(tasklet);
+-
++	/* re-enable tasklet for use on re-open */
++	tasklet_enable(&channel->callback_event);	
+ 	return ret;
+ }
+ 
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index eec0c50acc3c..cd24dcc2fe7b 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -381,19 +381,6 @@ static void vmbus_release_relid(u32 relid)
+ 		       true);
+ }
+ 
+-void hv_event_tasklet_disable(struct vmbus_channel *channel)
+-{
+-	tasklet_disable(&channel->callback_event);
+-}
+-
+-void hv_event_tasklet_enable(struct vmbus_channel *channel)
+-{
+-	tasklet_enable(&channel->callback_event);
+-
+-	/* In case there is any pending event */
+-	tasklet_schedule(&channel->callback_event);
+-}
+-
+ void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid)
+ {
+ 	unsigned long flags;
+@@ -572,6 +559,8 @@ err_deq_chan:
+ 		put_cpu();
+ 	}
+ 
++	vmbus_release_relid(newchannel->offermsg.child_relid);
++
+ err_free_chan:
+ 	free_channel(newchannel);
+ }
+-- 
+2.17.1
+

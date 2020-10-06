@@ -1,4 +1,4 @@
-From 6a07715498e030734aff52fbc7599cf6f27997fd Mon Sep 17 00:00:00 2001
+From 826f8a9ceb1654f5ca94c0c2f195f1f7770e65f7 Mon Sep 17 00:00:00 2001
 From: Amir Vadai <amir@vadai.me>
 Date: Tue, 8 Mar 2016 12:42:35 +0200
 Subject: net/mlx5e: Add a new priority for kernel flow tables

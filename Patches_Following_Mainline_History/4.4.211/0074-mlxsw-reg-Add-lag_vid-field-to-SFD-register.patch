@@ -1,4 +1,4 @@
-From 299d1491fbdf66a1b967177a9c64947c3ebecf61 Mon Sep 17 00:00:00 2001
+From 755b2d0fe9da3d43dd1887c6b95357ebd34a96ec Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:45 +0100
 Subject: mlxsw: reg: Add lag_vid field to SFD register

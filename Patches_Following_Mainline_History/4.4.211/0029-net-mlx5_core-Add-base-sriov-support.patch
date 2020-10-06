@@ -1,4 +1,4 @@
-From 1329f1f4b35f4a560dbb2054fcf8256956056409 Mon Sep 17 00:00:00 2001
+From e0cf3c92f0b47b7401983034c4b59477b588be30 Mon Sep 17 00:00:00 2001
 From: Eli Cohen <eli@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:09 +0200
 Subject: net/mlx5_core: Add base sriov support

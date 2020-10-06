@@ -1,4 +1,4 @@
-From 9ce33d3ae6f18aed489d45f16d8a1cd5f15d128c Mon Sep 17 00:00:00 2001
+From 76e488f88cf9e836fbb15c5f2a742f4ae160026e Mon Sep 17 00:00:00 2001
 From: Olaf Hering <olaf@aepfle.de>
 Date: Mon, 14 Dec 2015 16:01:42 -0800
 Subject: Drivers: hv: vss: run only on supported host versions

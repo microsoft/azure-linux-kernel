@@ -1,4 +1,4 @@
-From 99a50b73baa7c540327aa28dee225c85856f75d6 Mon Sep 17 00:00:00 2001
+From fc6599186e3a005072cbe7323fbd3d9949433cd5 Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Wed, 23 Dec 2015 18:47:24 +0200
 Subject: IB/mlx5: Add RoCE fields to Address Vector

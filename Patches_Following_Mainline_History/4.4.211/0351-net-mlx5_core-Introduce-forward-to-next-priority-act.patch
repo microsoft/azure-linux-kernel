@@ -1,4 +1,4 @@
-From e86d0a0bf5b325b99d8f21416df2a77cb101fd67 Mon Sep 17 00:00:00 2001
+From 792be0ce93f18139d687f41a092c444374ab8a76 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 7 Mar 2016 18:51:46 +0200
 Subject: net/mlx5_core: Introduce forward to next priority action

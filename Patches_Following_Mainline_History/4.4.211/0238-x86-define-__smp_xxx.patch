@@ -1,4 +1,4 @@
-From 3895528a70db07d5b834707581a70a03b29d10ec Mon Sep 17 00:00:00 2001
+From 637dcbcf9809e11bd39a1005a523f7d71b301a24 Mon Sep 17 00:00:00 2001
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Date: Sun, 27 Dec 2015 15:04:42 +0200
 Subject: x86: define __smp_xxx

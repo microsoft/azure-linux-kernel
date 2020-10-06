@@ -1,0 +1,35 @@
+From 03e359b0c8f0d1407b305b51ddaf4465dc8379fe Mon Sep 17 00:00:00 2001
+From: Gal Pressman <galp@mellanox.com>
+Date: Mon, 27 Jun 2016 12:08:35 +0300
+Subject: net/mlx5e: Check for BlueFlame capability before allocating SQ uar
+Reply-To: joseph.salisbury@microsoft.com
+
+Previous to this patch mapping was always set to write combining without
+checking whether BlueFlame is supported in the device.
+
+Fixes: 0ba422410bbf ('net/mlx5: Fix global UAR mapping')
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit fd4782c21359cfd52af4c3180a2bb6bad55c1eba)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 3956b1bea338..72df408fae0d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -585,7 +585,7 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
+ 	void *sqc_wq = MLX5_ADDR_OF(sqc, sqc, wq);
+ 	int err;
+ 
+-	err = mlx5_alloc_map_uar(mdev, &sq->uar, true);
++	err = mlx5_alloc_map_uar(mdev, &sq->uar, !!MLX5_CAP_GEN(mdev, bf));
+ 	if (err)
+ 		return err;
+ 
+-- 
+2.17.1
+

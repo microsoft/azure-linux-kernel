@@ -1,4 +1,4 @@
-From c5b699c9d5ee543f822d472d927e1c1de872c682 Mon Sep 17 00:00:00 2001
+From b288f38aadd37153e143794e55a169cf203f8cb6 Mon Sep 17 00:00:00 2001
 From: Steve Wise <swise@chelsio.com>
 Date: Tue, 3 May 2016 18:01:08 +0200
 Subject: IB/core: add a need_inval flag to struct ib_mr

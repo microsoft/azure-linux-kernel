@@ -1,4 +1,4 @@
-From f1838543941cce895248454060a42d25e5b60ee4 Mon Sep 17 00:00:00 2001
+From 37796dddbcdf04d97406823eeda46d1d3aab9709 Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Mon, 14 Dec 2015 16:01:50 -0800
 Subject: Drivers: hv: vmbus: release relid on error in vmbus_process_offer()

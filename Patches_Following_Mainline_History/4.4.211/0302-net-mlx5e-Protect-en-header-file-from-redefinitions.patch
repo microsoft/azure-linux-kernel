@@ -1,4 +1,4 @@
-From 16df1127e9045634e4ebb0655270f26020d2538a Mon Sep 17 00:00:00 2001
+From e6a697427433ab6daa571ea1cedd4ce6b7000b36 Mon Sep 17 00:00:00 2001
 From: Matthew Finlay <matt@mellanox.com>
 Date: Mon, 22 Feb 2016 18:17:31 +0200
 Subject: net/mlx5e: Protect en header file from redefinitions

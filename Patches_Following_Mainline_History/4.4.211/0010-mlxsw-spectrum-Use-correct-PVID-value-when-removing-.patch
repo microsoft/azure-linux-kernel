@@ -1,4 +1,4 @@
-From a1b455f052e3e72a8bb66e3195e1eeaf99813e84 Mon Sep 17 00:00:00 2001
+From 8bb62ee6a4c674a56c5382193af86f339fb5b7c2 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Thu, 19 Nov 2015 12:27:38 +0100
 Subject: mlxsw: spectrum: Use correct PVID value when removing VLANs

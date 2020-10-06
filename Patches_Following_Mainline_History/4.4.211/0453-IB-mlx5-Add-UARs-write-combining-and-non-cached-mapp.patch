@@ -1,4 +1,4 @@
-From 16a4c6067fb219a012de09f05deaf55bd7077584 Mon Sep 17 00:00:00 2001
+From 066de9b08880905430b25d13ee55255e2ff42cf3 Mon Sep 17 00:00:00 2001
 From: Guy Levi <guyle@mellanox.com>
 Date: Wed, 27 Apr 2016 16:49:50 +0300
 Subject: IB/mlx5: Add UARs write-combining and non-cached mapping

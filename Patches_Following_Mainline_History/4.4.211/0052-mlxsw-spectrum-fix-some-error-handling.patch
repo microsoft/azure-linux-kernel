@@ -1,4 +1,4 @@
-From f2d9f647fbc2c8ca3c914ab8155b968a276fc6db Mon Sep 17 00:00:00 2001
+From 492049e7eecba24cab5fc77ab8eeb1bd2efa029a Mon Sep 17 00:00:00 2001
 From: Dan Carpenter <dan.carpenter@oracle.com>
 Date: Wed, 9 Dec 2015 13:33:51 +0300
 Subject: mlxsw: spectrum: fix some error handling

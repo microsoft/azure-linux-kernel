@@ -1,4 +1,4 @@
-From bfae4b9fd126b617f9974f8a02954c6dc31bd8b6 Mon Sep 17 00:00:00 2001
+From 76641dece53969bb384e9a5db0414814d07a96a1 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Thu, 3 Dec 2015 12:12:26 +0100
 Subject: mlxsw: reg: Add definition of LAG unicast record for SFD register

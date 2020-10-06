@@ -1,4 +1,4 @@
-From be689809089347d19e6033c280cf805979a7e3be Mon Sep 17 00:00:00 2001
+From 9b818d5f02d646ca90d0e5f7c29edd00a9476bae Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 2 Mar 2016 00:13:35 +0200
 Subject: net/mlx5e: Move common case counters within sq_stats struct

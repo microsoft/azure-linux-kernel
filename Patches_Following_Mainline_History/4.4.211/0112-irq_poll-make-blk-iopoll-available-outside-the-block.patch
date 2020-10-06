@@ -1,4 +1,4 @@
-From e84530a1d30e4f32ccb0e2efd15b7de7c97d192c Mon Sep 17 00:00:00 2001
+From 5fc371b792495d44f1c2304ca6090b0bf2558629 Mon Sep 17 00:00:00 2001
 From: Christoph Hellwig <hch@lst.de>
 Date: Tue, 10 Nov 2015 14:56:14 +0100
 Subject: irq_poll: make blk-iopoll available outside the block layer

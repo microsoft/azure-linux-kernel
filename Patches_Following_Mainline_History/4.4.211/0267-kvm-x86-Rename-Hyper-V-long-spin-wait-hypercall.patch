@@ -1,4 +1,4 @@
-From f18adb30b039a399aa3a2e182d6ab5ba0c41b9aa Mon Sep 17 00:00:00 2001
+From e84d89653582df7be7614af3fc70998ca1779c45 Mon Sep 17 00:00:00 2001
 From: Andrey Smetanin <asmetanin@virtuozzo.com>
 Date: Thu, 11 Feb 2016 16:44:57 +0300
 Subject: kvm/x86: Rename Hyper-V long spin wait hypercall

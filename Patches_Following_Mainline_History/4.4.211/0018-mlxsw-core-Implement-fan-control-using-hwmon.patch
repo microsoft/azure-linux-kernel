@@ -1,4 +1,4 @@
-From b4d2c8b3b0390a4f3ad25469db946a31fe2eb551 Mon Sep 17 00:00:00 2001
+From 8fe1acc1b5c322dbb08672ae72e9d070ba0f0de9 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Fri, 27 Nov 2015 13:45:59 +0100
 Subject: mlxsw: core: Implement fan control using hwmon

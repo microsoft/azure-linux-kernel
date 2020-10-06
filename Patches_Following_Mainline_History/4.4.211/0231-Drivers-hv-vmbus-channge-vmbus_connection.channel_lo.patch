@@ -1,4 +1,4 @@
-From 518c2dfaeaf8f948ea9a89d35b4127fdb91ceff7 Mon Sep 17 00:00:00 2001
+From 7bc29f8264db09d9c701cace76ea0a7d7d0339bc Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Mon, 14 Dec 2015 16:01:51 -0800
 Subject: Drivers: hv: vmbus: channge vmbus_connection.channel_lock to mutex

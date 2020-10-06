@@ -1,4 +1,4 @@
-From 75e53ab81b5ac8be40d2e847c3afa0099b524351 Mon Sep 17 00:00:00 2001
+From d6511eeb5344f9e2d53647f8bbe3196111ae081c Mon Sep 17 00:00:00 2001
 From: Leon Romanovsky <leonro@mellanox.com>
 Date: Tue, 29 Dec 2015 17:01:30 +0200
 Subject: IB/mlx5: Unify CQ create flags check

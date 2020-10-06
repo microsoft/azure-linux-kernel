@@ -1,4 +1,4 @@
-From 5796c9087ee63ef6dc73eb8d3127d191b4229bf6 Mon Sep 17 00:00:00 2001
+From 15c19149b9ae7ea647bedb59263e4a89b42404e6 Mon Sep 17 00:00:00 2001
 From: Somnath Kotur <Somnath.Kotur@Avagotech.Com>
 Date: Wed, 23 Dec 2015 14:56:51 +0200
 Subject: IB/core: Add rdma_network_type to wc

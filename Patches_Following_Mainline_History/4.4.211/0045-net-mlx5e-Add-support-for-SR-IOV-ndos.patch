@@ -1,4 +1,4 @@
-From ca667c5dee6bee9afb24d8b09ad398825a75cb76 Mon Sep 17 00:00:00 2001
+From ef750d82e9290e73ff20b9dafb966aabd00ba0b2 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:25 +0200
 Subject: net/mlx5e: Add support for SR-IOV ndos

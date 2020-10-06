@@ -1,4 +1,4 @@
-From 1abe96527ce323b5295499d45ca46335e358c867 Mon Sep 17 00:00:00 2001
+From fd4163ef79400fdfdf23f3c6f32b1aa413f1e0b9 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 3 Mar 2016 12:24:10 +0100
 Subject: cpu/hotplug: Remove redundant state check

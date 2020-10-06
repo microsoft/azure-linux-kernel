@@ -1,0 +1,109 @@
+From d78968667efe63408ba6226bf6f068d717b66dcb Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Tue, 15 Nov 2016 10:15:13 -0800
+Subject: net: busy-poll: return busypolling status to drivers
+Reply-To: joseph.salisbury@microsoft.com
+
+NAPI drivers use napi_complete_done() or napi_complete() when
+they drained RX ring and right before re-enabling device interrupts.
+
+In busy polling, we can avoid interrupts being delivered since
+we are polling RX ring in a controlled loop.
+
+Drivers can chose to use napi_complete_done() return value
+to reduce interrupts overhead while busy polling is active.
+
+This is optional, legacy drivers should work fine even
+if not updated.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+Cc: Adam Belay <abelay@google.com>
+Cc: Tariq Toukan <tariqt@mellanox.com>
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+Cc: Ariel Elior <ariel.elior@cavium.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 364b6055738b4c752c30ccaaf25c624e69d76195)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/netdevice.h |  7 ++++---
+ net/core/dev.c            | 10 ++++++----
+ 2 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 666b37c597dc..9e50de5231ab 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -461,16 +461,17 @@ static inline bool napi_reschedule(struct napi_struct *napi)
+ 	return false;
+ }
+ 
+-void __napi_complete(struct napi_struct *n);
+-void napi_complete_done(struct napi_struct *n, int work_done);
++bool __napi_complete(struct napi_struct *n);
++bool napi_complete_done(struct napi_struct *n, int work_done);
+ /**
+  *	napi_complete - NAPI processing complete
+  *	@n: napi context
+  *
+  * Mark NAPI processing as complete.
+  * Consider using napi_complete_done() instead.
++ * Return false if device should avoid rearming interrupts.
+  */
+-static inline void napi_complete(struct napi_struct *n)
++static inline bool napi_complete(struct napi_struct *n)
+ {
+ 	return napi_complete_done(n, 0);
+ }
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f7537738d0b5..f63374814e5a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4739,7 +4739,7 @@ void __napi_schedule_irqoff(struct napi_struct *n)
+ }
+ EXPORT_SYMBOL(__napi_schedule_irqoff);
+ 
+-void __napi_complete(struct napi_struct *n)
++bool __napi_complete(struct napi_struct *n)
+ {
+ 	BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state));
+ 
+@@ -4747,15 +4747,16 @@ void __napi_complete(struct napi_struct *n)
+ 	 * napi_complete_done().
+ 	 */
+ 	if (unlikely(test_bit(NAPI_STATE_IN_BUSY_POLL, &n->state)))
+-		return;
++		return false;
+ 
+ 	list_del_init(&n->poll_list);
+ 	smp_mb__before_atomic();
+ 	clear_bit(NAPI_STATE_SCHED, &n->state);
++	return true;
+ }
+ EXPORT_SYMBOL(__napi_complete);
+ 
+-void napi_complete_done(struct napi_struct *n, int work_done)
++bool napi_complete_done(struct napi_struct *n, int work_done)
+ {
+ 	unsigned long flags;
+ 
+@@ -4767,7 +4768,7 @@ void napi_complete_done(struct napi_struct *n, int work_done)
+ 	 */
+ 	if (unlikely(n->state & (NAPIF_STATE_NPSVC |
+ 				 NAPIF_STATE_IN_BUSY_POLL)))
+-		return;
++		return false;
+ 
+ 	if (n->gro_list) {
+ 		unsigned long timeout = 0;
+@@ -4789,6 +4790,7 @@ void napi_complete_done(struct napi_struct *n, int work_done)
+ 		__napi_complete(n);
+ 		local_irq_restore(flags);
+ 	}
++	return true;
+ }
+ EXPORT_SYMBOL(napi_complete_done);
+ 
+-- 
+2.17.1
+

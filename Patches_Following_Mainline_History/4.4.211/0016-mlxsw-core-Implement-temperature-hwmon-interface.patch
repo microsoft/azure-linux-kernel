@@ -1,4 +1,4 @@
-From cb8e6468468ba1c1f265e599deec0816f0214d1b Mon Sep 17 00:00:00 2001
+From 8c2cf2c648834fd823cf841e67f9d20b79c63216 Mon Sep 17 00:00:00 2001
 From: Jiri Pirko <jiri@mellanox.com>
 Date: Fri, 27 Nov 2015 13:45:57 +0100
 Subject: mlxsw: core: Implement temperature hwmon interface

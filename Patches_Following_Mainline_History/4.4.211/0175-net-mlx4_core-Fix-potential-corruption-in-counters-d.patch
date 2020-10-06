@@ -1,4 +1,4 @@
-From 5e87799b72fd0b36aa4d43e29e1969bc5e691c20 Mon Sep 17 00:00:00 2001
+From 90498cd825d8fdb60490fbe660c5b314f1902431 Mon Sep 17 00:00:00 2001
 From: Eran Ben Elisha <eranbe@mellanox.com>
 Date: Wed, 17 Feb 2016 17:24:24 +0200
 Subject: net/mlx4_core: Fix potential corruption in counters database

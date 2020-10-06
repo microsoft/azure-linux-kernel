@@ -1,4 +1,4 @@
-From b880fd6a4338a5289a5612aed2eab358a6cb8133 Mon Sep 17 00:00:00 2001
+From 9d1eaf8c85dc97cb2003e167f40ad9407456e6a1 Mon Sep 17 00:00:00 2001
 From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 Date: Tue, 9 Feb 2016 21:11:14 +0100
 Subject: net/mlx4: fix some error handling in mlx4_multi_func_init()

@@ -1,0 +1,185 @@
+From 755ef0e14b3169e7f7620a1db508a84a26b422ed Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 20 Mar 2018 15:03:03 -0700
+Subject: hv_netvsc: use RCU to fix concurrent rx and queue changes
+Reply-To: joseph.salisbury@microsoft.com
+
+The receive processing may continue to happen while the
+internal network device state is in RCU grace period.
+The internal RNDIS structure is associated with the
+internal netvsc_device structure; both have the same
+RCU lifetime.
+
+Defer freeing all associated parts until after grace
+period.
+
+Fixes: 0cf737808ae7 ("hv_netvsc: netvsc_teardown_gpadl() split")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 02400fcee2542ee334a2394e0d9f6efd969fe782)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c       | 22 +++++-----------
+ drivers/net/hyperv/rndis_filter.c | 43 ++++++++++++++-----------------
+ 2 files changed, 26 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 13ea0aa630dd..9ed470ec1552 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -89,6 +89,11 @@ static void free_netvsc_device(struct rcu_head *head)
+ 		= container_of(head, struct netvsc_device, rcu);
+ 	int i;
+ 
++	kfree(nvdev->extension);
++	vfree(nvdev->recv_buf);
++	vfree(nvdev->send_buf);
++	kfree(nvdev->send_section_map);
++
+ 	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
+ 		vfree(nvdev->chan_table[i].mrc.slots);
+ 
+@@ -210,12 +215,6 @@ static void netvsc_teardown_gpadl(struct hv_device *device,
+ 		net_device->recv_buf_gpadl_handle = 0;
+ 	}
+ 
+-	if (net_device->recv_buf) {
+-		/* Free up the receive buffer */
+-		vfree(net_device->recv_buf);
+-		net_device->recv_buf = NULL;
+-	}
+-
+ 	if (net_device->send_buf_gpadl_handle) {
+ 		ret = vmbus_teardown_gpadl(device->channel,
+ 					   net_device->send_buf_gpadl_handle);
+@@ -226,19 +225,12 @@ static void netvsc_teardown_gpadl(struct hv_device *device,
+ 		if (ret != 0) {
+ 			netdev_err(ndev,
+ 				   "unable to teardown send buffer's gpadl\n");
+-			return ret;
++			return;
+ 		}
+ 		net_device->send_buf_gpadl_handle = 0;
+ 	}
+-	if (net_device->send_buf) {
+-		/* Free up the send buffer */
+-		vfree(net_device->send_buf);
+-		net_device->send_buf = NULL;
+-	}
+-	kfree(net_device->send_section_map);
+-
+-	return ret;
+ }
++
+ int netvsc_alloc_recv_comp_ring(struct netvsc_device *net_device, u32 q_idx)
+ {
+ 	struct netvsc_channel *nvchan = &net_device->chan_table[q_idx];
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 2599ef2e14ce..7802389f0aee 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -265,13 +265,23 @@ static void rndis_set_link_state(struct rndis_device *rdev,
+ 	}
+ }
+ 
+-static void rndis_filter_receive_response(struct rndis_device *dev,
+-				       struct rndis_message *resp)
++static void rndis_filter_receive_response(struct net_device *ndev,
++					  struct netvsc_device *nvdev,
++					  const struct rndis_message *resp)
+ {
++	struct rndis_device *dev = nvdev->extension;
+ 	struct rndis_request *request = NULL;
+ 	bool found = false;
+ 	unsigned long flags;
+-	struct net_device *ndev = dev->ndev;
++
++	/* This should never happen, it means control message
++	 * response received after device removed.
++	 */
++	if (dev->state == RNDIS_DEV_UNINITIALIZED) {
++		netdev_err(ndev,
++			   "got rndis message uninitialized\n");
++		return;
++	}
+ 
+ 	spin_lock_irqsave(&dev->request_lock, flags);
+ 	list_for_each_entry(request, &dev->req_list, list_ent) {
+@@ -353,7 +363,6 @@ static inline void *rndis_get_ppi(struct rndis_packet *rpkt, u32 type)
+ 
+ static int rndis_filter_receive_data(struct net_device *ndev,
+ 				     struct netvsc_device *nvdev,
+-				     struct rndis_device *dev,
+ 				     struct rndis_message *msg,
+ 				     struct vmbus_channel *channel,
+ 				     void *data, u32 data_buflen)
+@@ -373,7 +382,7 @@ static int rndis_filter_receive_data(struct net_device *ndev,
+ 	 * should be the data packet size plus the trailer padding size
+ 	 */
+ 	if (unlikely(data_buflen < rndis_pkt->data_len)) {
+-		netdev_err(dev->ndev, "rndis message buffer "
++		netdev_err(ndev, "rndis message buffer "
+ 			   "overflow detected (got %u, min %u)"
+ 			   "...dropping this message!\n",
+ 			   data_buflen, rndis_pkt->data_len);
+@@ -401,35 +410,20 @@ int rndis_filter_receive(struct net_device *ndev,
+ 			 void *data, u32 buflen)
+ {
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct rndis_device *rndis_dev = net_dev->extension;
+ 	struct rndis_message *rndis_msg = data;
+ 
+-	/* Make sure the rndis device state is initialized */
+-	if (unlikely(!rndis_dev)) {
+-		netif_err(net_device_ctx, rx_err, ndev,
+-			  "got rndis message but no rndis device!\n");
+-		return NVSP_STAT_FAIL;
+-	}
+-
+-	if (unlikely(rndis_dev->state == RNDIS_DEV_UNINITIALIZED)) {
+-		netif_err(net_device_ctx, rx_err, ndev,
+-			  "got rndis message uninitialized\n");
+-		return NVSP_STAT_FAIL;
+-	}
+-
+ 	if (netif_msg_rx_status(net_device_ctx))
+ 		dump_rndis_message(ndev, rndis_msg);
+ 
+ 	switch (rndis_msg->ndis_msg_type) {
+ 	case RNDIS_MSG_PACKET:
+-		return rndis_filter_receive_data(ndev, net_dev,
+-						 rndis_dev, rndis_msg,
++		return rndis_filter_receive_data(ndev, net_dev, rndis_msg,
+ 						 channel, data, buflen);
+ 	case RNDIS_MSG_INIT_C:
+ 	case RNDIS_MSG_QUERY_C:
+ 	case RNDIS_MSG_SET_C:
+ 		/* completion msgs */
+-		rndis_filter_receive_response(rndis_dev, rndis_msg);
++		rndis_filter_receive_response(ndev, net_dev, rndis_msg);
+ 		break;
+ 
+ 	case RNDIS_MSG_INDICATE:
+@@ -1343,16 +1337,17 @@ void rndis_filter_device_remove(struct hv_device *dev,
+ {
+ 	struct rndis_device *rndis_dev = net_dev->extension;
+ 
++	/* Don't try and setup sub channels if about to halt */
++	cancel_work_sync(&net_dev->subchan_work);
++
+ 	/* Halt and release the rndis device */
+ 	rndis_filter_halt_device(rndis_dev);
+ 
+ 	net_dev->extension = NULL;
+ 
+ 	netvsc_device_remove(dev);
+-	kfree(rndis_dev);
+ }
+ 
+-
+ int rndis_filter_open(struct netvsc_device *nvdev)
+ {
+ 	if (!nvdev)
+-- 
+2.17.1
+

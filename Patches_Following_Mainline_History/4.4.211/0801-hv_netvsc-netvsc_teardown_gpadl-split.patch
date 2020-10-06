@@ -1,0 +1,181 @@
+From 27e6d2bb48ad2fc2d31390c0d0a1036b833938a5 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 2 Nov 2017 11:35:30 +0100
+Subject: hv_netvsc: netvsc_teardown_gpadl() split
+Reply-To: joseph.salisbury@microsoft.com
+
+It was found that in some cases host refuses to teardown GPADL for send/
+receive buffers (probably when some work with these buffere is scheduled or
+ongoing). Change the teardown logic to be:
+1) Send NVSP_MSG1_TYPE_REVOKE_* messages
+2) Close the channel
+3) Teardown GPADLs.
+This seems to work reliably.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 0cf737808ae7cb25e952be619db46b9147a92f46)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 86 ++++++++++++++++++++++---------------
+ 1 file changed, 52 insertions(+), 34 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index bc515fdb23f5..3d4e36639857 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -100,13 +100,11 @@ static void free_netvsc_device_rcu(struct netvsc_device *nvdev)
+ 	call_rcu(&nvdev->rcu, free_netvsc_device);
+ }
+ 
+-static void netvsc_destroy_buf(struct hv_device *device)
++static void netvsc_revoke_buf(struct hv_device *device,
++			      struct netvsc_device *net_device)
+ {
+ 	struct nvsp_message *revoke_packet;
+-	int ret = 0;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+-	struct net_device_context *ndc = netdev_priv(ndev);
+-	struct netvsc_device *net_device = rtnl_dereference(ndc->nvdev);
+ 	int ret;
+ 
+ 	/*
+@@ -130,6 +128,13 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 				       sizeof(struct nvsp_message),
+ 				       (unsigned long)revoke_packet,
+ 				       VM_PKT_DATA_INBAND, 0);
++		/* If the failure is because the channel is rescinded;
++		 * ignore the failure since we cannot send on a rescinded
++		 * channel. This would allow us to properly cleanup
++		 * even when the channel is rescinded.
++		 */
++                if (device->channel->rescind)
++                        ret = 0;
+ 		/*
+ 		 * If we failed here, we might as well return and
+ 		 * have a leak rather than continue and a bugchk
+@@ -142,28 +147,6 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 		net_device->recv_section_cnt = 0;
+ 	}
+ 
+-	/* Teardown the gpadl on the vsp end */
+-	if (net_device->recv_buf_gpadl_handle) {
+-		ret = vmbus_teardown_gpadl(device->channel,
+-					   net_device->recv_buf_gpadl_handle);
+-
+-		/* If we failed here, we might as well return and have a leak
+-		 * rather than continue and a bugchk
+-		 */
+-		if (ret != 0) {
+-			netdev_err(ndev,
+-				   "unable to teardown receive buffer's gpadl\n");
+-			return ret;
+-		}
+-		net_device->recv_buf_gpadl_handle = 0;
+-	}
+-
+-	if (net_device->recv_buf) {
+-		/* Free up the receive buffer */
+-		vfree(net_device->recv_buf);
+-		net_device->recv_buf = NULL;
+-	}
+-
+ 	/* Deal with the send buffer we may have setup.
+ 	 * If we got a  send section size, it means we received a
+ 	 * NVSP_MSG1_TYPE_SEND_SEND_BUF_COMPLETE msg (ie sent
+@@ -185,6 +168,15 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 				       sizeof(struct nvsp_message),
+ 				       (unsigned long)revoke_packet,
+ 				       VM_PKT_DATA_INBAND, 0);
++
++		/* If the failure is because the channel is rescinded;
++		 * ignore the failure since we cannot send on a rescinded
++		 * channel. This would allow us to properly cleanup
++		 * even when the channel is rescinded.
++		 */
++		if (device->channel->rescind)
++			ret = 0;
++
+ 		/* If we failed here, we might as well return and
+ 		 * have a leak rather than continue and a bugchk
+ 		 */
+@@ -195,7 +187,35 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 		}
+ 		net_device->send_section_cnt = 0;
+ 	}
+-	/* Teardown the gpadl on the vsp end */
++}
++
++static void netvsc_teardown_gpadl(struct hv_device *device,
++				  struct netvsc_device *net_device)
++{
++	struct net_device *ndev = hv_get_drvdata(device);
++	int ret;
++
++	if (net_device->recv_buf_gpadl_handle) {
++		ret = vmbus_teardown_gpadl(device->channel,
++					   net_device->recv_buf_gpadl_handle);
++
++		/* If we failed here, we might as well return and have a leak
++		 * rather than continue and a bugchk
++		 */
++		if (ret != 0) {
++			netdev_err(ndev,
++				   "unable to teardown receive buffer's gpadl\n");
++			return;
++		}
++		net_device->recv_buf_gpadl_handle = 0;
++	}
++
++	if (net_device->recv_buf) {
++		/* Free up the receive buffer */
++		vfree(net_device->recv_buf);
++		net_device->recv_buf = NULL;
++	}
++
+ 	if (net_device->send_buf_gpadl_handle) {
+ 		ret = vmbus_teardown_gpadl(device->channel,
+ 					   net_device->send_buf_gpadl_handle);
+@@ -406,7 +426,8 @@ static int netvsc_init_buf(struct hv_device *device,
+ 	goto exit;
+ 
+ cleanup:
+-	netvsc_destroy_buf(device);
++	netvsc_revoke_buf(device, net_device);
++	netvsc_teardown_gpadl(device, net_device);
+ 
+ exit:
+ 	return ret;
+@@ -526,11 +547,6 @@ cleanup:
+ 	return ret;
+ }
+ 
+-static void netvsc_disconnect_vsp(struct hv_device *device)
+-{
+-	netvsc_destroy_buf(device);
+-}
+-
+ /*
+  * netvsc_device_remove - Callback when the root bus device is removed
+  */
+@@ -544,7 +560,7 @@ void netvsc_device_remove(struct hv_device *device)
+ 
+ 	cancel_work_sync(&net_device->subchan_work);
+ 
+-	netvsc_disconnect_vsp(device);
++	netvsc_revoke_buf(device, net_device);
+ 
+ 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
+ 
+@@ -557,6 +573,8 @@ void netvsc_device_remove(struct hv_device *device)
+ 	/* Now, we can close the channel safely */
+ 	vmbus_close(device->channel);
+ 
++	netvsc_teardown_gpadl(device, net_device);
++
+ 	/* And dissassociate NAPI context from device */
+ 	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
+ 		netif_napi_del(&net_device->chan_table[i].napi);
+-- 
+2.17.1
+

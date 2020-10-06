@@ -1,4 +1,4 @@
-From 48515a29ac805d7057b34df96d5b1415493c5eea Mon Sep 17 00:00:00 2001
+From 26bbf545c9301ca442339a7b351bf33b21d8590a Mon Sep 17 00:00:00 2001
 From: Moni Shoua <monis@mellanox.com>
 Date: Sun, 6 Dec 2015 18:07:41 +0200
 Subject: net/mlx4_core: Keep VLAN/MAC tables mirrored in multifunc HA mode

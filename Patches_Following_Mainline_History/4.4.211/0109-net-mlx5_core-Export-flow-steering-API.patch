@@ -1,4 +1,4 @@
-From 09965fd0d6419ef51dd9aa0e7dbb083202f171f8 Mon Sep 17 00:00:00 2001
+From d6f6734023d01ff98e8e897deb9dbb681a8f4dc6 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:26:06 +0200
 Subject: net/mlx5_core: Export flow steering API

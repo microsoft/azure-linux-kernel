@@ -1,4 +1,4 @@
-From 4ac301e449672c6858de2dc3b6ef9a1d8a577faf Mon Sep 17 00:00:00 2001
+From 37b756d1d77627b72868b6ccd15c4385f0c73486 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Fri, 29 Apr 2016 01:36:41 +0300
 Subject: net/mlx5e: Add accelerated RFS support

@@ -1,4 +1,4 @@
-From e1d29f685d9c9b2f8cee5d5feac1128db01b7467 Mon Sep 17 00:00:00 2001
+From f20b3c41431bd45008efebb7486e4ad8eeb464f6 Mon Sep 17 00:00:00 2001
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Date: Fri, 18 Dec 2015 10:59:47 +0200
 Subject: net/rds: Avoid calling ib_query_device

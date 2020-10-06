@@ -1,4 +1,4 @@
-From ae765314db0fcee035e55b4a49f6d71921266c78 Mon Sep 17 00:00:00 2001
+From dc0f821833c5dae39645a35e0408745ca7a67d7b Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 13 May 2016 13:55:25 +0200
 Subject: hv_netvsc: set nvdev link after populating chn_table

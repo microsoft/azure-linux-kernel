@@ -1,4 +1,4 @@
-From d7b60f8d0ec2998137c163c76e92740cd9d208dc Mon Sep 17 00:00:00 2001
+From 31325f31f8e867b2004e096f12f56d501fb06c8c Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Tue, 1 Dec 2015 18:03:24 +0200
 Subject: net/mlx5: E-Switch, Introduce get vf statistics

@@ -1,4 +1,4 @@
-From 04a5132dc125ed6cd9ced00fe9ae12bce39ddeb8 Mon Sep 17 00:00:00 2001
+From 2579dc90324201ec2730a7b02f2d9260fa3a13ed Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Fri, 29 Apr 2016 01:36:42 +0300
 Subject: net/mlx5e: Enabling aRFS mechanism

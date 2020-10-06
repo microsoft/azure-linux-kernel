@@ -1,4 +1,4 @@
-From 66eeb0ef792ffc0469d2e77a01543b3b3beecb90 Mon Sep 17 00:00:00 2001
+From 438eac51e8a61761cc85f5883b0fe6cabb939aca Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:25 +0100
 Subject: mlxsw: spectrum: Compare local ports instead of pointers

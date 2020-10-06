@@ -1,4 +1,4 @@
-From 4ec7d536170d6b1927061ee5cee045b9edcf0678 Mon Sep 17 00:00:00 2001
+From ccf8a907e2d98296cc2e1b5623f11ab498e719da Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Wed, 28 Oct 2015 16:52:39 +0200
 Subject: IB/core: Refactor GID cache's ib_dispatch_event

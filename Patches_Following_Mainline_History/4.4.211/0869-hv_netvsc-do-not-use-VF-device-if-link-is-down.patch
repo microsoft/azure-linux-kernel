@@ -1,0 +1,48 @@
+From 2fc19513424fb78d0939e676e54c361a32dc2a39 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 4 Aug 2020 09:54:15 -0700
+Subject: hv_netvsc: do not use VF device if link is down
+Reply-To: joseph.salisbury@microsoft.com
+
+If the accelerated networking SRIOV VF device has lost carrier
+use the synthetic network device which is available as backup
+path. This is a rare case since if VF link goes down, normally
+the VMBus device will also loose external connectivity as well.
+But if the communication is between two VM's on the same host
+the VMBus device will still work.
+
+Reported-by: "Shah, Ashish N" <ashish.n.shah@intel.com>
+Fixes: 0c195567a8f6 ("netvsc: transparent VF management")
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 7c9864bbccc23e1812ac82966555d68c13ea4006)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 2fb04d538c0b..3547dca26445 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -542,12 +542,13 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	u32 hash;
+ 	struct hv_page_buffer pb[MAX_PAGE_BUFFER_COUNT];
+ 
+-	/* if VF is present and up then redirect packets
+-	 * already called with rcu_read_lock_bh
++	/* If VF is present and up then redirect packets to it.
++	 * Skip the VF if it is marked down or has no carrier.
++	 * If netpoll is in uses, then VF can not be used either.
+ 	 */
+ 	vf_netdev = rcu_dereference_bh(net_device_ctx->vf_netdev);
+ 	if (vf_netdev && netif_running(vf_netdev) &&
+-	    !netpoll_tx_running(net))
++	    netif_carrier_ok(vf_netdev) && !netpoll_tx_running(net))
+ 		return netvsc_vf_xmit(net, vf_netdev, skb);
+ 
+ 	/* We will atmost need two pages to describe the rndis
+-- 
+2.17.1
+

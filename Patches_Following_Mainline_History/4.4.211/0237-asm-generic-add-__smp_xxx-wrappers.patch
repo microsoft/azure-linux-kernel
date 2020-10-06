@@ -1,4 +1,4 @@
-From 52aa275a1a014c68be8b00af518b06bd4368bdbf Mon Sep 17 00:00:00 2001
+From 31aeae5c2fabb4bce2d05807bdd1c8c3b3522cee Mon Sep 17 00:00:00 2001
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Date: Sun, 27 Dec 2015 13:50:07 +0200
 Subject: asm-generic: add __smp_xxx wrappers

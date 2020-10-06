@@ -1,0 +1,74 @@
+From 4feddb28d65dd1581ce4ada2d0c4635af669e6b7 Mon Sep 17 00:00:00 2001
+From: Ira Weiny <ira.weiny@intel.com>
+Date: Wed, 15 Jun 2016 02:21:56 -0400
+Subject: IB/core: Add get FW version string to the core
+Reply-To: joseph.salisbury@microsoft.com
+
+Allow for a common core function to get firmware version strings
+from the individual devices.
+
+In later patches this format can then then be used to pass a
+properly formated version string through the IPoIB layer.
+
+The problem with the current code in the IPoIB layer is that it is
+specific to certain hardware types.
+
+Furthermore, this gives us a common function through which the core
+can provide a common sysfs entry.  Eventually we may want to
+remove the sysfs export but this provides for user space backwards
+compatibility.
+
+Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
+Signed-off-by: Ira Weiny <ira.weiny@intel.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 5fa76c20458518ed6181adddef2e31c5afc0745c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/core/device.c | 9 +++++++++
+ include/rdma/ib_verbs.h          | 3 +++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
+index 38368aeae3e2..1e36cf0b7a48 100644
+--- a/drivers/infiniband/core/device.c
++++ b/drivers/infiniband/core/device.c
+@@ -311,6 +311,15 @@ static int read_port_immutable(struct ib_device *device)
+ 	return 0;
+ }
+ 
++void ib_get_device_fw_str(struct ib_device *dev, char *str, size_t str_len)
++{
++	if (dev->get_dev_fw_str)
++		dev->get_dev_fw_str(dev, str, str_len);
++	else
++		str[0] = '\0';
++}
++EXPORT_SYMBOL(ib_get_device_fw_str);
++
+ /**
+  * ib_register_device - Register an IB device with IB core
+  * @device:Device to register
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index e8a6afb858d3..97faee36e621 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -1923,6 +1923,7 @@ struct ib_device {
+ 	 * in fast paths.
+ 	 */
+ 	int (*get_port_immutable)(struct ib_device *, u8, struct ib_port_immutable *);
++	void (*get_dev_fw_str)(struct ib_device *, char *str, size_t str_len);
+ };
+ 
+ struct ib_client {
+@@ -1958,6 +1959,8 @@ struct ib_client {
+ struct ib_device *ib_alloc_device(size_t size);
+ void ib_dealloc_device(struct ib_device *device);
+ 
++void ib_get_device_fw_str(struct ib_device *device, char *str, size_t str_len);
++
+ int ib_register_device(struct ib_device *device,
+ 		       int (*port_callback)(struct ib_device *,
+ 					    u8, struct kobject *));
+-- 
+2.17.1
+

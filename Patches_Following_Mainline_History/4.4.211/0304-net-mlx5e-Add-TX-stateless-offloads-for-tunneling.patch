@@ -1,4 +1,4 @@
-From 3ef3d759f5f8d6fcf33c5efdad3a9cf2e8a75bee Mon Sep 17 00:00:00 2001
+From 250021017892f3667151af27ff54f37476ced88a Mon Sep 17 00:00:00 2001
 From: Matthew Finlay <matt@mellanox.com>
 Date: Mon, 22 Feb 2016 18:17:33 +0200
 Subject: net/mlx5e: Add TX stateless offloads for tunneling

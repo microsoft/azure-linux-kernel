@@ -1,4 +1,4 @@
-From b8927e51c66eccaa01103a2af54490c8b03d4a89 Mon Sep 17 00:00:00 2001
+From 1e8e3f1ab666f4012f184e465f5b14a22af8ee87 Mon Sep 17 00:00:00 2001
 From: Amir Vadai <amir@vadai.me>
 Date: Tue, 8 Mar 2016 12:42:34 +0200
 Subject: net/mlx5e: Relax ndo_setup_tc handle restriction

@@ -1,4 +1,4 @@
-From f71c218de16ac150d3b7226eec20e756276aabc6 Mon Sep 17 00:00:00 2001
+From f17e994ec7d153763ec78c9f2aeabc17ff55acca Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:23 +0100
 Subject: mlxsw: spectrum: Use correct netdev when notifying bridge

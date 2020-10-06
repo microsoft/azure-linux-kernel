@@ -1,4 +1,4 @@
-From d0534bc2c5c63fd962e81135c8794c822729fdff Mon Sep 17 00:00:00 2001
+From 254c47f90aa7888d0190ab947a6d86f59753ecc0 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Tue, 15 Dec 2015 16:03:39 +0100
 Subject: mlxsw: spectrum: Add another flood table for vFIDs

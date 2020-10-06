@@ -1,4 +1,4 @@
-From 3849c6f46be77446b059801225cea420d68433b3 Mon Sep 17 00:00:00 2001
+From 7c596dc84c7e0b708c2b886b7bba4e09b5ad438d Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Wed, 23 Dec 2015 18:47:16 +0200
 Subject: IB/mlx5: Support IB device's callback for getting the link layer

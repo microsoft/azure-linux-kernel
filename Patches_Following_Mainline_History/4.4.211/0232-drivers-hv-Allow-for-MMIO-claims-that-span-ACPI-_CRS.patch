@@ -1,4 +1,4 @@
-From dc88dbd4d5cc49252829876e29b5ac153da7cdb8 Mon Sep 17 00:00:00 2001
+From b0fb8eecb48ffe837a1ddb186b4f313994c86061 Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Mon, 14 Dec 2015 16:01:52 -0800
 Subject: drivers:hv: Allow for MMIO claims that span ACPI _CRS records

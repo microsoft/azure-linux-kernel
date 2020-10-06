@@ -1,0 +1,56 @@
+From 149a7acb8c2f4107d3c4e877e8c576c64ad06d98 Mon Sep 17 00:00:00 2001
+From: Long Li <longli@microsoft.com>
+Date: Thu, 23 Mar 2017 14:58:32 -0700
+Subject: PCI: hv: Lock PCI bus on device eject
+Reply-To: joseph.salisbury@microsoft.com
+
+A PCI_EJECT message can arrive at the same time we are calling
+pci_scan_child_bus() in the workqueue for the previous PCI_BUS_RELATIONS
+message or in create_root_hv_pci_bus().  In this case we could potentially
+modify the bus from multiple places.
+
+Properly lock the bus access.
+
+Thanks Dexuan Cui <decui@microsoft.com> for pointing out the race condition
+in create_root_hv_pci_bus().
+
+Reported-by: Xiaofeng Wang <xiaofwan@redhat.com>
+Signed-off-by: Long Li <longli@microsoft.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Acked-by: K. Y. Srinivasan <kys@microsoft.com>
+(cherry picked from commit 414428c5da1c71986727c2fa5cdf1ed071e398d7)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/pci/host/pci-hyperv.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/pci/host/pci-hyperv.c b/drivers/pci/host/pci-hyperv.c
+index b0910b7f917f..4f7729d37273 100644
+--- a/drivers/pci/host/pci-hyperv.c
++++ b/drivers/pci/host/pci-hyperv.c
+@@ -1193,9 +1193,11 @@ static int create_root_hv_pci_bus(struct hv_pcibus_device *hbus)
+ 	hbus->pci_bus->msi = &hbus->msi_chip;
+ 	hbus->pci_bus->msi->dev = &hbus->hdev->device;
+ 
++	pci_lock_rescan_remove();
+ 	pci_scan_child_bus(hbus->pci_bus);
+ 	pci_bus_assign_resources(hbus->pci_bus);
+ 	pci_bus_add_devices(hbus->pci_bus);
++	pci_unlock_rescan_remove();
+ 	hbus->state = hv_pcibus_installed;
+ 	return 0;
+ }
+@@ -1584,8 +1586,10 @@ static void hv_eject_device_work(struct work_struct *work)
+ 	pdev = pci_get_domain_bus_and_slot(hpdev->hbus->sysdata.domain, 0,
+ 					   wslot);
+ 	if (pdev) {
++		pci_lock_rescan_remove();
+ 		pci_stop_and_remove_bus_device(pdev);
+ 		pci_dev_put(pdev);
++		pci_unlock_rescan_remove();
+ 	}
+ 
+ 	memset(&ctxt, 0, sizeof(ctxt));
+-- 
+2.17.1
+

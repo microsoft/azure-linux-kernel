@@ -1,4 +1,4 @@
-From 4c2f7f402922b56980f3357842c7427ea5b46c60 Mon Sep 17 00:00:00 2001
+From fc8c4a448d9798fbf56f6f6382a47c02ec8c15a7 Mon Sep 17 00:00:00 2001
 From: Rana Shahout <ranas@mellanox.com>
 Date: Wed, 20 Apr 2016 22:02:10 +0300
 Subject: net/mlx5e: Allocate set of queue counters per netdev

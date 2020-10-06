@@ -1,4 +1,4 @@
-From 223682f084b86540df75b6ba5a309d0f9b76314d Mon Sep 17 00:00:00 2001
+From 204f0ca290392aa98dd5705f70ecf58483eefe13 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Tue, 9 Feb 2016 14:57:42 +0200
 Subject: net/mlx5: Use offset based reserved field names in the IFC header

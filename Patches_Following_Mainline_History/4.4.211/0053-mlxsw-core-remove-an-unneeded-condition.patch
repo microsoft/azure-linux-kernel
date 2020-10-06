@@ -1,4 +1,4 @@
-From f737ca9a14f0d7fda18921dd260af8b5e2c1050c Mon Sep 17 00:00:00 2001
+From 7c4f380ff2a957e76123de6909cfd89495d3819c Mon Sep 17 00:00:00 2001
 From: Dan Carpenter <dan.carpenter@oracle.com>
 Date: Wed, 9 Dec 2015 13:41:29 +0300
 Subject: mlxsw: core: remove an unneeded condition

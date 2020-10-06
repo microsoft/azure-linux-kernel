@@ -1,0 +1,205 @@
+From 240a6c79e6e649300676d6985d617fd6d402fd54 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Fri, 29 Sep 2017 21:09:36 -0700
+Subject: Drivers: hv: vmbus: Fix bugs in rescind handling
+Reply-To: joseph.salisbury@microsoft.com
+
+This patch addresses the following bugs in the current rescind handling code:
+
+1. Fixes a race condition where we may be invoking hv_process_channel_removal()
+on an already freed channel.
+
+2. Prevents indefinite wait when rescinding sub-channels by correctly setting
+the probe_complete state.
+
+I would like to thank Dexuan for patiently reviewing earlier versions of this
+patch and identifying many of the issues fixed here.
+
+Greg, please apply this to 4.14-final.
+
+Fixes: '54a66265d675 ("Drivers: hv: vmbus: Fix rescind handling")'
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Reviewed-by: Dexuan Cui <decui@microsoft.com>
+Cc: stable@vger.kernel.org # (4.13 and above)
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 192b2d78722ffea188e5ec6ae5d55010dce05a4b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel.c      |  6 +++---
+ drivers/hv/channel_mgmt.c | 39 ++++++++++++++++++---------------------
+ drivers/hv/vmbus_drv.c    |  3 +--
+ include/linux/hyperv.h    |  2 +-
+ 4 files changed, 23 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index 0fdad128094a..6c131a2dfe34 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -647,6 +647,7 @@ void vmbus_close(struct vmbus_channel *channel)
+ 		 */
+ 		return;
+ 	}
++	mutex_lock(&vmbus_connection.channel_mutex);
+ 	/*
+ 	 * Close all the sub-channels first and then close the
+ 	 * primary channel.
+@@ -655,16 +656,15 @@ void vmbus_close(struct vmbus_channel *channel)
+ 		cur_channel = list_entry(cur, struct vmbus_channel, sc_list);
+ 		vmbus_close_internal(cur_channel);
+ 		if (cur_channel->rescind) {
+-			mutex_lock(&vmbus_connection.channel_mutex);
+-			hv_process_channel_removal(cur_channel,
++			hv_process_channel_removal(
+ 					   cur_channel->offermsg.child_relid);
+-			mutex_unlock(&vmbus_connection.channel_mutex);
+ 		}
+ 	}
+ 	/*
+ 	 * Now close the primary.
+ 	 */
+ 	vmbus_close_internal(channel);
++	mutex_unlock(&vmbus_connection.channel_mutex);
+ }
+ EXPORT_SYMBOL_GPL(vmbus_close);
+ 
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index c2a045db21f0..47fb3dc4fb94 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -158,7 +158,7 @@ static void vmbus_rescind_cleanup(struct vmbus_channel *channel)
+ 
+ 
+ 	spin_lock_irqsave(&vmbus_connection.channelmsg_lock, flags);
+-
++	channel->rescind = true;
+ 	list_for_each_entry(msginfo, &vmbus_connection.chn_msg_list,
+ 				msglistentry) {
+ 
+@@ -382,16 +382,21 @@ static void vmbus_release_relid(u32 relid)
+ 		       true);
+ }
+ 
+-void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid)
++void hv_process_channel_removal(u32 relid)
+ {
+ 	unsigned long flags;
+-	struct vmbus_channel *primary_channel;
++	struct vmbus_channel *primary_channel, *channel;
+ 
+-	vmbus_release_relid(relid);
+-
+-	BUG_ON(!channel->rescind);
+ 	BUG_ON(!mutex_is_locked(&vmbus_connection.channel_mutex));
+ 
++	/*
++	 * Make sure channel is valid as we may have raced.
++	 */
++	channel = relid2channel(relid);
++	if (!channel)
++		return;
++
++	BUG_ON(!channel->rescind);
+ 	if (channel->target_cpu != get_cpu()) {
+ 		put_cpu();
+ 		smp_call_function_single(channel->target_cpu,
+@@ -516,6 +521,7 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
+ 	if (!fnew) {
+ 		if (channel->sc_creation_callback != NULL)
+ 			channel->sc_creation_callback(newchannel);
++		newchannel->probe_done = true;
+ 		return;
+ 	}
+ 
+@@ -835,7 +841,6 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ {
+ 	struct vmbus_channel_rescind_offer *rescind;
+ 	struct vmbus_channel *channel;
+-	unsigned long flags;
+ 	struct device *dev;
+ 
+ 	rescind = (struct vmbus_channel_rescind_offer *)hdr;
+@@ -874,16 +879,6 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 		return;
+ 	}
+ 
+-	spin_lock_irqsave(&channel->lock, flags);
+-	channel->rescind = true;
+-	spin_unlock_irqrestore(&channel->lock, flags);
+-
+-	/*
+-	 * Now that we have posted the rescind state, perform
+-	 * rescind related cleanup.
+-	 */
+-	vmbus_rescind_cleanup(channel);
+-
+ 	/*
+ 	 * Now wait for offer handling to complete.
+ 	 */
+@@ -902,6 +897,7 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 	if (channel->device_obj) {
+ 		if (channel->chn_rescind_callback) {
+ 			channel->chn_rescind_callback(channel);
++			vmbus_rescind_cleanup(channel);
+ 			return;
+ 		}
+ 		/*
+@@ -910,6 +906,7 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 		 */
+ 		dev = get_device(&channel->device_obj->device);
+ 		if (dev) {
++			vmbus_rescind_cleanup(channel);
+ 			vmbus_device_unregister(channel->device_obj);
+ 			put_device(dev);
+ 		}
+@@ -922,16 +919,16 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 		 * 1. Close all sub-channels first
+ 		 * 2. Then close the primary channel.
+ 		 */
++		mutex_lock(&vmbus_connection.channel_mutex);
++		vmbus_rescind_cleanup(channel);
+ 		if (channel->state == CHANNEL_OPEN_STATE) {
+ 			/*
+ 			 * The channel is currently not open;
+ 			 * it is safe for us to cleanup the channel.
+ 			 */
+-			mutex_lock(&vmbus_connection.channel_mutex);
+-			hv_process_channel_removal(channel,
+-						channel->offermsg.child_relid);
+-			mutex_unlock(&vmbus_connection.channel_mutex);
++			hv_process_channel_removal(rescind->child_relid);
+ 		}
++		mutex_unlock(&vmbus_connection.channel_mutex);
+ 	}
+ }
+ 
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index 0ca8c85ecc46..6a9a7bf59183 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -667,8 +667,7 @@ static void vmbus_device_release(struct device *device)
+ 	struct vmbus_channel *channel = hv_dev->channel;
+ 
+ 	mutex_lock(&vmbus_connection.channel_mutex);
+-	hv_process_channel_removal(channel,
+-				   channel->offermsg.child_relid);
++	hv_process_channel_removal(channel->offermsg.child_relid);
+ 	mutex_unlock(&vmbus_connection.channel_mutex);
+ 	kfree(hv_dev);
+ 
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 809bdc72d739..c326712118f0 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1432,7 +1432,7 @@ extern bool vmbus_prep_negotiate_resp(struct icmsg_hdr *icmsghdrp, u8 *buf,
+ 				const int *srv_version, int srv_vercnt,
+ 				int *nego_fw_version, int *nego_srv_version);
+ 
+-void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid);
++void hv_process_channel_removal(u32 relid);
+ 
+ void vmbus_setevent(struct vmbus_channel *channel);
+ /*
+-- 
+2.17.1
+

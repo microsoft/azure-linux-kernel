@@ -1,4 +1,4 @@
-From b3c52c0ae9991cc747ed19e8a0206b53090aed18 Mon Sep 17 00:00:00 2001
+From 4b5788eab649dfe8434a908813d300708c8bddd4 Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Thu, 10 Dec 2015 17:52:59 +0000
 Subject: x86/irq: Export functions to allow MSI domains in modules

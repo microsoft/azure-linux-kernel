@@ -1,4 +1,4 @@
-From 184de5b6937ba6e270f485c5813b63266c5932f6 Mon Sep 17 00:00:00 2001
+From 2561dc6f09ab148d8217f6c5855f9c28f1748542 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Sat, 2 Apr 2016 16:17:38 -0700
 Subject: Drivers: hv: vmbus: Fix signaling logic in

@@ -1,4 +1,4 @@
-From a682f7d0ab88080f75649ece3dbbacfa23238a1c Mon Sep 17 00:00:00 2001
+From bd4d41be40b2ce07e77a36550b715c3ab8ac9aa6 Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Tue, 16 Feb 2016 21:56:23 +0000
 Subject: PCI: hv: Add paravirtual PCI front-end for Microsoft Hyper-V VMs

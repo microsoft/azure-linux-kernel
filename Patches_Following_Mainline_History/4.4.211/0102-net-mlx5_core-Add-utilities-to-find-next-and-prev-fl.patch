@@ -1,4 +1,4 @@
-From 4c2ff70fea5dfc1cbe7f30c2cfd92003687ad153 Mon Sep 17 00:00:00 2001
+From 9e573f427d19dc416abd399acf3c95c5461a8700 Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Mon, 11 Jan 2016 10:25:58 +0200
 Subject: net/mlx5_core: Add utilities to find next and prev flow-tables

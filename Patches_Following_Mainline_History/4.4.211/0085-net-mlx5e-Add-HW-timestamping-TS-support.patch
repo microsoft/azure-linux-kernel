@@ -1,4 +1,4 @@
-From 02130638552616df3281d544bb462e871917eba4 Mon Sep 17 00:00:00 2001
+From f40cb4bbf3f9a5a64238ce11307383aac4378a0e Mon Sep 17 00:00:00 2001
 From: Eran Ben Elisha <eranbe@mellanox.com>
 Date: Tue, 29 Dec 2015 14:58:31 +0200
 Subject: net/mlx5e: Add HW timestamping (TS) support

@@ -1,4 +1,4 @@
-From 1aa01c53fbb9ce43df37b7396cf8170ca2523ad4 Mon Sep 17 00:00:00 2001
+From 98f4ddb010cbcbabf6a641814613f41e538c6ee1 Mon Sep 17 00:00:00 2001
 From: Elad Raz <eladr@mellanox.com>
 Date: Sun, 10 Jan 2016 21:06:26 +0100
 Subject: mlxsw: Changing the maximum number of multicast group to a define

@@ -1,0 +1,79 @@
+From 3a1f82ca961a3b969a94f47451ce8b1f35469202 Mon Sep 17 00:00:00 2001
+From: Alex Vesker <valex@mellanox.com>
+Date: Thu, 4 Aug 2016 17:32:02 +0300
+Subject: net/mlx5: Modify RQ bitmask from mlx5 ifc
+Reply-To: joseph.salisbury@microsoft.com
+
+Use mlx5 ifc MODIFY_BITMASK_VSD in mlx5e_modify_rq_vsd and expose counter
+set capability bit in hca caps structure.
+
+Signed-off-by: Alex Vesker <valex@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+(cherry picked from commit 83b502a12e82d0ae97907d415496fbafe044f0ce)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 ++-
+ include/linux/mlx5/driver.h                       | 4 ----
+ include/linux/mlx5/mlx5_ifc.h                     | 9 ++++++++-
+ 3 files changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 8eb2ee8e1d97..c6c47ae9d65e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -461,7 +461,8 @@ static int mlx5e_modify_rq_vsd(struct mlx5e_rq *rq, bool vsd)
+ 	rqc = MLX5_ADDR_OF(modify_rq_in, in, ctx);
+ 
+ 	MLX5_SET(modify_rq_in, in, rq_state, MLX5_RQC_STATE_RDY);
+-	MLX5_SET64(modify_rq_in, in, modify_bitmask, MLX5_RQ_BITMASK_VSD);
++	MLX5_SET64(modify_rq_in, in, modify_bitmask,
++		   MLX5_MODIFY_RQ_IN_MODIFY_BITMASK_VSD);
+ 	MLX5_SET(rqc, rqc, vsd, vsd);
+ 	MLX5_SET(rqc, rqc, state, MLX5_RQC_STATE_RDY);
+ 
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 377bd3bf1e6e..e6c3f1aa7da6 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -47,10 +47,6 @@
+ #include <linux/mlx5/doorbell.h>
+ #include <linux/mlx5/srq.h>
+ 
+-enum {
+-	MLX5_RQ_BITMASK_VSD = 1 << 1,
+-};
+-
+ enum {
+ 	MLX5_BOARD_ID_LEN = 64,
+ 	MLX5_MAX_NAME_LEN = 16,
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index fe1925538f66..038dd2b6e7af 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -779,7 +779,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         out_of_seq_cnt[0x1];
+ 	u8         vport_counters[0x1];
+ 	u8         retransmission_q_counters[0x1];
+-	u8         reserved_at_183[0x3];
++	u8         reserved_at_183[0x1];
++	u8         modify_rq_counter_set_id[0x1];
++	u8         reserved_at_185[0x1];
+ 	u8         max_qp_cnt[0xa];
+ 	u8         pkey_table_size[0x10];
+ 
+@@ -4749,6 +4751,11 @@ struct mlx5_ifc_modify_rq_out_bits {
+ 	u8         reserved_at_40[0x40];
+ };
+ 
++enum {
++	MLX5_MODIFY_RQ_IN_MODIFY_BITMASK_VSD = 1ULL << 1,
++	MLX5_MODIFY_RQ_IN_MODIFY_BITMASK_MODIFY_RQ_COUNTER_SET_ID = 1ULL << 3,
++};
++
+ struct mlx5_ifc_modify_rq_in_bits {
+ 	u8         opcode[0x10];
+ 	u8         reserved_at_10[0x10];
+-- 
+2.17.1
+

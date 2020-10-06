@@ -1,4 +1,4 @@
-From 48cf417f01b111ddb40fb6e60065366ae235f79b Mon Sep 17 00:00:00 2001
+From 82020a4cc4c35afd207ba6d8bdaa37211641b57f Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Fri, 26 Feb 2016 17:32:31 +0100
 Subject: mlxsw: spectrum: Introduce port splitting

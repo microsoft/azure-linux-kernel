@@ -1,4 +1,4 @@
-From 521a043d01a3836bae97738714233add025a1719 Mon Sep 17 00:00:00 2001
+From beb8fec91a6421da243a6be36ae2bd4e7c34baff Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Wed, 23 Dec 2015 18:47:19 +0200
 Subject: net/mlx5_core: Introduce access functions to enable/disable RoCE

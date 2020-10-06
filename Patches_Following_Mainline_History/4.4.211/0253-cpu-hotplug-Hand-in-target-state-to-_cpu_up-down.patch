@@ -1,4 +1,4 @@
-From 7be6123e95f5e8231b5669efa38fedebb04b0ad0 Mon Sep 17 00:00:00 2001
+From 5065227e3e4addfa047b122c17365cac8fb80dda Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:30 +0000
 Subject: cpu/hotplug: Hand in target state to _cpu_up/down

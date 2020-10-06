@@ -1,4 +1,4 @@
-From f8250050edf354009c867ceb93167b075a9a983b Mon Sep 17 00:00:00 2001
+From 7748a23acb7aaa392d00c58b3ca4d0c7163a5d64 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Fri, 27 Nov 2015 13:45:55 +0100
 Subject: mlxsw: spectrum: Add support for port identification

@@ -1,4 +1,4 @@
-From d26139c862af913ef6d9e27969283db15a2fc05e Mon Sep 17 00:00:00 2001
+From 8a1cf4d07fe8dfd899c0fbe28d4218cc26ff0e24 Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Fri, 22 Apr 2016 00:33:03 +0300
 Subject: net/mlx5e: Device's mtu field is u16 and not int

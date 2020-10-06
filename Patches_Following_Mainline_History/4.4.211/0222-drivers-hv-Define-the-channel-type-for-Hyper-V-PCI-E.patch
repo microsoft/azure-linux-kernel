@@ -1,4 +1,4 @@
-From 1f30ba8c69ea10fe69236352ba537c510db5ac16 Mon Sep 17 00:00:00 2001
+From 39fb999a2424729f87d9263c9315a71c20556229 Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Mon, 14 Dec 2015 16:01:41 -0800
 Subject: drivers:hv: Define the channel type for Hyper-V PCI Express

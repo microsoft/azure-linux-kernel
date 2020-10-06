@@ -1,4 +1,4 @@
-From b3690aea7634266abf7ecacf88f226c7d39242b6 Mon Sep 17 00:00:00 2001
+From ee022a16001c8fc6fdc7a5d16d539e0e41e060a4 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:27 +0000
 Subject: cpu/hotplug: Add tracepoints

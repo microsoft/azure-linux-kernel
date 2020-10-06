@@ -1,4 +1,4 @@
-From 0fda80f08c5ed59dcc42db3ccbb5d18bd39d014f Mon Sep 17 00:00:00 2001
+From 26c2c5e5d29dbb1ea98618628822ec11d8a13d1f Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 2 Mar 2016 00:13:33 +0200
 Subject: net/mlx5e: Placement changed for carrier state updates

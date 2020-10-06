@@ -1,4 +1,4 @@
-From a8d5698a508aa02108b75160ff805f7363ab14bc Mon Sep 17 00:00:00 2001
+From b0aaeb7c00bacbd9407a9499532f57cc67f8aa50 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Mon, 4 Jan 2016 10:42:24 +0100
 Subject: mlxsw: spectrum: Return NOTIFY_BAD on bridge failure

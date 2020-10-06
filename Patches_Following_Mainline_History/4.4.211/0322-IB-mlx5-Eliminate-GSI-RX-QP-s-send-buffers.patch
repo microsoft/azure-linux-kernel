@@ -1,4 +1,4 @@
-From f1254c08ec5fec12d44309d3a24fba7279bd42f4 Mon Sep 17 00:00:00 2001
+From b49ed586fffdd4d36ce680a8ee113b9071a23411 Mon Sep 17 00:00:00 2001
 From: Haggai Eran <haggaie@mellanox.com>
 Date: Mon, 29 Feb 2016 15:45:11 +0200
 Subject: IB/mlx5: Eliminate GSI RX QP's send buffers

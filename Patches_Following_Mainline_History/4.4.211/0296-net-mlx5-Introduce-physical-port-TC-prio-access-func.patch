@@ -1,4 +1,4 @@
-From 584c04360a972a9fe8f7a1ec02d086a9740e6aa5 Mon Sep 17 00:00:00 2001
+From 316e22eddcd427d6134bce9538e7954604ec480c Mon Sep 17 00:00:00 2001
 From: Saeed Mahameed <saeedm@mellanox.com>
 Date: Mon, 22 Feb 2016 18:17:25 +0200
 Subject: net/mlx5: Introduce physical port TC/prio access functions

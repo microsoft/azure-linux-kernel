@@ -1,4 +1,4 @@
-From e2660770f58af893ced4191f47aaff3fb306ef1c Mon Sep 17 00:00:00 2001
+From 6a612d17c9432c7ebe60dc82e33aecfbd0fe1789 Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 11 May 2016 00:29:14 +0300
 Subject: net/mlx5e: CQE compression

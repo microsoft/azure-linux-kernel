@@ -1,4 +1,4 @@
-From 5272ed58bfa0c846c62494702cc6b81e0c48c3b1 Mon Sep 17 00:00:00 2001
+From b60b8a2ad3e2d0062ebbc8a692682fb3ea66ac47 Mon Sep 17 00:00:00 2001
 From: Jake Oshins <jakeo@microsoft.com>
 Date: Tue, 5 Apr 2016 10:22:56 -0700
 Subject: drivers:hv: Separate out frame buffer logic when picking MMIO range

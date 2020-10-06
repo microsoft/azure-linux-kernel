@@ -1,0 +1,35 @@
+From 37fe951029187ab7992313b2c9d07f28ef0819b6 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 7 Jun 2017 15:53:47 -0700
+Subject: netvsc: fix rcu dereference warning from ethtool
+Reply-To: joseph.salisbury@microsoft.com
+
+The ethtool info command calls the netvsc get_sset_count with RTNL
+but not with RCU. Which causes warning:
+
+drivers/net/hyperv/netvsc_drv.c:1010 suspicious rcu_dereference_check() usage!
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit fbd4c7e768f1719bea340e40148800279d230922)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 888578d7db59..00fd7928ddb9 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1231,7 +1231,7 @@ static const struct {
+ static int netvsc_get_sset_count(struct net_device *dev, int string_set)
+ {
+ 	struct net_device_context *ndc = netdev_priv(dev);
+-	struct netvsc_device *nvdev = rcu_dereference(ndc->nvdev);
++	struct netvsc_device *nvdev = rtnl_dereference(ndc->nvdev);
+ 
+ 	if (!nvdev)
+ 		return -ENODEV;
+-- 
+2.17.1
+

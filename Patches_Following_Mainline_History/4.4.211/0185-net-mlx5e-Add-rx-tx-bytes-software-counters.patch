@@ -1,4 +1,4 @@
-From ccf1319223eaa342f2f87f21f4967925326f8e1a Mon Sep 17 00:00:00 2001
+From 260bc1a045f4f58205e8c794ef97d3571e432f69 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Mon, 29 Feb 2016 21:17:14 +0200
 Subject: net/mlx5e: Add rx/tx bytes software counters

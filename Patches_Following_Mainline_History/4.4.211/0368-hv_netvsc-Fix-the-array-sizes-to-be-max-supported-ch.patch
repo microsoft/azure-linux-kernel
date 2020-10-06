@@ -1,4 +1,4 @@
-From 5486dde2f1625116a89f8c7d92c7e672cbcbd4ec Mon Sep 17 00:00:00 2001
+From 67e0badfe2820c1cb8d7655f9cb06f1e0492de45 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Wed, 23 Mar 2016 09:43:10 -0700
 Subject: hv_netvsc: Fix the array sizes to be max supported channels

@@ -1,4 +1,4 @@
-From 11d2b95444939d3bf59f290848738f93cdc2072c Mon Sep 17 00:00:00 2001
+From 95f42370f8718a02ee564b7e2b03dd9aa8af2604 Mon Sep 17 00:00:00 2001
 From: Moni Shoua <monis@mellanox.com>
 Date: Wed, 2 Mar 2016 17:47:45 +0200
 Subject: net/mlx4_core: Check the correct limitation on VFs for HA mode

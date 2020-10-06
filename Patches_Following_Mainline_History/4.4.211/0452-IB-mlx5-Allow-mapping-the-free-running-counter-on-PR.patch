@@ -1,4 +1,4 @@
-From 7335d41ee939bfe1b73dfa8694143aab3330ecfc Mon Sep 17 00:00:00 2001
+From 894ec16815b7bffb9e49fe885d5e83b2427c0f4e Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Thu, 14 Apr 2016 16:52:10 +0300
 Subject: IB/mlx5: Allow mapping the free running counter on PROT_EXEC

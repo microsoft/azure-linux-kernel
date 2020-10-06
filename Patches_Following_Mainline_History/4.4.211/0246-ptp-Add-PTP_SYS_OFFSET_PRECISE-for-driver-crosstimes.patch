@@ -1,4 +1,4 @@
-From 79f3884c61b235d84b45109f627f01c65e05534a Mon Sep 17 00:00:00 2001
+From 2cdc4521e8e90c19fc9fd8bdb8abec069b851ace Mon Sep 17 00:00:00 2001
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
 Date: Mon, 22 Feb 2016 03:15:25 -0800
 Subject: ptp: Add PTP_SYS_OFFSET_PRECISE for driver crosstimestamping

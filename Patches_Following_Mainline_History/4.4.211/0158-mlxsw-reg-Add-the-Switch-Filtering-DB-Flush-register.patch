@@ -1,4 +1,4 @@
-From 770edd66f1e0ae11ca04589071ee58b7ea9d6b22 Mon Sep 17 00:00:00 2001
+From 1ad22aa18f3f99d49986c3984d67b19eca305dfd Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Wed, 27 Jan 2016 15:20:17 +0100
 Subject: mlxsw: reg: Add the Switch Filtering DB Flush register

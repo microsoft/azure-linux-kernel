@@ -1,4 +1,4 @@
-From 08b15558857eea27d9c27ac256451dc22af8e404 Mon Sep 17 00:00:00 2001
+From 7b0482eaca62574d4fffc7843717d4960f76c17f Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 13 May 2016 13:55:23 +0200
 Subject: hv_netvsc: get rid of struct net_device pointer in struct

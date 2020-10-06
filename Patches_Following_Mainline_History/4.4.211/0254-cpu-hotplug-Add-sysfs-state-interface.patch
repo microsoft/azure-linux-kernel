@@ -1,4 +1,4 @@
-From ea5e1859b93173c571fc246a8ca4c8d05455b3bb Mon Sep 17 00:00:00 2001
+From db636169057c816b895e505e01844b5825b9ece3 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Feb 2016 18:43:31 +0000
 Subject: cpu/hotplug: Add sysfs state interface

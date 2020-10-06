@@ -1,0 +1,47 @@
+From a5c63b39a6737341757b2342d7b9574463a9ac99 Mon Sep 17 00:00:00 2001
+From: Ira Weiny <ira.weiny@intel.com>
+Date: Fri, 18 Dec 2015 10:59:44 +0200
+Subject: IB/core: Save the device attributes on the device structure
+Reply-To: joseph.salisbury@microsoft.com
+
+This way both the IB core and upper level drivers can access these cached
+device attributes rather than querying or caching them on their own.
+
+Signed-off-by: Ira Weiny <ira.weiny@intel.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit 3e153a93a1c12e3354dd38cca414fb51a15136a2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/core/device.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
+index 1e36cf0b7a48..00cd95e2370d 100644
+--- a/drivers/infiniband/core/device.c
++++ b/drivers/infiniband/core/device.c
+@@ -335,6 +335,7 @@ int ib_register_device(struct ib_device *device,
+ {
+ 	int ret;
+ 	struct ib_client *client;
++	struct ib_udata uhw = {.outlen = 0, .inlen = 0};
+ 
+ 	mutex_lock(&device_mutex);
+ 
+@@ -362,6 +363,13 @@ int ib_register_device(struct ib_device *device,
+ 		goto out;
+ 	}
+ 
++	memset(&device->attrs, 0, sizeof(device->attrs));
++	ret = device->query_device(device, &device->attrs, &uhw);
++	if (ret) {
++		printk(KERN_WARNING "Couldn't query the device attributes\n");
++		goto out;
++	}
++
+ 	ret = ib_device_register_sysfs(device, port_callback);
+ 	if (ret) {
+ 		printk(KERN_WARNING "Couldn't register device %s with driver model\n",
+-- 
+2.17.1
+

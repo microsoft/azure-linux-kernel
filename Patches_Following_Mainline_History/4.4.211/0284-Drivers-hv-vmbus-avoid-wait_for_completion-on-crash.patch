@@ -1,4 +1,4 @@
-From 927835938fea00cc7db69ffc5d9fe92d93131a2a Mon Sep 17 00:00:00 2001
+From 217dae549e3e7fff946f444c2110b27015d94620 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Fri, 26 Feb 2016 15:13:16 -0800
 Subject: Drivers: hv: vmbus: avoid wait_for_completion() on crash

@@ -1,4 +1,4 @@
-From 1f119bcefa89767c4bf94e5d3125b64f2daaee97 Mon Sep 17 00:00:00 2001
+From 7f8e0dd70cb68920a6297600b3b6689ca43ea1c9 Mon Sep 17 00:00:00 2001
 From: Gal Pressman <galp@mellanox.com>
 Date: Sun, 24 Apr 2016 22:51:48 +0300
 Subject: net/mlx5e: Rename VPort counters

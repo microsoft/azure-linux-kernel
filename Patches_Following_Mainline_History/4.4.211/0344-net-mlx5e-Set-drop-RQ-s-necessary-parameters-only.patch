@@ -1,4 +1,4 @@
-From 5f260a03acc5e8bb64ab80365028086d06b4955a Mon Sep 17 00:00:00 2001
+From ca91c4daddc2c7dd9026f444bcd81389856e16da Mon Sep 17 00:00:00 2001
 From: Tariq Toukan <tariqt@mellanox.com>
 Date: Wed, 2 Mar 2016 00:13:36 +0200
 Subject: net/mlx5e: Set drop RQ's necessary parameters only

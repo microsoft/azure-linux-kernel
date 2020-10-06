@@ -1,4 +1,4 @@
-From fc3fbd38829a6dd836baeaab8482b5856d21b8b7 Mon Sep 17 00:00:00 2001
+From 28b121516bc5e644b33a9c4037943f422b051dda Mon Sep 17 00:00:00 2001
 From: Sagi Grimberg <sagig@mellanox.com>
 Date: Mon, 29 Feb 2016 19:07:32 +0200
 Subject: IB/core: Add arbitrary sg_list support

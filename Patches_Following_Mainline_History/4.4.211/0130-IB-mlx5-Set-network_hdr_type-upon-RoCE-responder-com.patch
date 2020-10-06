@@ -1,4 +1,4 @@
-From 4c2590c0dea402998036b660744d968df9c34d13 Mon Sep 17 00:00:00 2001
+From 20f041ca8def8741b348ddd5980dd7f7028338a5 Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Wed, 23 Dec 2015 18:47:22 +0200
 Subject: IB/mlx5: Set network_hdr_type upon RoCE responder completion

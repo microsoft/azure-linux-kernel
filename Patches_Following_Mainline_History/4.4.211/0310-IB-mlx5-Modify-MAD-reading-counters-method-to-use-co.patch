@@ -1,4 +1,4 @@
-From 40a4e57b2309f58735466560803940d43cc5dad4 Mon Sep 17 00:00:00 2001
+From 3204a5323124ccf7b793bf21bcfde2b4b38d103a Mon Sep 17 00:00:00 2001
 From: Meny Yossefi <menyy@mellanox.com>
 Date: Thu, 18 Feb 2016 18:15:01 +0200
 Subject: IB/mlx5: Modify MAD reading counters method to use counter registers

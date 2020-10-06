@@ -1,0 +1,53 @@
+From 04be27293eb84a3024ae41d8374d4f8fb49e21ad Mon Sep 17 00:00:00 2001
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 14 Feb 2017 22:17:17 +0100
+Subject: x86/hyperv: Hide unused label
+Reply-To: joseph.salisbury@microsoft.com
+
+This new 32-bit warning just showed up:
+
+arch/x86/hyperv/hv_init.c: In function 'hyperv_init':
+arch/x86/hyperv/hv_init.c:167:1: error: label 'register_msr_cs' defined but not used [-Werror=unused-label]
+
+The easiest solution is to move the label up into the existing #ifdef that
+has the goto.
+
+Fixes: dee863b571b0 ("hv: export current Hyper-V clocksource")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Acked-by: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: devel@linuxdriverproject.org
+Cc: Vitaly Kuznetsov <vkuznets@redhat.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+Link: http://lkml.kernel.org/r/20170214211736.2641241-1-arnd@arndb.de
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+
+(cherry picked from commit 73667e31a153a66da97feb1584726222504924f8)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/hyperv/hv_init.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/x86/hyperv/hv_init.c b/arch/x86/hyperv/hv_init.c
+index c224b7df4d21..3430a1080115 100644
+--- a/arch/x86/hyperv/hv_init.c
++++ b/arch/x86/hyperv/hv_init.c
+@@ -158,13 +158,13 @@ void hyperv_init(void)
+ 		clocksource_register_hz(&hyperv_cs_tsc, NSEC_PER_SEC/100);
+ 		return;
+ 	}
++register_msr_cs:
+ #endif
+ 	/*
+ 	 * For 32 bit guests just use the MSR based mechanism for reading
+ 	 * the partition counter.
+ 	 */
+ 
+-register_msr_cs:
+ 	hyperv_cs = &hyperv_cs_msr;
+ 	if (ms_hyperv.features & HV_X64_MSR_TIME_REF_COUNT_AVAILABLE)
+ 		clocksource_register_hz(&hyperv_cs_msr, NSEC_PER_SEC/100);
+-- 
+2.17.1
+

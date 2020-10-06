@@ -1,4 +1,4 @@
-From 35eed94597ec2825ed461f3db915cc37cbe04cbb Mon Sep 17 00:00:00 2001
+From fe6bdcaf5fa234c88fd702fd95b9f9ed19e6fec6 Mon Sep 17 00:00:00 2001
 From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
 Date: Tue, 1 Mar 2016 15:20:42 -0800
 Subject: RDS: Drop stale iWARP RDMA transport

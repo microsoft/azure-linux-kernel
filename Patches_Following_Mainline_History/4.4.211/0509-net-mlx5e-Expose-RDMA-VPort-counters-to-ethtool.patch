@@ -1,0 +1,47 @@
+From 28b800ef6728db0e90597d1b9b57daad061e1191 Mon Sep 17 00:00:00 2001
+From: Gal Pressman <galp@mellanox.com>
+Date: Mon, 4 Jul 2016 17:23:11 +0300
+Subject: net/mlx5e: Expose RDMA VPort counters to ethtool
+Reply-To: joseph.salisbury@microsoft.com
+
+Add the needed descriptors to expose RoCE RDMA counters.
+
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit fe6b9bd9ebd691f58b4568454946b62cad84fa07)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/en_stats.h   | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+index fcd490cc5610..ae2999857932 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+@@ -151,6 +151,22 @@ static const struct counter_desc vport_stats_desc[] = {
+ 		VPORT_COUNTER_OFF(transmitted_eth_broadcast.packets) },
+ 	{ "tx_vport_broadcast_bytes",
+ 		VPORT_COUNTER_OFF(transmitted_eth_broadcast.octets) },
++	{ "rx_vport_rdma_unicast_packets",
++		VPORT_COUNTER_OFF(received_ib_unicast.packets) },
++	{ "rx_vport_rdma_unicast_bytes",
++		VPORT_COUNTER_OFF(received_ib_unicast.octets) },
++	{ "tx_vport_rdma_unicast_packets",
++		VPORT_COUNTER_OFF(transmitted_ib_unicast.packets) },
++	{ "tx_vport_rdma_unicast_bytes",
++		VPORT_COUNTER_OFF(transmitted_ib_unicast.octets) },
++	{ "rx_vport_rdma_multicast_packets",
++		VPORT_COUNTER_OFF(received_ib_multicast.packets) },
++	{ "rx_vport_rdma_multicast_bytes",
++		VPORT_COUNTER_OFF(received_ib_multicast.octets) },
++	{ "tx_vport_rdma_multicast_packets",
++		VPORT_COUNTER_OFF(transmitted_ib_multicast.packets) },
++	{ "tx_vport_rdma_multicast_bytes",
++		VPORT_COUNTER_OFF(transmitted_ib_multicast.octets) },
+ };
+ 
+ #define PPORT_802_3_OFF(c) \
+-- 
+2.17.1
+

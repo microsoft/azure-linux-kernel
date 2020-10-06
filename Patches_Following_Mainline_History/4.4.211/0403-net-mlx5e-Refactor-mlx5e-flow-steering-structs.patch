@@ -1,4 +1,4 @@
-From b90329f5574c53232b27e808ad9b64450b30ab49 Mon Sep 17 00:00:00 2001
+From a4833a305fe29ee9c71ccecf7199afba49b0890b Mon Sep 17 00:00:00 2001
 From: Maor Gottlieb <maorg@mellanox.com>
 Date: Fri, 29 Apr 2016 01:36:37 +0300
 Subject: net/mlx5e: Refactor mlx5e flow steering structs

@@ -1,4 +1,4 @@
-From 0c00a3e02c3683a3e7e309834fb0988bd0d0b7eb Mon Sep 17 00:00:00 2001
+From f05c1e54745d9dbccf37291f852f8f3869d2a017 Mon Sep 17 00:00:00 2001
 From: Ido Schimmel <idosch@mellanox.com>
 Date: Fri, 26 Feb 2016 17:32:29 +0100
 Subject: mlxsw: spectrum: Store local port to module mapping during init

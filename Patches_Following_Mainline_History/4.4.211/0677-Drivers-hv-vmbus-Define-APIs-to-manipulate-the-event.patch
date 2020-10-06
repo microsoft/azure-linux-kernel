@@ -1,0 +1,68 @@
+From 3807ba5113aa77c7aff0be7fde731a050ac1a4f7 Mon Sep 17 00:00:00 2001
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Thu, 19 Jan 2017 11:51:55 -0700
+Subject: Drivers: hv: vmbus: Define APIs to manipulate the event page
+Reply-To: joseph.salisbury@microsoft.com
+
+As part of cleaning up architecture specific code, define APIs
+to manipulate the event page.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 8e307bf82d76ab02e95a00d132d926f04db6ccab)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ arch/x86/include/asm/mshyperv.h | 3 +++
+ drivers/hv/hv.c                 | 8 ++++----
+ 2 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/arch/x86/include/asm/mshyperv.h b/arch/x86/include/asm/mshyperv.h
+index 1e75141bc123..2ea7e16fc678 100644
+--- a/arch/x86/include/asm/mshyperv.h
++++ b/arch/x86/include/asm/mshyperv.h
+@@ -143,6 +143,9 @@ static inline void vmbus_signal_eom(struct hv_message *msg, u32 old_msg_type)
+ #define hv_get_simp(val) rdmsrl(HV_X64_MSR_SIMP, val)
+ #define hv_set_simp(val) wrmsrl(HV_X64_MSR_SIMP, val)
+ 
++#define hv_get_siefp(val) rdmsrl(HV_X64_MSR_SIEFP, val)
++#define hv_set_siefp(val) wrmsrl(HV_X64_MSR_SIEFP, val)
++
+ void hyperv_callback_vector(void);
+ #ifdef CONFIG_TRACING
+ #define trace_hyperv_callback_vector hyperv_callback_vector
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index cff1b0d1b22b..b52cbb0e1014 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -277,12 +277,12 @@ int hv_synic_init(unsigned int cpu)
+ 	hv_set_simp(simp.as_uint64);
+ 
+ 	/* Setup the Synic's event page */
+-	rdmsrl(HV_X64_MSR_SIEFP, siefp.as_uint64);
++	hv_get_siefp(siefp.as_uint64);
+ 	siefp.siefp_enabled = 1;
+ 	siefp.base_siefp_gpa = virt_to_phys(hv_context.synic_event_page[cpu])
+ 		>> PAGE_SHIFT;
+ 
+-	wrmsrl(HV_X64_MSR_SIEFP, siefp.as_uint64);
++	hv_set_siefp(siefp.as_uint64);
+ 
+ 	/* Setup the shared SINT. */
+ 	rdmsrl(HV_X64_MSR_SINT0 + VMBUS_MESSAGE_SINT, shared_sint.as_uint64);
+@@ -366,11 +366,11 @@ int hv_synic_cleanup(unsigned int cpu)
+ 
+ 	hv_set_simp(simp.as_uint64);
+ 
+-	rdmsrl(HV_X64_MSR_SIEFP, siefp.as_uint64);
++	hv_get_siefp(siefp.as_uint64);
+ 	siefp.siefp_enabled = 0;
+ 	siefp.base_siefp_gpa = 0;
+ 
+-	wrmsrl(HV_X64_MSR_SIEFP, siefp.as_uint64);
++	hv_set_siefp(siefp.as_uint64);
+ 
+ 	/* Disable the global synic bit */
+ 	rdmsrl(HV_X64_MSR_SCONTROL, sctrl.as_uint64);
+-- 
+2.17.1
+

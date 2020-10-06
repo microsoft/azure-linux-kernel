@@ -1,4 +1,4 @@
-From 80e66a197170239d534e4183281182a7e454cd7d Mon Sep 17 00:00:00 2001
+From 3f6f744877dfc880c0ae3debb7f9f69b2b51ada7 Mon Sep 17 00:00:00 2001
 From: Achiad Shochat <achiad@mellanox.com>
 Date: Wed, 23 Dec 2015 18:47:23 +0200
 Subject: IB/mlx5: Support IB device's callbacks for adding/deleting GIDs

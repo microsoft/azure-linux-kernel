@@ -1,4 +1,4 @@
-From 7ba736f5066451880d82464ff3e2e04e613fea90 Mon Sep 17 00:00:00 2001
+From a550347c8b3e56924033e28035be8b0bcff7f334 Mon Sep 17 00:00:00 2001
 From: Leon Romanovsky <leonro@mellanox.com>
 Date: Sun, 20 Dec 2015 12:16:10 +0200
 Subject: IB/core: Add cross-channel support

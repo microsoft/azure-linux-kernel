@@ -1,4 +1,4 @@
-From 53097832890ef4008202f3b6aca40b3db8d37df7 Mon Sep 17 00:00:00 2001
+From 27f9f239275293fc285ee54dab3e112d80e3edc8 Mon Sep 17 00:00:00 2001
 From: "K. Y. Srinivasan" <kys@microsoft.com>
 Date: Fri, 26 Feb 2016 15:13:21 -0800
 Subject: Drivers: hv: vmbus: Support handling messages on multiple CPUs

@@ -1,4 +1,4 @@
-From 52590ac2e488bbcc2e33fabd9e0eab78aa07917e Mon Sep 17 00:00:00 2001
+From bfc236291250cfeb5591845fbd576d8232ba56f6 Mon Sep 17 00:00:00 2001
 From: Abhilash Jindal <klock.android@gmail.com>
 Date: Sun, 31 Jan 2016 13:53:31 -0500
 Subject: IB/mlx4: Use boottime

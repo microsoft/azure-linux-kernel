@@ -1,4 +1,4 @@
-From 4b05caa6d156dbbcfc62c52508702b470c70930a Mon Sep 17 00:00:00 2001
+From ee408d1fc60649cf834605b264dec594c9dcef36 Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Wed, 28 Oct 2015 16:52:41 +0200
 Subject: IB/core: don't search the GID table twice
