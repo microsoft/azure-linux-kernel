@@ -1,0 +1,175 @@
+From 2d952217840e078e84a301fb09c89fcb36ced7e3 Mon Sep 17 00:00:00 2001
+From: Eran Ben Elisha <eranbe@mellanox.com>
+Date: Mon, 14 Dec 2015 16:34:09 +0200
+Subject: net/mlx5_core: Add setting ATOMIC endian mode
+Reply-To: joseph.salisbury@microsoft.com
+
+HW is capable of 2 requestor endianness modes for standard 8 Bytes
+atomic: BE (0x0) and host endianness (0x1). Read the supported modes
+from hca atomic capabilities and configure HW to host endianness mode if
+supported.
+
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Reviewed-by: Yishai Hadas <yishaih@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit f91e6d8941bf450f7842dfc1ed80e948aaa65e8c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/main.c    | 57 ++++++++++++++++++-
+ include/linux/mlx5/mlx5_ifc.h                 | 22 ++++---
+ 2 files changed, 70 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 0cc0b2660c72..69f76bdb6908 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -78,6 +78,11 @@ struct mlx5_device_context {
+ 	void		       *context;
+ };
+ 
++enum {
++	MLX5_ATOMIC_REQ_MODE_BE = 0x0,
++	MLX5_ATOMIC_REQ_MODE_HOST_ENDIANNESS = 0x1,
++};
++
+ static struct mlx5_profile profile[] = {
+ 	[0] = {
+ 		.mask           = 0,
+@@ -388,7 +393,7 @@ query_ex:
+ 	return err;
+ }
+ 
+-static int set_caps(struct mlx5_core_dev *dev, void *in, int in_sz)
++static int set_caps(struct mlx5_core_dev *dev, void *in, int in_sz, int opmod)
+ {
+ 	u32 out[MLX5_ST_SZ_DW(set_hca_cap_out)];
+ 	int err;
+@@ -396,6 +401,7 @@ static int set_caps(struct mlx5_core_dev *dev, void *in, int in_sz)
+ 	memset(out, 0, sizeof(out));
+ 
+ 	MLX5_SET(set_hca_cap_in, in, opcode, MLX5_CMD_OP_SET_HCA_CAP);
++	MLX5_SET(set_hca_cap_in, in, op_mod, opmod << 1);
+ 	err = mlx5_cmd_exec(dev, in, in_sz, out, sizeof(out));
+ 	if (err)
+ 		return err;
+@@ -405,6 +411,46 @@ static int set_caps(struct mlx5_core_dev *dev, void *in, int in_sz)
+ 	return err;
+ }
+ 
++static int handle_hca_cap_atomic(struct mlx5_core_dev *dev)
++{
++	void *set_ctx;
++	void *set_hca_cap;
++	int set_sz = MLX5_ST_SZ_BYTES(set_hca_cap_in);
++	int req_endianness;
++	int err;
++
++	if (MLX5_CAP_GEN(dev, atomic)) {
++		err = mlx5_core_get_caps(dev, MLX5_CAP_ATOMIC,
++					 HCA_CAP_OPMOD_GET_CUR);
++		if (err)
++			return err;
++	} else {
++		return 0;
++	}
++
++	req_endianness =
++		MLX5_CAP_ATOMIC(dev,
++				supported_atomic_req_8B_endianess_mode_1);
++
++	if (req_endianness != MLX5_ATOMIC_REQ_MODE_HOST_ENDIANNESS)
++		return 0;
++
++	set_ctx = kzalloc(set_sz, GFP_KERNEL);
++	if (!set_ctx)
++		return -ENOMEM;
++
++	set_hca_cap = MLX5_ADDR_OF(set_hca_cap_in, set_ctx, capability);
++
++	/* Set requestor to host endianness */
++	MLX5_SET(atomic_caps, set_hca_cap, atomic_req_8B_endianess_mode,
++		 MLX5_ATOMIC_REQ_MODE_HOST_ENDIANNESS);
++
++	err = set_caps(dev, set_ctx, set_sz, MLX5_SET_HCA_CAP_OP_MOD_ATOMIC);
++
++	kfree(set_ctx);
++	return err;
++}
++
+ static int handle_hca_cap(struct mlx5_core_dev *dev)
+ {
+ 	void *set_ctx = NULL;
+@@ -453,7 +499,8 @@ static int handle_hca_cap(struct mlx5_core_dev *dev)
+ 
+ 	MLX5_SET(cmd_hca_cap, set_hca_cap, log_uar_page_sz, PAGE_SHIFT - 12);
+ 
+-	err = set_caps(dev, set_ctx, set_sz);
++	err = set_caps(dev, set_ctx, set_sz,
++		       MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE);
+ 
+ query_ex:
+ 	kfree(set_ctx);
+@@ -1000,6 +1047,12 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 		goto reclaim_boot_pages;
+ 	}
+ 
++	err = handle_hca_cap_atomic(dev);
++	if (err) {
++		dev_err(&pdev->dev, "handle_hca_cap_atomic failed\n");
++		goto reclaim_boot_pages;
++	}
++
+ 	err = mlx5_satisfy_startup_pages(dev, 0);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "failed to allocate init pages\n");
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 41b23e7c82ca..a5a6f2857ecf 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -66,6 +66,11 @@ enum {
+ 	MLX5_MODIFY_TIR_BITMASK_TUNNELED_OFFLOAD_EN   = 0x3
+ };
+ 
++enum {
++	MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE        = 0x0,
++	MLX5_SET_HCA_CAP_OP_MOD_ATOMIC                = 0x3,
++};
++
+ enum {
+ 	MLX5_CMD_OP_QUERY_HCA_CAP                 = 0x100,
+ 	MLX5_CMD_OP_QUERY_ADAPTER                 = 0x101,
+@@ -557,21 +562,24 @@ enum {
+ struct mlx5_ifc_atomic_caps_bits {
+ 	u8         reserved_0[0x40];
+ 
+-	u8         atomic_req_endianness[0x1];
+-	u8         reserved_1[0x1f];
++	u8         atomic_req_8B_endianess_mode[0x2];
++	u8         reserved_1[0x4];
++	u8         supported_atomic_req_8B_endianess_mode_1[0x1];
+ 
+-	u8         reserved_2[0x20];
++	u8         reserved_2[0x19];
+ 
+-	u8         reserved_3[0x10];
+-	u8         atomic_operations[0x10];
++	u8         reserved_3[0x20];
+ 
+ 	u8         reserved_4[0x10];
+-	u8         atomic_size_qp[0x10];
++	u8         atomic_operations[0x10];
+ 
+ 	u8         reserved_5[0x10];
++	u8         atomic_size_qp[0x10];
++
++	u8         reserved_6[0x10];
+ 	u8         atomic_size_dc[0x10];
+ 
+-	u8         reserved_6[0x720];
++	u8         reserved_7[0x720];
+ };
+ 
+ struct mlx5_ifc_odp_cap_bits {
+-- 
+2.17.1
+

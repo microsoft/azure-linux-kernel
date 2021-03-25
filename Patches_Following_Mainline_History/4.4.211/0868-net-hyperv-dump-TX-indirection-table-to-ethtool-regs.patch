@@ -1,0 +1,74 @@
+From 9cb109f435b8ef09dbceac4380fef20a6d70f794 Mon Sep 17 00:00:00 2001
+From: Chi Song <chisong@linux.microsoft.com>
+Date: Thu, 23 Jul 2020 21:14:26 -0700
+Subject: net: hyperv: dump TX indirection table to ethtool regs
+Reply-To: joseph.salisbury@microsoft.com
+
+An imbalanced TX indirection table causes netvsc to have low
+performance. This table is created and managed during runtime. To help
+better diagnose performance issues caused by imbalanced tables, it needs
+make TX indirection tables visible.
+
+Because TX indirection table is driver specified information, so
+display it via ethtool register dump.
+
+Signed-off-by: Chi Song <chisong@microsoft.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 4a062d66b5a532a9da9bdae643e498b035173794)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 35 +++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 107d78c47bc9..2fb04d538c0b 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1687,8 +1687,43 @@ out:
+ 	return ret;
+ }
+ 
++static int netvsc_get_regs_len(struct net_device *netdev)
++{
++	return VRSS_SEND_TAB_SIZE * sizeof(u32);
++}
++
++static void netvsc_get_regs(struct net_device *netdev,
++			    struct ethtool_regs *regs, void *p)
++{
++	struct net_device_context *ndc = netdev_priv(netdev);
++	u32 *regs_buff = p;
++
++	/* increase the version, if buffer format is changed. */
++	regs->version = 1;
++
++	memcpy(regs_buff, ndc->tx_table, VRSS_SEND_TAB_SIZE * sizeof(u32));
++}
++
++static u32 netvsc_get_msglevel(struct net_device *ndev)
++{
++	struct net_device_context *ndev_ctx = netdev_priv(ndev);
++
++	return ndev_ctx->msg_enable;
++}
++
++static void netvsc_set_msglevel(struct net_device *ndev, u32 val)
++{
++	struct net_device_context *ndev_ctx = netdev_priv(ndev);
++
++	ndev_ctx->msg_enable = val;
++}
++
+ static const struct ethtool_ops ethtool_ops = {
+ 	.get_drvinfo	= netvsc_get_drvinfo,
++	.get_regs_len	= netvsc_get_regs_len,
++	.get_regs	= netvsc_get_regs,
++	.get_msglevel	= netvsc_get_msglevel,
++	.set_msglevel	= netvsc_set_msglevel,
+ 	.get_link	= ethtool_op_get_link,
+ 	.get_ethtool_stats = netvsc_get_ethtool_stats,
+ 	.get_sset_count = netvsc_get_sset_count,
+-- 
+2.17.1
+

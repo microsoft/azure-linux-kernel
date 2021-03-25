@@ -1,4 +1,4 @@
-From 7cddbbc4a942300c295238cabb6084f9a8ac81a4 Mon Sep 17 00:00:00 2001
+From 6b5be3c3d39cf9f307fd2d8042e55ea69f574d77 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Mon, 11 Jun 2018 12:44:56 -0700
 Subject: hv_netvsc: move VF to same namespace as netvsc device
@@ -21,10 +21,10 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  1 file changed, 20 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 70212195bb31..5ea0ebe1d36b 100644
+index 3e941873e39d..37e68e017c3d 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1907,6 +1907,7 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
+@@ -1909,6 +1909,7 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
  	struct net_device *ndev;
  	struct net_device_context *net_device_ctx;
  	struct netvsc_device *netvsc_dev;
@@ -32,7 +32,7 @@ index 70212195bb31..5ea0ebe1d36b 100644
  
  	if (vf_netdev->addr_len != ETH_ALEN)
  		return NOTIFY_DONE;
-@@ -1925,11 +1926,29 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
+@@ -1927,11 +1928,29 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
  	if (!netvsc_dev || rtnl_dereference(net_device_ctx->vf_netdev))
  		return NOTIFY_DONE;
  

@@ -1,0 +1,98 @@
+From a5f6aa76dbd3526135bc23a6837066683ca286c4 Mon Sep 17 00:00:00 2001
+From: Meny Yossefi <menyy@mellanox.com>
+Date: Thu, 18 Feb 2016 18:14:59 +0200
+Subject: net/mlx5_core: Add helper function to read virtual port counters
+Reply-To: joseph.salisbury@microsoft.com
+
+Added helper function to read 64bit virtual port Infiniband traffic
+counters.
+
+Signed-off-by: Meny Yossefi <menyy@mellanox.com>
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit b54ba2772b7af82a07eb48f88c88f7cadfb33401)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/vport.c   | 40 +++++++++++++++++++
+ include/linux/mlx5/mlx5_ifc.h                 |  3 +-
+ include/linux/mlx5/vport.h                    |  2 +
+ 3 files changed, 44 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 3a19aa3f0b47..1951b27e0497 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -881,3 +881,43 @@ int mlx5_nic_vport_disable_roce(struct mlx5_core_dev *mdev)
+ 	return mlx5_nic_vport_update_roce_state(mdev, MLX5_VPORT_ROCE_DISABLED);
+ }
+ EXPORT_SYMBOL_GPL(mlx5_nic_vport_disable_roce);
++
++int mlx5_core_query_vport_counter(struct mlx5_core_dev *dev, u8 other_vport,
++				  u8 port_num, void *out, size_t out_sz)
++{
++	int	in_sz = MLX5_ST_SZ_BYTES(query_vport_counter_in);
++	int	is_group_manager;
++	void   *in;
++	int	err;
++
++	is_group_manager = MLX5_CAP_GEN(dev, vport_group_manager);
++	in = mlx5_vzalloc(in_sz);
++	if (!in) {
++		err = -ENOMEM;
++		return err;
++	}
++
++	MLX5_SET(query_vport_counter_in, in, opcode,
++		 MLX5_CMD_OP_QUERY_VPORT_COUNTER);
++	if (other_vport) {
++		if (is_group_manager) {
++			MLX5_SET(query_vport_counter_in, in, other_vport, 1);
++			MLX5_SET(query_vport_counter_in, in, vport_number, 0);
++		} else {
++			err = -EPERM;
++			goto free;
++		}
++	}
++	if (MLX5_CAP_GEN(dev, num_ports) == 2)
++		MLX5_SET(query_vport_counter_in, in, port_num, port_num);
++
++	err = mlx5_cmd_exec(dev, in, in_sz, out,  out_sz);
++	if (err)
++		goto free;
++	err = mlx5_cmd_status_to_err_v2(out);
++
++free:
++	kvfree(in);
++	return err;
++}
++EXPORT_SYMBOL_GPL(mlx5_core_query_vport_counter);
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index ab9b9d4c4863..a5959941b739 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -3140,7 +3140,8 @@ struct mlx5_ifc_query_vport_counter_in_bits {
+ 	u8         op_mod[0x10];
+ 
+ 	u8         other_vport[0x1];
+-	u8         reserved_at_41[0xf];
++	u8         reserved_at_41[0xb];
++	u8	   port_num[0x4];
+ 	u8         vport_number[0x10];
+ 
+ 	u8         reserved_at_60[0x60];
+diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
+index 123771003e68..a9f2bcc98cab 100644
+--- a/include/linux/mlx5/vport.h
++++ b/include/linux/mlx5/vport.h
+@@ -92,5 +92,7 @@ int mlx5_modify_nic_vport_vlans(struct mlx5_core_dev *dev,
+ 
+ int mlx5_nic_vport_enable_roce(struct mlx5_core_dev *mdev);
+ int mlx5_nic_vport_disable_roce(struct mlx5_core_dev *mdev);
++int mlx5_core_query_vport_counter(struct mlx5_core_dev *dev, u8 other_vport,
++				  u8 port_num, void *out, size_t out_sz);
+ 
+ #endif /* __MLX5_VPORT_H__ */
+-- 
+2.17.1
+

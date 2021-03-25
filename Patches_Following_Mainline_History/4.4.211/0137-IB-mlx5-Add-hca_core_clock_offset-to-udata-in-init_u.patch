@@ -1,0 +1,170 @@
+From 438ba1f3efb0f4e7f419b702e03b73bd34371d37 Mon Sep 17 00:00:00 2001
+From: Matan Barak <matanb@mellanox.com>
+Date: Tue, 15 Dec 2015 20:30:12 +0200
+Subject: IB/mlx5: Add hca_core_clock_offset to udata in init_ucontext
+Reply-To: joseph.salisbury@microsoft.com
+
+Pass hca_core_clock_offset to user-space is mandatory in order to
+let the user-space read the free-running clock register from the
+right offset in the memory mapped page.
+Passing this value is done by changing the vendor's command
+and response of init_ucontext to be in extensible form.
+
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Reviewed-by: Moshe Lazer <moshel@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit b368d7cb8ceb77f481b066bd8be5fada82da7301)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/main.c    | 37 ++++++++++++++++++++++------
+ drivers/infiniband/hw/mlx5/mlx5_ib.h |  3 +++
+ drivers/infiniband/hw/mlx5/user.h    | 12 +++++++--
+ include/linux/mlx5/device.h          |  2 +-
+ 4 files changed, 43 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index 0a33b339d7a3..0fe6d7ddd9cb 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -793,8 +793,8 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
+ 						  struct ib_udata *udata)
+ {
+ 	struct mlx5_ib_dev *dev = to_mdev(ibdev);
+-	struct mlx5_ib_alloc_ucontext_req_v2 req;
+-	struct mlx5_ib_alloc_ucontext_resp resp;
++	struct mlx5_ib_alloc_ucontext_req_v2 req = {};
++	struct mlx5_ib_alloc_ucontext_resp resp = {};
+ 	struct mlx5_ib_ucontext *context;
+ 	struct mlx5_uuar_info *uuari;
+ 	struct mlx5_uar *uars;
+@@ -809,20 +809,19 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
+ 	if (!dev->ib_active)
+ 		return ERR_PTR(-EAGAIN);
+ 
+-	memset(&req, 0, sizeof(req));
+ 	reqlen = udata->inlen - sizeof(struct ib_uverbs_cmd_hdr);
+ 	if (reqlen == sizeof(struct mlx5_ib_alloc_ucontext_req))
+ 		ver = 0;
+-	else if (reqlen == sizeof(struct mlx5_ib_alloc_ucontext_req_v2))
++	else if (reqlen >= sizeof(struct mlx5_ib_alloc_ucontext_req_v2))
+ 		ver = 2;
+ 	else
+ 		return ERR_PTR(-EINVAL);
+ 
+-	err = ib_copy_from_udata(&req, udata, reqlen);
++	err = ib_copy_from_udata(&req, udata, min(reqlen, sizeof(req)));
+ 	if (err)
+ 		return ERR_PTR(err);
+ 
+-	if (req.flags || req.reserved)
++	if (req.flags)
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	if (req.total_num_uuars > MLX5_MAX_UUARS)
+@@ -831,6 +830,14 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
+ 	if (req.total_num_uuars == 0)
+ 		return ERR_PTR(-EINVAL);
+ 
++	if (req.comp_mask)
++		return ERR_PTR(-EOPNOTSUPP);
++
++	if (reqlen > sizeof(req) &&
++	    !ib_is_udata_cleared(udata, sizeof(req),
++				 udata->inlen - sizeof(req)))
++		return ERR_PTR(-EOPNOTSUPP);
++
+ 	req.total_num_uuars = ALIGN(req.total_num_uuars,
+ 				    MLX5_NON_FP_BF_REGS_PER_PAGE);
+ 	if (req.num_low_latency_uuars > req.total_num_uuars - 1)
+@@ -846,6 +853,8 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
+ 	resp.max_send_wqebb = 1 << MLX5_CAP_GEN(dev->mdev, log_max_qp_sz);
+ 	resp.max_recv_wr = 1 << MLX5_CAP_GEN(dev->mdev, log_max_qp_sz);
+ 	resp.max_srq_recv_wr = 1 << MLX5_CAP_GEN(dev->mdev, log_max_srq_sz);
++	resp.response_length = min(offsetof(typeof(resp), response_length) +
++				   sizeof(resp.response_length), udata->outlen);
+ 
+ 	context = kzalloc(sizeof(*context), GFP_KERNEL);
+ 	if (!context)
+@@ -896,8 +905,20 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
+ 
+ 	resp.tot_uuars = req.total_num_uuars;
+ 	resp.num_ports = MLX5_CAP_GEN(dev->mdev, num_ports);
+-	err = ib_copy_to_udata(udata, &resp,
+-			       sizeof(resp) - sizeof(resp.reserved));
++
++	if (field_avail(typeof(resp), reserved2, udata->outlen))
++		resp.response_length += sizeof(resp.reserved2);
++
++	if (field_avail(typeof(resp), hca_core_clock_offset, udata->outlen)) {
++		resp.comp_mask |=
++			MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET;
++		resp.hca_core_clock_offset =
++			offsetof(struct mlx5_init_seg, internal_timer_h) %
++			PAGE_SIZE;
++		resp.response_length += sizeof(resp.hca_core_clock_offset);
++	}
++
++	err = ib_copy_to_udata(udata, &resp, resp.response_length);
+ 	if (err)
+ 		goto out_uars;
+ 
+diff --git a/drivers/infiniband/hw/mlx5/mlx5_ib.h b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+index b0deeb38175d..b2a66432b865 100644
+--- a/drivers/infiniband/hw/mlx5/mlx5_ib.h
++++ b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+@@ -55,6 +55,9 @@ pr_err("%s:%s:%d:(pid %d): " format, (dev)->ib_dev.name, __func__,	\
+ pr_warn("%s:%s:%d:(pid %d): " format, (dev)->ib_dev.name, __func__,	\
+ 	__LINE__, current->pid, ##arg)
+ 
++#define field_avail(type, fld, sz) (offsetof(type, fld) +		\
++				    sizeof(((type *)0)->fld) <= (sz))
++
+ enum {
+ 	MLX5_IB_MMAP_CMD_SHIFT	= 8,
+ 	MLX5_IB_MMAP_CMD_MASK	= 0xff,
+diff --git a/drivers/infiniband/hw/mlx5/user.h b/drivers/infiniband/hw/mlx5/user.h
+index 76fb7b927d37..e22a35f03238 100644
+--- a/drivers/infiniband/hw/mlx5/user.h
++++ b/drivers/infiniband/hw/mlx5/user.h
+@@ -66,7 +66,11 @@ struct mlx5_ib_alloc_ucontext_req_v2 {
+ 	__u32	total_num_uuars;
+ 	__u32	num_low_latency_uuars;
+ 	__u32	flags;
+-	__u32	reserved;
++	__u32	comp_mask;
++};
++
++enum mlx5_ib_alloc_ucontext_resp_mask {
++	MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET = 1UL << 0,
+ };
+ 
+ struct mlx5_ib_alloc_ucontext_resp {
+@@ -80,7 +84,11 @@ struct mlx5_ib_alloc_ucontext_resp {
+ 	__u32	max_recv_wr;
+ 	__u32	max_srq_recv_wr;
+ 	__u16	num_ports;
+-	__u16	reserved;
++	__u16	reserved1;
++	__u32	comp_mask;
++	__u32	response_length;
++	__u32	reserved2;
++	__u64	hca_core_clock_offset;
+ };
+ 
+ struct mlx5_ib_alloc_pd_resp {
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index a2256c0b49e4..a97effb8a294 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -477,7 +477,7 @@ struct mlx5_init_seg {
+ 	__be32			rsvd2[880];
+ 	__be32			internal_timer_h;
+ 	__be32			internal_timer_l;
+-	__be32			rsrv3[2];
++	__be32			rsvd3[2];
+ 	__be32			health_counter;
+ 	__be32			rsvd4[1019];
+ 	__be64			ieee1588_clk;
+-- 
+2.17.1
+

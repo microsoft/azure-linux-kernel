@@ -1,4 +1,4 @@
-From d7613519ff47ac3d17fcd7d2be7df0a65aa85af9 Mon Sep 17 00:00:00 2001
+From a524af90eac32e225d7816c21fc03927fa957be6 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Thu, 31 Aug 2017 16:16:12 -0700
 Subject: netvsc: cleanup datapath switch

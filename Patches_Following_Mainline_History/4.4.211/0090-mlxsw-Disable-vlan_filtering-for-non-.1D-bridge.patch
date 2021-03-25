@@ -1,0 +1,98 @@
+From 333f2862b79bb75fe1f7e90aa3423c70290309af Mon Sep 17 00:00:00 2001
+From: Elad Raz <eladr@mellanox.com>
+Date: Wed, 6 Jan 2016 13:01:10 +0100
+Subject: mlxsw: Disable vlan_filtering for non .1D bridge
+Reply-To: joseph.salisbury@microsoft.com
+
+When a port is bridged, the bridge must be vlan aware bridge (.1Q)
+or the bridging should be on top of VLAN interfaces (.1D bridge).
+
+Signed-off-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 26a4ea0f454c6714aeb2b1e295c1f8d76de94013)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../mellanox/mlxsw/spectrum_switchdev.c       | 21 +++++++++++++++++++
+ include/net/switchdev.h                       |  8 +++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 4a3d9277a253..789b219c97ca 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -305,6 +305,22 @@ static int mlxsw_sp_port_attr_br_ageing_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return mlxsw_sp_ageing_set(mlxsw_sp, ageing_time);
+ }
+ 
++static int mlxsw_sp_port_attr_br_vlan_set(struct mlxsw_sp_port *mlxsw_sp_port,
++					  struct switchdev_trans *trans,
++					  struct net_device *orig_dev,
++					  bool vlan_enabled)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++
++	/* SWITCHDEV_TRANS_PREPARE phase */
++	if ((!vlan_enabled) && (mlxsw_sp->master_bridge.dev == orig_dev)) {
++		netdev_err(mlxsw_sp_port->dev, "Bridge must be vlan-aware\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static int mlxsw_sp_port_attr_set(struct net_device *dev,
+ 				  const struct switchdev_attr *attr,
+ 				  struct switchdev_trans *trans)
+@@ -329,6 +345,11 @@ static int mlxsw_sp_port_attr_set(struct net_device *dev,
+ 		err = mlxsw_sp_port_attr_br_ageing_set(mlxsw_sp_port, trans,
+ 						       attr->u.ageing_time);
+ 		break;
++	case SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING:
++		err = mlxsw_sp_port_attr_br_vlan_set(mlxsw_sp_port, trans,
++						     attr->orig_dev,
++						     attr->u.vlan_filtering);
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 31d0e5143848..4070f3189701 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -46,10 +46,15 @@ enum switchdev_attr_id {
+ 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
+ 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+ 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
++	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS_SUPPORT,
++	SWITCHDEV_ATTR_ID_PORT_MROUTER,
+ 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
++	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
++	SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED,
+ };
+ 
+ struct switchdev_attr {
++	struct net_device *orig_dev;
+ 	enum switchdev_attr_id id;
+ 	u32 flags;
+ 	union {
+@@ -57,6 +62,8 @@ struct switchdev_attr {
+ 		u8 stp_state;				/* PORT_STP_STATE */
+ 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
+ 		u32 ageing_time;			/* BRIDGE_AGEING_TIME */
++		bool vlan_filtering;                    /* BRIDGE_VLAN_FILTERING */
++		bool mc_disabled;                       /* MC_DISABLED */
+ 	} u;
+ };
+ 
+@@ -65,6 +72,7 @@ enum switchdev_obj_id {
+ 	SWITCHDEV_OBJ_ID_PORT_VLAN,
+ 	SWITCHDEV_OBJ_ID_IPV4_FIB,
+ 	SWITCHDEV_OBJ_ID_PORT_FDB,
++	SWITCHDEV_OBJ_ID_PORT_MDB,
+ };
+ 
+ struct switchdev_obj {
+-- 
+2.17.1
+

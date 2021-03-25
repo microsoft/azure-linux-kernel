@@ -1,0 +1,389 @@
+From ddcb04629e5895ae35ded04d6d4d7cbee2f51dd7 Mon Sep 17 00:00:00 2001
+From: Tejun Heo <tj@kernel.org>
+Date: Tue, 8 Dec 2015 11:28:04 -0500
+Subject: workqueue: implement lockup detector
+Reply-To: joseph.salisbury@microsoft.com
+
+Workqueue stalls can happen from a variety of usage bugs such as
+missing WQ_MEM_RECLAIM flag or concurrency managed work item
+indefinitely staying RUNNING.  These stalls can be extremely difficult
+to hunt down because the usual warning mechanisms can't detect
+workqueue stalls and the internal state is pretty opaque.
+
+To alleviate the situation, this patch implements workqueue lockup
+detector.  It periodically monitors all worker_pools periodically and,
+if any pool failed to make forward progress longer than the threshold
+duration, triggers warning and dumps workqueue state as follows.
+
+ BUG: workqueue lockup - pool cpus=0 node=0 flags=0x0 nice=0 stuck for 31s!
+ Showing busy workqueues and worker pools:
+ workqueue events: flags=0x0
+   pwq 0: cpus=0 node=0 flags=0x0 nice=0 active=17/256
+     pending: monkey_wrench_fn, e1000_watchdog, cache_reap, vmstat_shepherd, release_one_tty, release_one_tty, release_one_tty, release_one_tty, release_one_tty, release_one_tty, release_one_tty, release_one_tty, release_one_tty, release_one_tty, release_one_tty, release_one_tty, cgroup_release_agent
+ workqueue events_power_efficient: flags=0x80
+   pwq 0: cpus=0 node=0 flags=0x0 nice=0 active=2/256
+     pending: check_lifetime, neigh_periodic_work
+ workqueue cgroup_pidlist_destroy: flags=0x0
+   pwq 0: cpus=0 node=0 flags=0x0 nice=0 active=1/1
+     pending: cgroup_pidlist_destroy_work_fn
+ ...
+
+The detection mechanism is controller through kernel parameter
+workqueue.watchdog_thresh and can be updated at runtime through the
+sysfs module parameter file.
+
+v2: Decoupled from softlockup control knobs.
+
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Acked-by: Don Zickus <dzickus@redhat.com>
+Cc: Ulrich Obergfell <uobergfe@redhat.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Chris Mason <clm@fb.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+(cherry picked from commit 82607adcf9cdf40fb7b5331269780c8f70ec6e35)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ Documentation/kernel-parameters.txt |   9 ++
+ include/linux/workqueue.h           |   6 +
+ kernel/watchdog.c                   |   3 +
+ kernel/workqueue.c                  | 174 +++++++++++++++++++++++++++-
+ lib/Kconfig.debug                   |  11 ++
+ 5 files changed, 200 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
+index da9acfb23383..ae6f82f746b7 100644
+--- a/Documentation/kernel-parameters.txt
++++ b/Documentation/kernel-parameters.txt
+@@ -4407,6 +4407,15 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
+ 			or other driver-specific files in the
+ 			Documentation/watchdog/ directory.
+ 
++	workqueue.watchdog_thresh=
++			If CONFIG_WQ_WATCHDOG is configured, workqueue can
++			warn stall conditions and dump internal state to
++			help debugging.  0 disables workqueue stall
++			detection; otherwise, it's the stall threshold
++			duration in seconds.  The default value is 30 and
++			it can be updated at runtime by writing to the
++			corresponding sysfs file.
++
+ 	workqueue.disable_numa
+ 			By default, all work items queued to unbound
+ 			workqueues are affine to the NUMA nodes they're
+diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
+index f63ce973b27b..0703a632e340 100644
+--- a/include/linux/workqueue.h
++++ b/include/linux/workqueue.h
+@@ -621,4 +621,10 @@ static inline int workqueue_sysfs_register(struct workqueue_struct *wq)
+ { return 0; }
+ #endif	/* CONFIG_SYSFS */
+ 
++#ifdef CONFIG_WQ_WATCHDOG
++void wq_watchdog_touch(int cpu);
++#else	/* CONFIG_WQ_WATCHDOG */
++static inline void wq_watchdog_touch(int cpu) { }
++#endif	/* CONFIG_WQ_WATCHDOG */
++
+ #endif
+diff --git a/kernel/watchdog.c b/kernel/watchdog.c
+index cf3ca3dcc3e5..a5c4f46022ce 100644
+--- a/kernel/watchdog.c
++++ b/kernel/watchdog.c
+@@ -20,6 +20,7 @@
+ #include <linux/smpboot.h>
+ #include <linux/sched/rt.h>
+ #include <linux/tick.h>
++#include <linux/workqueue.h>
+ 
+ #include <asm/irq_regs.h>
+ #include <linux/kvm_para.h>
+@@ -245,6 +246,7 @@ void touch_softlockup_watchdog_sched(void)
+ void touch_softlockup_watchdog(void)
+ {
+ 	touch_softlockup_watchdog_sched();
++	wq_watchdog_touch(raw_smp_processor_id());
+ }
+ EXPORT_SYMBOL(touch_softlockup_watchdog);
+ 
+@@ -259,6 +261,7 @@ void touch_all_softlockup_watchdogs(void)
+ 	 */
+ 	for_each_watchdog_cpu(cpu)
+ 		per_cpu(watchdog_touch_ts, cpu) = 0;
++	wq_watchdog_touch(-1);
+ }
+ 
+ #ifdef CONFIG_HARDLOCKUP_DETECTOR
+diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+index 0e0ea23266b2..fcdc8984394f 100644
+--- a/kernel/workqueue.c
++++ b/kernel/workqueue.c
+@@ -149,6 +149,8 @@ struct worker_pool {
+ 	int			id;		/* I: pool ID */
+ 	unsigned int		flags;		/* X: flags */
+ 
++	unsigned long		watchdog_ts;	/* L: watchdog timestamp */
++
+ 	struct list_head	worklist;	/* L: list of pending works */
+ 	int			nr_workers;	/* L: total number of workers */
+ 
+@@ -1123,6 +1125,8 @@ static void pwq_activate_delayed_work(struct work_struct *work)
+ 	struct pool_workqueue *pwq = get_work_pwq(work);
+ 
+ 	trace_workqueue_activate_work(work);
++	if (list_empty(&pwq->pool->worklist))
++		pwq->pool->watchdog_ts = jiffies;
+ 	move_linked_works(work, &pwq->pool->worklist, NULL);
+ 	__clear_bit(WORK_STRUCT_DELAYED_BIT, work_data_bits(work));
+ 	pwq->nr_active++;
+@@ -1425,6 +1429,8 @@ retry:
+ 		trace_workqueue_activate_work(work);
+ 		pwq->nr_active++;
+ 		worklist = &pwq->pool->worklist;
++		if (list_empty(worklist))
++			pwq->pool->watchdog_ts = jiffies;
+ 	} else {
+ 		work_flags |= WORK_STRUCT_DELAYED;
+ 		worklist = &pwq->delayed_works;
+@@ -2191,6 +2197,8 @@ recheck:
+ 			list_first_entry(&pool->worklist,
+ 					 struct work_struct, entry);
+ 
++		pool->watchdog_ts = jiffies;
++
+ 		if (likely(!(*work_data_bits(work) & WORK_STRUCT_LINKED))) {
+ 			/* optimization path, not strictly necessary */
+ 			process_one_work(worker, work);
+@@ -2274,6 +2282,7 @@ repeat:
+ 					struct pool_workqueue, mayday_node);
+ 		struct worker_pool *pool = pwq->pool;
+ 		struct work_struct *work, *n;
++		bool first = true;
+ 
+ 		__set_current_state(TASK_RUNNING);
+ 		list_del_init(&pwq->mayday_node);
+@@ -2290,9 +2299,14 @@ repeat:
+ 		 * process'em.
+ 		 */
+ 		WARN_ON_ONCE(!list_empty(scheduled));
+-		list_for_each_entry_safe(work, n, &pool->worklist, entry)
+-			if (get_work_pwq(work) == pwq)
++		list_for_each_entry_safe(work, n, &pool->worklist, entry) {
++			if (get_work_pwq(work) == pwq) {
++				if (first)
++					pool->watchdog_ts = jiffies;
+ 				move_linked_works(work, scheduled, &n);
++			}
++			first = false;
++		}
+ 
+ 		if (!list_empty(scheduled)) {
+ 			process_scheduled_works(rescuer);
+@@ -3144,6 +3158,7 @@ static int init_worker_pool(struct worker_pool *pool)
+ 	pool->cpu = -1;
+ 	pool->node = NUMA_NO_NODE;
+ 	pool->flags |= POOL_DISASSOCIATED;
++	pool->watchdog_ts = jiffies;
+ 	INIT_LIST_HEAD(&pool->worklist);
+ 	INIT_LIST_HEAD(&pool->idle_list);
+ 	hash_init(pool->busy_hash);
+@@ -4429,7 +4444,9 @@ void show_workqueue_state(void)
+ 
+ 		pr_info("pool %d:", pool->id);
+ 		pr_cont_pool_info(pool);
+-		pr_cont(" workers=%d", pool->nr_workers);
++		pr_cont(" hung=%us workers=%d",
++			jiffies_to_msecs(jiffies - pool->watchdog_ts) / 1000,
++			pool->nr_workers);
+ 		if (pool->manager)
+ 			pr_cont(" manager: %d",
+ 				task_pid_nr(pool->manager->task));
+@@ -5299,6 +5316,154 @@ static void workqueue_sysfs_unregister(struct workqueue_struct *wq)
+ static void workqueue_sysfs_unregister(struct workqueue_struct *wq)	{ }
+ #endif	/* CONFIG_SYSFS */
+ 
++/*
++ * Workqueue watchdog.
++ *
++ * Stall may be caused by various bugs - missing WQ_MEM_RECLAIM, illegal
++ * flush dependency, a concurrency managed work item which stays RUNNING
++ * indefinitely.  Workqueue stalls can be very difficult to debug as the
++ * usual warning mechanisms don't trigger and internal workqueue state is
++ * largely opaque.
++ *
++ * Workqueue watchdog monitors all worker pools periodically and dumps
++ * state if some pools failed to make forward progress for a while where
++ * forward progress is defined as the first item on ->worklist changing.
++ *
++ * This mechanism is controlled through the kernel parameter
++ * "workqueue.watchdog_thresh" which can be updated at runtime through the
++ * corresponding sysfs parameter file.
++ */
++#ifdef CONFIG_WQ_WATCHDOG
++
++static void wq_watchdog_timer_fn(unsigned long data);
++
++static unsigned long wq_watchdog_thresh = 30;
++static struct timer_list wq_watchdog_timer =
++	TIMER_DEFERRED_INITIALIZER(wq_watchdog_timer_fn, 0, 0);
++
++static unsigned long wq_watchdog_touched = INITIAL_JIFFIES;
++static DEFINE_PER_CPU(unsigned long, wq_watchdog_touched_cpu) = INITIAL_JIFFIES;
++
++static void wq_watchdog_reset_touched(void)
++{
++	int cpu;
++
++	wq_watchdog_touched = jiffies;
++	for_each_possible_cpu(cpu)
++		per_cpu(wq_watchdog_touched_cpu, cpu) = jiffies;
++}
++
++static void wq_watchdog_timer_fn(unsigned long data)
++{
++	unsigned long thresh = READ_ONCE(wq_watchdog_thresh) * HZ;
++	bool lockup_detected = false;
++	struct worker_pool *pool;
++	int pi;
++
++	if (!thresh)
++		return;
++
++	rcu_read_lock();
++
++	for_each_pool(pool, pi) {
++		unsigned long pool_ts, touched, ts;
++
++		if (list_empty(&pool->worklist))
++			continue;
++
++		/* get the latest of pool and touched timestamps */
++		pool_ts = READ_ONCE(pool->watchdog_ts);
++		touched = READ_ONCE(wq_watchdog_touched);
++
++		if (time_after(pool_ts, touched))
++			ts = pool_ts;
++		else
++			ts = touched;
++
++		if (pool->cpu >= 0) {
++			unsigned long cpu_touched =
++				READ_ONCE(per_cpu(wq_watchdog_touched_cpu,
++						  pool->cpu));
++			if (time_after(cpu_touched, ts))
++				ts = cpu_touched;
++		}
++
++		/* did we stall? */
++		if (time_after(jiffies, ts + thresh)) {
++			lockup_detected = true;
++			pr_emerg("BUG: workqueue lockup - pool");
++			pr_cont_pool_info(pool);
++			pr_cont(" stuck for %us!\n",
++				jiffies_to_msecs(jiffies - pool_ts) / 1000);
++		}
++	}
++
++	rcu_read_unlock();
++
++	if (lockup_detected)
++		show_workqueue_state();
++
++	wq_watchdog_reset_touched();
++	mod_timer(&wq_watchdog_timer, jiffies + thresh);
++}
++
++void wq_watchdog_touch(int cpu)
++{
++	if (cpu >= 0)
++		per_cpu(wq_watchdog_touched_cpu, cpu) = jiffies;
++	else
++		wq_watchdog_touched = jiffies;
++}
++
++static void wq_watchdog_set_thresh(unsigned long thresh)
++{
++	wq_watchdog_thresh = 0;
++	del_timer_sync(&wq_watchdog_timer);
++
++	if (thresh) {
++		wq_watchdog_thresh = thresh;
++		wq_watchdog_reset_touched();
++		mod_timer(&wq_watchdog_timer, jiffies + thresh * HZ);
++	}
++}
++
++static int wq_watchdog_param_set_thresh(const char *val,
++					const struct kernel_param *kp)
++{
++	unsigned long thresh;
++	int ret;
++
++	ret = kstrtoul(val, 0, &thresh);
++	if (ret)
++		return ret;
++
++	if (system_wq)
++		wq_watchdog_set_thresh(thresh);
++	else
++		wq_watchdog_thresh = thresh;
++
++	return 0;
++}
++
++static const struct kernel_param_ops wq_watchdog_thresh_ops = {
++	.set	= wq_watchdog_param_set_thresh,
++	.get	= param_get_ulong,
++};
++
++module_param_cb(watchdog_thresh, &wq_watchdog_thresh_ops, &wq_watchdog_thresh,
++		0644);
++
++static void wq_watchdog_init(void)
++{
++	wq_watchdog_set_thresh(wq_watchdog_thresh);
++}
++
++#else	/* CONFIG_WQ_WATCHDOG */
++
++static inline void wq_watchdog_init(void) { }
++
++#endif	/* CONFIG_WQ_WATCHDOG */
++
+ static void __init wq_numa_init(void)
+ {
+ 	cpumask_var_t *tbl;
+@@ -5422,6 +5587,9 @@ static int __init init_workqueues(void)
+ 	       !system_unbound_wq || !system_freezable_wq ||
+ 	       !system_power_efficient_wq ||
+ 	       !system_freezable_power_efficient_wq);
++
++	wq_watchdog_init();
++
+ 	return 0;
+ }
+ early_initcall(init_workqueues);
+diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+index 7b9d7328f189..e0366d047b5f 100644
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -812,6 +812,17 @@ config BOOTPARAM_HUNG_TASK_PANIC_VALUE
+ 	default 0 if !BOOTPARAM_HUNG_TASK_PANIC
+ 	default 1 if BOOTPARAM_HUNG_TASK_PANIC
+ 
++config WQ_WATCHDOG
++	bool "Detect Workqueue Stalls"
++	depends on DEBUG_KERNEL
++	help
++	  Say Y here to enable stall detection on workqueues.  If a
++	  worker pool doesn't make forward progress on a pending work
++	  item for over a given amount of time, 30s by default, a
++	  warning message is printed along with dump of workqueue
++	  state.  This can be configured through kernel parameter
++	  "workqueue.watchdog_thresh" and its sysfs counterpart.
++
+ endmenu # "Debug lockups and hangs"
+ 
+ config PANIC_ON_OOPS
+-- 
+2.17.1
+

@@ -1,0 +1,52 @@
+From 5bd1bd2eb9a8ce03990dcb5737d5b1fb293841d4 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Fri, 26 Feb 2016 17:32:28 +0100
+Subject: mlxsw: spectrum: Unmap local port from module during teardown
+Reply-To: joseph.salisbury@microsoft.com
+
+When splitting a port we replace it with 2 or 4 other ports. To be able
+to do that we need to remove the original port netdev and unmap it from
+its module. However, we first mark it as disabled, as active ports
+cannot be unmapped.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 3e9b27b8fc8b00c9edaaa5fd64636e6f2b331f43)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 3b3df0062ed1..d256b44eb623 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -320,6 +320,15 @@ static int mlxsw_sp_port_module_check(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return 0;
+ }
+ 
++static int mlxsw_sp_port_module_unmap(struct mlxsw_sp *mlxsw_sp, u8 local_port)
++{
++	char pmlp_pl[MLXSW_REG_PMLP_LEN];
++
++	mlxsw_reg_pmlp_pack(pmlp_pl, local_port);
++	mlxsw_reg_pmlp_width_set(pmlp_pl, 0);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(pmlp), pmlp_pl);
++}
++
+ static int mlxsw_sp_port_open(struct net_device *dev)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+@@ -1531,6 +1540,8 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 	devlink_port_unregister(devlink_port);
+ 	mlxsw_sp_port_vports_fini(mlxsw_sp_port);
+ 	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
++	mlxsw_sp_port_swid_set(mlxsw_sp_port, MLXSW_PORT_SWID_DISABLED_PORT);
++	mlxsw_sp_port_module_unmap(mlxsw_sp, mlxsw_sp_port->local_port);
+ 	free_percpu(mlxsw_sp_port->pcpu_stats);
+ 	kfree(mlxsw_sp_port->untagged_vlans);
+ 	kfree(mlxsw_sp_port->active_vlans);
+-- 
+2.17.1
+

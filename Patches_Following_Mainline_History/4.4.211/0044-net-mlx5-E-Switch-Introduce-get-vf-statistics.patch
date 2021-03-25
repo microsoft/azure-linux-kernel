@@ -1,0 +1,110 @@
+From 31325f31f8e867b2004e096f12f56d501fb06c8c Mon Sep 17 00:00:00 2001
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Tue, 1 Dec 2015 18:03:24 +0200
+Subject: net/mlx5: E-Switch, Introduce get vf statistics
+Reply-To: joseph.salisbury@microsoft.com
+
+Add support to get VF statistics using query vport
+counter command.
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 3b751a2a418aa58c5bd3b23bf97d169cc4c63819)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/eswitch.c | 67 +++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/eswitch.h |  3 +
+ 2 files changed, 70 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 8fb66c075014..d8939e597c54 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1213,3 +1213,70 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
+ 
+ 	return modify_esw_vport_cvlan(esw->dev, vport, vlan, qos, set);
+ }
++
++int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
++				 int vport,
++				 struct ifla_vf_stats *vf_stats)
++{
++	int outlen = MLX5_ST_SZ_BYTES(query_vport_counter_out);
++	u32 in[MLX5_ST_SZ_DW(query_vport_counter_in)];
++	int err = 0;
++	u32 *out;
++
++	if (!ESW_ALLOWED(esw))
++		return -EPERM;
++	if (!LEGAL_VPORT(esw, vport))
++		return -EINVAL;
++
++	out = mlx5_vzalloc(outlen);
++	if (!out)
++		return -ENOMEM;
++
++	memset(in, 0, sizeof(in));
++
++	MLX5_SET(query_vport_counter_in, in, opcode,
++		 MLX5_CMD_OP_QUERY_VPORT_COUNTER);
++	MLX5_SET(query_vport_counter_in, in, op_mod, 0);
++	MLX5_SET(query_vport_counter_in, in, vport_number, vport);
++	if (vport)
++		MLX5_SET(query_vport_counter_in, in, other_vport, 1);
++
++	memset(out, 0, outlen);
++	err = mlx5_cmd_exec(esw->dev, in, sizeof(in), out, outlen);
++	if (err)
++		goto free_out;
++
++	#define MLX5_GET_CTR(p, x) \
++		MLX5_GET64(query_vport_counter_out, p, x)
++
++	memset(vf_stats, 0, sizeof(*vf_stats));
++	vf_stats->rx_packets =
++		MLX5_GET_CTR(out, received_eth_unicast.packets) +
++		MLX5_GET_CTR(out, received_eth_multicast.packets) +
++		MLX5_GET_CTR(out, received_eth_broadcast.packets);
++
++	vf_stats->rx_bytes =
++		MLX5_GET_CTR(out, received_eth_unicast.octets) +
++		MLX5_GET_CTR(out, received_eth_multicast.octets) +
++		MLX5_GET_CTR(out, received_eth_broadcast.octets);
++
++	vf_stats->tx_packets =
++		MLX5_GET_CTR(out, transmitted_eth_unicast.packets) +
++		MLX5_GET_CTR(out, transmitted_eth_multicast.packets) +
++		MLX5_GET_CTR(out, transmitted_eth_broadcast.packets);
++
++	vf_stats->tx_bytes =
++		MLX5_GET_CTR(out, transmitted_eth_unicast.octets) +
++		MLX5_GET_CTR(out, transmitted_eth_multicast.octets) +
++		MLX5_GET_CTR(out, transmitted_eth_broadcast.octets);
++
++	vf_stats->multicast =
++		MLX5_GET_CTR(out, received_eth_multicast.packets);
++
++	vf_stats->broadcast =
++		MLX5_GET_CTR(out, received_eth_broadcast.packets);
++
++free_out:
++	kvfree(out);
++	return err;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index f85d5b86ef41..02ff3eade026 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -153,5 +153,8 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
+ 				int vport, u16 vlan, u8 qos);
+ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
+ 				  int vport, struct ifla_vf_info *ivi);
++int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
++				 int vport,
++				 struct ifla_vf_stats *vf_stats);
+ 
+ #endif /* __MLX5_ESWITCH_H__ */
+-- 
+2.17.1
+

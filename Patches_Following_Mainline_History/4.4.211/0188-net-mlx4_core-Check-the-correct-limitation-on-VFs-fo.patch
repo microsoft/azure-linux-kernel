@@ -1,0 +1,55 @@
+From 95f42370f8718a02ee564b7e2b03dd9aa8af2604 Mon Sep 17 00:00:00 2001
+From: Moni Shoua <monis@mellanox.com>
+Date: Wed, 2 Mar 2016 17:47:45 +0200
+Subject: net/mlx4_core: Check the correct limitation on VFs for HA mode
+Reply-To: joseph.salisbury@microsoft.com
+
+The limit of 63 is only for virtual functions while the actual enforcement
+was for VFs plus physical functions, fix that.
+
+Fixes: e57968a10bc1 ('net/mlx4_core: Support the HA mode for SRIOV VFs too')
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 00ada91039fc03100cb4fab41d04f9b30f27340f)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index c0b4d41b550d..f49602f4e458 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1254,6 +1254,7 @@ err_set_port:
+ static int mlx4_mf_bond(struct mlx4_dev *dev)
+ {
+ 	int err = 0;
++	int nvfs;
+ 	struct mlx4_slaves_pport slaves_port1;
+ 	struct mlx4_slaves_pport slaves_port2;
+ 	DECLARE_BITMAP(slaves_port_1_2, MLX4_MFUNC_MAX);
+@@ -1270,11 +1271,18 @@ static int mlx4_mf_bond(struct mlx4_dev *dev)
+ 		return -EINVAL;
+ 	}
+ 
++	/* number of virtual functions is number of total functions minus one
++	 * physical function for each port.
++	 */
++	nvfs = bitmap_weight(slaves_port1.slaves, dev->persist->num_vfs + 1) +
++		bitmap_weight(slaves_port2.slaves, dev->persist->num_vfs + 1) - 2;
++
+ 	/* limit on maximum allowed VFs */
+-	if ((bitmap_weight(slaves_port1.slaves, dev->persist->num_vfs + 1) +
+-	    bitmap_weight(slaves_port2.slaves, dev->persist->num_vfs + 1)) >
+-	    MAX_MF_BOND_ALLOWED_SLAVES)
++	if (nvfs > MAX_MF_BOND_ALLOWED_SLAVES) {
++		mlx4_warn(dev, "HA mode is not supported for %d VFs (max %d are allowed)\n",
++			  nvfs, MAX_MF_BOND_ALLOWED_SLAVES);
+ 		return -EINVAL;
++	}
+ 
+ 	if (dev->caps.steering_mode != MLX4_STEERING_MODE_DEVICE_MANAGED) {
+ 		mlx4_warn(dev, "HA mode unsupported for NON DMFS steering\n");
+-- 
+2.17.1
+

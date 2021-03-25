@@ -1,0 +1,36 @@
+From 5fde60f585bb02a9237f94b88a596ff74375f1f3 Mon Sep 17 00:00:00 2001
+From: Gal Pressman <galp@mellanox.com>
+Date: Wed, 2 Mar 2016 00:13:38 +0200
+Subject: net/mlx5e: Don't modify CQ before it was created
+Reply-To: joseph.salisbury@microsoft.com
+
+Calling mlx5e_set_coalesce while the interface is down will result in
+modifying CQs that don't exist.
+
+Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support ConnectX-4
+Ethernet functionality')
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 2fcb92fbd04eef26dfe7e67839da6262d83d6b65)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index c48a5463b9f0..52eb1b0ca7c8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -426,6 +426,7 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
+ 	if (!MLX5_CAP_GEN(mdev, cq_moderation))
+ 		return -ENOTSUPP;
+ 
++	mutex_lock(&priv->state_lock);
+ 	priv->params.tx_cq_moderation_usec = coal->tx_coalesce_usecs;
+ 	priv->params.tx_cq_moderation_pkts = coal->tx_max_coalesced_frames;
+ 	priv->params.rx_cq_moderation_usec = coal->rx_coalesce_usecs;
+-- 
+2.17.1
+

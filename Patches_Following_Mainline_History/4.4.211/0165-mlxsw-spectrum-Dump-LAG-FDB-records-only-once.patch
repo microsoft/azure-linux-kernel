@@ -1,0 +1,60 @@
+From fb447e4ebe21c530b7434537f9f10bb3f7cc448e Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Wed, 27 Jan 2016 15:20:24 +0100
+Subject: mlxsw: spectrum: Dump LAG FDB records only once
+Reply-To: joseph.salisbury@microsoft.com
+
+LAG FDB records can only point to LAG devices or VLAN devices configured
+on top of them. Therefore, when dumping the FDB we shouldn't associate
+these records with the underlying physical ports.
+
+Fixes: 8a1ab5d76639 ("mlxsw: spectrum: Implement FDB add/remove/dump for LAG")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 304f51584f4591789539c0d37fc359bc129a4ff0)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 7b9ace3be88d..4bd101ea0acc 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1054,7 +1054,8 @@ static struct mlxsw_sp_port *mlxsw_sp_lag_rep_port(struct mlxsw_sp *mlxsw_sp,
+ 
+ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				  struct switchdev_obj_port_fdb *fdb,
+-				  switchdev_obj_dump_cb_t *cb)
++				  switchdev_obj_dump_cb_t *cb,
++				  struct net_device *orig_dev)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	u16 vport_fid = 0;
+@@ -1120,6 +1121,12 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 							    mac, &fid, &lag_id);
+ 				if (mlxsw_sp_port ==
+ 				    mlxsw_sp_lag_rep_port(mlxsw_sp, lag_id)) {
++					/* LAG records can only point to LAG
++					 * devices or VLAN devices on top.
++					 */
++					if (!netif_is_lag_master(orig_dev) &&
++					    !is_vlan_dev(orig_dev))
++						continue;
+ 					if (vport_fid && vport_fid == fid)
+ 						fdb->vid = 0;
+ 					else if (!vport_fid &&
+@@ -1191,7 +1198,8 @@ static int mlxsw_sp_port_obj_dump(struct net_device *dev,
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_FDB:
+ 		err = mlxsw_sp_port_fdb_dump(mlxsw_sp_port,
+-					     SWITCHDEV_OBJ_PORT_FDB(obj), cb);
++					     SWITCHDEV_OBJ_PORT_FDB(obj), cb,
++					     obj->orig_dev);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+-- 
+2.17.1
+

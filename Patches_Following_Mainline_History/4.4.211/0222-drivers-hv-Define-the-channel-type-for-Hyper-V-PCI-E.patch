@@ -1,0 +1,65 @@
+From 39fb999a2424729f87d9263c9315a71c20556229 Mon Sep 17 00:00:00 2001
+From: Jake Oshins <jakeo@microsoft.com>
+Date: Mon, 14 Dec 2015 16:01:41 -0800
+Subject: drivers:hv: Define the channel type for Hyper-V PCI Express
+ pass-through
+Reply-To: joseph.salisbury@microsoft.com
+
+This defines the channel type for PCI front-ends in Hyper-V VMs.
+
+Signed-off-by: Jake Oshins <jakeo@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 3053c762444a83ec6a8777f9476668b23b8ab180)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel_mgmt.c |  3 +++
+ include/linux/hyperv.h    | 11 +++++++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index 37238dffd947..a562318b856b 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -359,6 +359,7 @@ enum {
+ 	SCSI,
+ 	NIC,
+ 	ND_NIC,
++	PCIE,
+ 	MAX_PERF_CHN,
+ };
+ 
+@@ -376,6 +377,8 @@ static const struct hv_vmbus_device_id hp_devs[] = {
+ 	{ HV_NIC_GUID, },
+ 	/* NetworkDirect Guest RDMA */
+ 	{ HV_ND_GUID, },
++	/* PCI Express Pass Through */
++	{ HV_PCIE_GUID, },
+ };
+ 
+ 
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 1080921773c9..551bd1ec42e2 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1160,6 +1160,17 @@ u64 hv_do_hypercall(u64 control, void *input, void *output);
+ 			0xab, 0x99, 0xbd, 0x1f, 0x1c, 0x86, 0xb5, 0x01 \
+ 		}
+ 
++/*
++ * PCI Express Pass Through
++ * {44C4F61D-4444-4400-9D52-802E27EDE19F}
++ */
++
++#define HV_PCIE_GUID \
++	.guid = { \
++			0x1D, 0xF6, 0xC4, 0x44, 0x44, 0x44, 0x00, 0x44, \
++			0x9D, 0x52, 0x80, 0x2E, 0x27, 0xED, 0xE1, 0x9F \
++		}
++
+ /*
+  * Common header for Hyper-V ICs
+  */
+-- 
+2.17.1
+

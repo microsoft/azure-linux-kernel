@@ -1,4 +1,4 @@
-From 3c061d51a67ea1494197cb2026d7668d23f1659f Mon Sep 17 00:00:00 2001
+From 50247d9e089b6e6b2b4c8b91d19e60326582b7f4 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:18 +0200
 Subject: hyper-v: Globalize vp_index

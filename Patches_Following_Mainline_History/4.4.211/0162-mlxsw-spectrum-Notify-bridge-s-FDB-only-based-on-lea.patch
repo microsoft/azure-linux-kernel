@@ -1,0 +1,68 @@
+From 80b75542a6724aabefbe8d60e6887aa0c9e5bf47 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Wed, 27 Jan 2016 15:20:21 +0100
+Subject: mlxsw: spectrum: Notify bridge's FDB only based on learning_sync
+Reply-To: joseph.salisbury@microsoft.com
+
+When we disable learning on bridge port we should still update the
+software bridge's FDB when entry pointing to this bridge port is
+aged-out. We can otherwise have an inconsistency between software and
+hardware tables.
+
+Fixes: 8a1ab5d76639 ("mlxsw: spectrum: Implement FDB add/remove/dump for LAG")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 45827d780aab533a777f965798018118b373cc0b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index b3dcacfd0eec..7a2afbd2b5f7 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1200,14 +1200,14 @@ static const struct switchdev_ops mlxsw_sp_port_switchdev_ops = {
+ 	.switchdev_port_obj_dump	= mlxsw_sp_port_obj_dump,
+ };
+ 
+-static void mlxsw_sp_fdb_call_notifiers(bool learning, bool learning_sync,
+-					bool adding, char *mac, u16 vid,
++static void mlxsw_sp_fdb_call_notifiers(bool learning_sync, bool adding,
++					char *mac, u16 vid,
+ 					struct net_device *dev)
+ {
+ 	struct switchdev_notifier_fdb_info info;
+ 	unsigned long notifier_type;
+ 
+-	if (learning && learning_sync) {
++	if (learning_sync) {
+ 		info.addr = mac;
+ 		info.vid = vid;
+ 		notifier_type = adding ? SWITCHDEV_FDB_ADD : SWITCHDEV_FDB_DEL;
+@@ -1263,8 +1263,7 @@ do_fdb_op:
+ 
+ 	if (!do_notification)
+ 		return;
+-	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning,
+-				    mlxsw_sp_port->learning_sync,
++	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning_sync,
+ 				    adding, mac, vid, mlxsw_sp_port->dev);
+ 	return;
+ 
+@@ -1325,9 +1324,8 @@ do_fdb_op:
+ 
+ 	if (!do_notification)
+ 		return;
+-	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning,
+-				    mlxsw_sp_port->learning_sync,
+-				    adding, mac, vid,
++	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning_sync, adding, mac,
++				    vid,
+ 				    mlxsw_sp_lag_get(mlxsw_sp, lag_id)->dev);
+ 	return;
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,96 @@
+From d378ef16a1e790e737cb3113b6feed04a1f71aa1 Mon Sep 17 00:00:00 2001
+From: "majd@mellanox.com" <majd@mellanox.com>
+Date: Thu, 14 Jan 2016 19:13:02 +0200
+Subject: IB/mlx5: Allocate a Transport Domain for each ucontext
+Reply-To: joseph.salisbury@microsoft.com
+
+Transport Domain groups several TIS and TIR object. By grouping
+these object, it defines wheather local loopback packets that
+are sent from the TIS objects in the group are received by the
+TIR objects in the same group.
+
+Allocate a Transport Domain(TD) for each user context to be used
+in the future by Raw Packet QP for Self-Loopback Control.
+
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 146d2f1af3245a10b13eef263687e54f4e253d1d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/main.c    | 16 +++++++++++++++-
+ drivers/infiniband/hw/mlx5/mlx5_ib.h |  3 +++
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index 6b84adff52af..c4c738f275cf 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -900,6 +900,13 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
+ 	context->ibucontext.invalidate_range = &mlx5_ib_invalidate_range;
+ #endif
+ 
++	if (MLX5_CAP_GEN(dev->mdev, log_max_transport_domain)) {
++		err = mlx5_core_alloc_transport_domain(dev->mdev,
++						       &context->tdn);
++		if (err)
++			goto out_uars;
++	}
++
+ 	INIT_LIST_HEAD(&context->db_page_list);
+ 	mutex_init(&context->db_page_mutex);
+ 
+@@ -920,7 +927,7 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
+ 
+ 	err = ib_copy_to_udata(udata, &resp, resp.response_length);
+ 	if (err)
+-		goto out_uars;
++		goto out_td;
+ 
+ 	uuari->ver = ver;
+ 	uuari->num_low_latency_uuars = req.num_low_latency_uuars;
+@@ -928,6 +935,10 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
+ 	uuari->num_uars = num_uars;
+ 	return &context->ibucontext;
+ 
++out_td:
++	if (MLX5_CAP_GEN(dev->mdev, log_max_transport_domain))
++		mlx5_core_dealloc_transport_domain(dev->mdev, context->tdn);
++
+ out_uars:
+ 	for (i--; i >= 0; i--)
+ 		mlx5_cmd_free_uar(dev->mdev, uars[i].index);
+@@ -952,6 +963,9 @@ static int mlx5_ib_dealloc_ucontext(struct ib_ucontext *ibcontext)
+ 	struct mlx5_uuar_info *uuari = &context->uuari;
+ 	int i;
+ 
++	if (MLX5_CAP_GEN(dev->mdev, log_max_transport_domain))
++		mlx5_core_dealloc_transport_domain(dev->mdev, context->tdn);
++
+ 	for (i = 0; i < uuari->num_uars; i++) {
+ 		if (mlx5_cmd_free_uar(dev->mdev, uuari->uars[i].index))
+ 			mlx5_ib_warn(dev, "failed to free UAR 0x%x\n", uuari->uars[i].index);
+diff --git a/drivers/infiniband/hw/mlx5/mlx5_ib.h b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+index 78830ae22e2f..6d928154dfde 100644
+--- a/drivers/infiniband/hw/mlx5/mlx5_ib.h
++++ b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+@@ -42,6 +42,7 @@
+ #include <linux/mlx5/qp.h>
+ #include <linux/mlx5/srq.h>
+ #include <linux/types.h>
++#include <linux/mlx5/transobj.h>
+ 
+ #define mlx5_ib_dbg(dev, format, arg...)				\
+ pr_debug("%s:%s:%d:(pid %d): " format, (dev)->ib_dev.name, __func__,	\
+@@ -113,6 +114,8 @@ struct mlx5_ib_ucontext {
+ 	struct mutex		db_page_mutex;
+ 	struct mlx5_uuar_info	uuari;
+ 	u8			cqe_version;
++	/* Transport Domain number */
++	u32			tdn;
+ };
+ 
+ static inline struct mlx5_ib_ucontext *to_mucontext(struct ib_ucontext *ibucontext)
+-- 
+2.17.1
+

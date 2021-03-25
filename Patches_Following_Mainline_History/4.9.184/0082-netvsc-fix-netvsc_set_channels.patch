@@ -1,4 +1,4 @@
-From 5456af0018e1d8cb55995257e649c4510237f80d Mon Sep 17 00:00:00 2001
+From 0e19fad48aff460b93210d636af94eabdaed535e Mon Sep 17 00:00:00 2001
 From: stephen hemminger <stephen@networkplumber.org>
 Date: Mon, 24 Jul 2017 10:57:28 -0700
 Subject: netvsc: fix netvsc_set_channels

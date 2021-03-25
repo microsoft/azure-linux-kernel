@@ -1,4 +1,4 @@
-From db2ed4f9c582cee38ebb2b4f525797a37d438015 Mon Sep 17 00:00:00 2001
+From a28d8a620e4beadcee7ad9bb3089c0bd6958036f Mon Sep 17 00:00:00 2001
 From: Jork Loeser <jloeser@microsoft.com>
 Date: Wed, 24 May 2017 13:41:27 -0700
 Subject: PCI: hv: Add vPCI version protocol negotiation

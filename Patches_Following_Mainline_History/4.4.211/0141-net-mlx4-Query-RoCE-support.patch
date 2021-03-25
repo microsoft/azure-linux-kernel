@@ -1,0 +1,132 @@
+From 597390d4f9760007f781443c4e4967bb4b853f5c Mon Sep 17 00:00:00 2001
+From: Moni Shoua <monis@mellanox.com>
+Date: Thu, 14 Jan 2016 17:50:32 +0200
+Subject: net/mlx4: Query RoCE support
+Reply-To: joseph.salisbury@microsoft.com
+
+Query the RoCE support from firmware using the appropriate firmware
+commands. Downstream patches will read these capabilities and act
+accordingly.
+
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit d8ae914196d35bbc0c459aec6de588ba585a1c3e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/fw.c | 23 +++++++++++++++++++++++
+ include/linux/mlx4/device.h             | 10 +++++++---
+ 2 files changed, 30 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 88d3e35653b0..8f93e6e0cde4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -157,6 +157,7 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
+ 		[29] = "802.1ad offload support",
+ 		[31] = "Modifying loopback source checks using UPDATE_QP support",
+ 		[32] = "Loopback source checks support",
++		[33] = "RoCEv2 support"
+ 	};
+ 	int i;
+ 
+@@ -626,6 +627,8 @@ out:
+ 	return err;
+ }
+ 
++static void disable_unsupported_roce_caps(void *buf);
++
+ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ {
+ 	struct mlx4_cmd_mailbox *mailbox;
+@@ -738,6 +741,8 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	if (err)
+ 		goto out;
+ 
++	if (mlx4_is_mfunc(dev))
++		disable_unsupported_roce_caps(outbox);
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_RSVD_QP_OFFSET);
+ 	dev_cap->reserved_qps = 1 << (field & 0xf);
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_MAX_QP_OFFSET);
+@@ -905,6 +910,8 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_EQE_STRIDE;
+ 	MLX4_GET(dev_cap->bmme_flags, outbox,
+ 		 QUERY_DEV_CAP_BMME_FLAGS_OFFSET);
++	if (dev_cap->bmme_flags & MLX4_FLAG_ROCE_V1_V2)
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_ROCE_V1_V2;
+ 	if (dev_cap->bmme_flags & MLX4_FLAG_PORT_REMAP)
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_PORT_REMAP;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_CONFIG_DEV_OFFSET);
+@@ -1161,6 +1168,7 @@ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 	if (err)
+ 		return err;
+ 
++	disable_unsupported_roce_caps(outbox->buf);
+ 	/* add port mng change event capability and disable mw type 1
+ 	 * unconditionally to slaves
+ 	 */
+@@ -1258,6 +1266,21 @@ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 	return 0;
+ }
+ 
++static void disable_unsupported_roce_caps(void *buf)
++{
++	u32 flags;
++
++	MLX4_GET(flags, buf, QUERY_DEV_CAP_EXT_FLAGS_OFFSET);
++	flags &= ~(1UL << 31);
++	MLX4_PUT(buf, flags, QUERY_DEV_CAP_EXT_FLAGS_OFFSET);
++	MLX4_GET(flags, buf, QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET);
++	flags &= ~(1UL << 24);
++	MLX4_PUT(buf, flags, QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET);
++	MLX4_GET(flags, buf, QUERY_DEV_CAP_BMME_FLAGS_OFFSET);
++	flags &= ~(MLX4_FLAG_ROCE_V1_V2);
++	MLX4_PUT(buf, flags, QUERY_DEV_CAP_BMME_FLAGS_OFFSET);
++}
++
+ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 			    struct mlx4_vhcr *vhcr,
+ 			    struct mlx4_cmd_mailbox *inbox,
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 7fde8af9b87e..6ae524a9fb3a 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -216,6 +216,7 @@ enum {
+ 	MLX4_DEV_CAP_FLAG2_SKIP_OUTER_VLAN	= 1LL <<  30,
+ 	MLX4_DEV_CAP_FLAG2_UPDATE_QP_SRC_CHECK_LB = 1ULL << 31,
+ 	MLX4_DEV_CAP_FLAG2_LB_SRC_CHK           = 1ULL << 32,
++	MLX4_DEV_CAP_FLAG2_ROCE_V1_V2		= 1ULL <<  33,
+ };
+ 
+ enum {
+@@ -267,12 +268,14 @@ enum {
+ 	MLX4_BMME_FLAG_TYPE_2_WIN	= 1 <<  9,
+ 	MLX4_BMME_FLAG_RESERVED_LKEY	= 1 << 10,
+ 	MLX4_BMME_FLAG_FAST_REG_WR	= 1 << 11,
++	MLX4_BMME_FLAG_ROCE_V1_V2	= 1 << 19,
+ 	MLX4_BMME_FLAG_PORT_REMAP	= 1 << 24,
+ 	MLX4_BMME_FLAG_VSD_INIT2RTR	= 1 << 28,
+ };
+ 
+ enum {
+-	MLX4_FLAG_PORT_REMAP		= MLX4_BMME_FLAG_PORT_REMAP
++	MLX4_FLAG_PORT_REMAP		= MLX4_BMME_FLAG_PORT_REMAP,
++	MLX4_FLAG_ROCE_V1_V2		= MLX4_BMME_FLAG_ROCE_V1_V2
+ };
+ 
+ enum mlx4_event {
+@@ -985,9 +988,10 @@ struct mlx4_mad_ifc {
+ 		if (((dev)->caps.port_mask[port] != MLX4_PORT_TYPE_IB))
+ 
+ #define mlx4_foreach_ib_transport_port(port, dev)                         \
+-	for ((port) = 1; (port) <= (dev)->caps.num_ports; (port)++)	  \
++	for ((port) = 1; (port) <= (dev)->caps.num_ports; (port)++)       \
+ 		if (((dev)->caps.port_mask[port] == MLX4_PORT_TYPE_IB) || \
+-			((dev)->caps.flags & MLX4_DEV_CAP_FLAG_IBOE))
++			((dev)->caps.flags & MLX4_DEV_CAP_FLAG_IBOE) || \
++			((dev)->caps.flags2 & MLX4_DEV_CAP_FLAG2_ROCE_V1_V2))
+ 
+ #define MLX4_INVALID_SLAVE_ID	0xFF
+ #define MLX4_SINK_COUNTER_INDEX(dev)	(dev->caps.max_counters - 1)
+-- 
+2.17.1
+

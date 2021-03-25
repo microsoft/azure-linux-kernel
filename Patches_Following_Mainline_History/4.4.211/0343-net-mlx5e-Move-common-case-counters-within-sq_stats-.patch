@@ -1,0 +1,60 @@
+From 9b818d5f02d646ca90d0e5f7c29edd00a9476bae Mon Sep 17 00:00:00 2001
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Wed, 2 Mar 2016 00:13:35 +0200
+Subject: net/mlx5e: Move common case counters within sq_stats struct
+Reply-To: joseph.salisbury@microsoft.com
+
+For data cache locality considerations, we moved the nop and
+csum_offload_inner within sq_stats struct as they are more
+commonly accessed in xmit path.
+
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit c89fb18b657b07d6c98810182057f844e71d3eee)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index d7802f4384d3..ddf1be038130 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -263,27 +263,29 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"tso_bytes",
+ 	"tso_inner_packets",
+ 	"tso_inner_bytes",
+-	"csum_offload_none",
+ 	"csum_offload_inner",
++	"nop",
++	"csum_offload_none",
+ 	"stopped",
+ 	"wake",
+ 	"dropped",
+-	"nop"
+ };
+ 
+ struct mlx5e_sq_stats {
++	/* commonly accessed in data path */
+ 	u64 packets;
+ 	u64 bytes;
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
+ 	u64 tso_inner_packets;
+ 	u64 tso_inner_bytes;
+-	u64 csum_offload_none;
+ 	u64 csum_offload_inner;
++	u64 nop;
++	/* less likely accessed in data path */
++	u64 csum_offload_none;
+ 	u64 stopped;
+ 	u64 wake;
+ 	u64 dropped;
+-	u64 nop;
+ #define NUM_SQ_STATS 11
+ };
+ 
+-- 
+2.17.1
+

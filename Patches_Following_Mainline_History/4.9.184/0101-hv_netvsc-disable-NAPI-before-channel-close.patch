@@ -1,4 +1,4 @@
-From fe9c2581c027565e9aecab3e8e50e7c63b0a02d1 Mon Sep 17 00:00:00 2001
+From c26fa95532acffe7912230a34483a708f1525eae Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Tue, 20 Mar 2018 15:03:02 -0700
 Subject: hv_netvsc: disable NAPI before channel close

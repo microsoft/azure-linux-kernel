@@ -1,0 +1,126 @@
+From b60b8a2ad3e2d0062ebbc8a692682fb3ea66ac47 Mon Sep 17 00:00:00 2001
+From: Jake Oshins <jakeo@microsoft.com>
+Date: Tue, 5 Apr 2016 10:22:56 -0700
+Subject: drivers:hv: Separate out frame buffer logic when picking MMIO range
+Reply-To: joseph.salisbury@microsoft.com
+
+Simplify the logic that picks MMIO ranges by pulling out the
+logic related to trying to lay frame buffer claim on top of where
+the firmware placed the frame buffer.
+
+Signed-off-by: Jake Oshins <jakeo@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit ea37a6b8a0b9fbe3f85b4b9da3206c28f1de6f8e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/vmbus_drv.c | 80 ++++++++++++++++++------------------------
+ 1 file changed, 35 insertions(+), 45 deletions(-)
+
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index a4e13775a81a..77668cb256ec 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -1221,64 +1221,54 @@ int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
+ 			bool fb_overlap_ok)
+ {
+ 	struct resource *iter, *shadow;
+-	resource_size_t range_min, range_max, start, local_min, local_max;
++	resource_size_t range_min, range_max, start;
+ 	const char *dev_n = dev_name(&device_obj->device);
+-	u32 fb_end = screen_info.lfb_base + (screen_info.lfb_size << 1);
+-	int i, retval;
++	int retval;
+ 
+ 	retval = -ENXIO;
+ 	down(&hyperv_mmio_lock);
+ 
++	/*
++	 * If overlaps with frame buffers are allowed, then first attempt to
++	 * make the allocation from within the reserved region.  Because it
++	 * is already reserved, no shadow allocation is necessary.
++	 */
++	if (fb_overlap_ok && fb_mmio && !(min > fb_mmio->end) &&
++	    !(max < fb_mmio->start)) {
++
++		range_min = fb_mmio->start;
++		range_max = fb_mmio->end;
++		start = (range_min + align - 1) & ~(align - 1);
++		for (; start + size - 1 <= range_max; start += align) {
++			*new = request_mem_region_exclusive(start, size, dev_n);
++			if (*new) {
++				retval = 0;
++				goto exit;
++			}
++		}
++	}
++
+ 	for (iter = hyperv_mmio; iter; iter = iter->sibling) {
+ 		if ((iter->start >= max) || (iter->end <= min))
+ 			continue;
+ 
+ 		range_min = iter->start;
+ 		range_max = iter->end;
+-
+-		/* If this range overlaps the frame buffer, split it into
+-		   two tries. */
+-		for (i = 0; i < 2; i++) {
+-			local_min = range_min;
+-			local_max = range_max;
+-			if (fb_overlap_ok || (range_min >= fb_end) ||
+-			    (range_max <= screen_info.lfb_base)) {
+-				i++;
+-			} else {
+-				if ((range_min <= screen_info.lfb_base) &&
+-				    (range_max >= screen_info.lfb_base)) {
+-					/*
+-					 * The frame buffer is in this window,
+-					 * so trim this into the part that
+-					 * preceeds the frame buffer.
+-					 */
+-					local_max = screen_info.lfb_base - 1;
+-					range_min = fb_end;
+-				} else {
+-					range_min = fb_end;
+-					continue;
+-				}
++		start = (range_min + align - 1) & ~(align - 1);
++		for (; start + size - 1 <= range_max; start += align) {
++			shadow = __request_region(iter, start, size, NULL,
++						  IORESOURCE_BUSY);
++			if (!shadow)
++				continue;
++
++			*new = request_mem_region_exclusive(start, size, dev_n);
++			if (*new) {
++				shadow->name = (char *)*new;
++				retval = 0;
++				goto exit;
+ 			}
+ 
+-			start = (local_min + align - 1) & ~(align - 1);
+-			for (; start + size - 1 <= local_max; start += align) {
+-				shadow = __request_region(iter, start,
+-							  size,
+-							  NULL,
+-							  IORESOURCE_BUSY);
+-				if (!shadow)
+-					continue;
+-
+-				*new = request_mem_region_exclusive(start, size,
+-								    dev_n);
+-				if (*new) {
+-					shadow->name = (char *)*new;
+-					retval = 0;
+-					goto exit;
+-				}
+-
+-				__release_region(iter, start, size);
+-			}
++			__release_region(iter, start, size);
+ 		}
+ 	}
+ 
+-- 
+2.17.1
+

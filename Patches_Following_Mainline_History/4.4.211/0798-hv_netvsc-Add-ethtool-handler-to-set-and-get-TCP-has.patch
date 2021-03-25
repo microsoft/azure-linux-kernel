@@ -1,0 +1,81 @@
+From e5af68bc9b92f0ff4387c1ead68b77c3c821b573 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 6 Oct 2017 08:33:58 -0700
+Subject: hv_netvsc: Add ethtool handler to set and get TCP hash levels
+Reply-To: joseph.salisbury@microsoft.com
+
+The patch supports the options to switch TCP hash level between
+L3 and L4 by ethtool command. TCP over IPv4 and v6 can be set
+differently. The default hash level is L4. We currently only
+allow switching TX hash level from within the guests.
+
+For example, for TCP over IPv4 on eth0:
+To include TCP port numbers in hashing:
+	ethtool -N eth0 rx-flow-hash tcp4 sdfn
+To exclude TCP port numbers in hashing:
+	ethtool -N eth0 rx-flow-hash tcp4 sd
+To show TCP hash level:
+	ethtool -n eth0 rx-flow-hash tcp4
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 0518ec4f9d8804a9b3ab4306b4b10828f35f715b)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 25 ++++++++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index f70e6b174217..7ff311c43bb4 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1239,8 +1239,15 @@ netvsc_get_rss_hash_opts(struct net_device_context *ndc,
+ 
+ 	switch (info->flow_type) {
+ 	case TCP_V4_FLOW:
++		if (ndc->l4_hash & HV_TCP4_L4HASH)
++			info->data |= l4_flag;
++
++		break;
++
+ 	case TCP_V6_FLOW:
+-		info->data |= l4_flag;
++		if (ndc->l4_hash & HV_TCP6_L4HASH)
++			info->data |= l4_flag;
++
+ 		break;
+ 
+ 	case UDP_V4_FLOW:
+@@ -1293,6 +1300,14 @@ static int netvsc_set_rss_hash_opts(struct net_device_context *ndc,
+ 	if (info->data == (RXH_IP_SRC | RXH_IP_DST |
+ 			   RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+ 		switch (info->flow_type) {
++		case TCP_V4_FLOW:
++			ndc->l4_hash |= HV_TCP4_L4HASH;
++			break;
++
++		case TCP_V6_FLOW:
++			ndc->l4_hash |= HV_TCP6_L4HASH;
++			break;
++
+ 		case UDP_V4_FLOW:
+ 			ndc->l4_hash |= HV_UDP4_L4HASH;
+ 			break;
+@@ -1310,6 +1325,14 @@ static int netvsc_set_rss_hash_opts(struct net_device_context *ndc,
+ 
+ 	if (info->data == (RXH_IP_SRC | RXH_IP_DST)) {
+ 		switch (info->flow_type) {
++		case TCP_V4_FLOW:
++			ndc->l4_hash &= ~HV_TCP4_L4HASH;
++			break;
++
++		case TCP_V6_FLOW:
++			ndc->l4_hash &= ~HV_TCP6_L4HASH;
++			break;
++
+ 		case UDP_V4_FLOW:
+ 			ndc->l4_hash &= ~HV_UDP4_L4HASH;
+ 			break;
+-- 
+2.17.1
+

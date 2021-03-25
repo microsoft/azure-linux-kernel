@@ -1,0 +1,57 @@
+From b8a2608d0b50fbdd0cdfd10f53d5f7dae51cfc38 Mon Sep 17 00:00:00 2001
+From: Maor Gottlieb <maorg@mellanox.com>
+Date: Fri, 17 Jun 2016 15:14:51 +0300
+Subject: IB/mlx5: Enable flow steering for IPv6 traffic
+Reply-To: joseph.salisbury@microsoft.com
+
+Enable flow steering for IPv6 traffic by using an IPv6 spec.
+
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 026bae0cb428102228d110780d90e6ae44bbe4c7)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/main.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index b61b9d0103ce..8ae759771ff2 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -1399,6 +1399,32 @@ static int parse_flow_attr(u32 *match_c, u32 *match_v,
+ 		       &ib_spec->ipv4.val.dst_ip,
+ 		       sizeof(ib_spec->ipv4.val.dst_ip));
+ 		break;
++	case IB_FLOW_SPEC_IPV6:
++		if (ib_spec->size != sizeof(ib_spec->ipv6))
++			return -EINVAL;
++
++		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c,
++			 ethertype, 0xffff);
++		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v,
++			 ethertype, ETH_P_IPV6);
++
++		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_c,
++				    src_ipv4_src_ipv6.ipv6_layout.ipv6),
++		       &ib_spec->ipv6.mask.src_ip,
++		       sizeof(ib_spec->ipv6.mask.src_ip));
++		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_v,
++				    src_ipv4_src_ipv6.ipv6_layout.ipv6),
++		       &ib_spec->ipv6.val.src_ip,
++		       sizeof(ib_spec->ipv6.val.src_ip));
++		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_c,
++				    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
++		       &ib_spec->ipv6.mask.dst_ip,
++		       sizeof(ib_spec->ipv6.mask.dst_ip));
++		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_v,
++				    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
++		       &ib_spec->ipv6.val.dst_ip,
++		       sizeof(ib_spec->ipv6.val.dst_ip));
++		break;
+ 	case IB_FLOW_SPEC_TCP:
+ 		if (ib_spec->size != sizeof(ib_spec->tcp_udp))
+ 			return -EINVAL;
+-- 
+2.17.1
+

@@ -1,0 +1,134 @@
+From beb8fec91a6421da243a6be36ae2bd4e7c34baff Mon Sep 17 00:00:00 2001
+From: Achiad Shochat <achiad@mellanox.com>
+Date: Wed, 23 Dec 2015 18:47:19 +0200
+Subject: net/mlx5_core: Introduce access functions to enable/disable RoCE
+Reply-To: joseph.salisbury@microsoft.com
+
+A mlx5 Ethernet port must be explicitly enabled for RoCE.
+When RoCE is not enabled on the port, the NIC will refuse to create
+QPs attached to it and incoming RoCE packets will be considered by the
+NIC as plain Ethernet packets.
+
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit 0de60af649533ad8d9aaeab1df710e6a728d45ea)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/vport.c   | 62 +++++++++++++++++--
+ include/linux/mlx5/vport.h                    |  3 +
+ 2 files changed, 59 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 02843b554ae5..0213509398fd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -119,6 +119,17 @@ static int mlx5_query_nic_vport_context(struct mlx5_core_dev *mdev, u32 *out,
+ 	return mlx5_cmd_exec_check_status(mdev, in, sizeof(in), out, outlen);
+ }
+ 
++static int mlx5_modify_nic_vport_context(struct mlx5_core_dev *mdev, void *in,
++					 int inlen)
++{
++	u32 out[MLX5_ST_SZ_DW(modify_nic_vport_context_out)];
++
++	MLX5_SET(modify_nic_vport_context_in, in, opcode,
++		 MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT);
++
++	return mlx5_cmd_exec_check_status(mdev, in, inlen, out, sizeof(out));
++}
++
+ void mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev, u8 *addr)
+ {
+ 	u32 *out;
+@@ -607,7 +618,7 @@ int mlx5_query_nic_vport_promisc(struct mlx5_core_dev *mdev,
+ 				 int *promisc_mc,
+ 				 int *promisc_all)
+ {
+-	u32 *out;
++u32 *out;
+ 	int outlen = MLX5_ST_SZ_BYTES(query_nic_vport_context_out);
+ 	int err;
+ 
+@@ -624,7 +635,7 @@ int mlx5_query_nic_vport_promisc(struct mlx5_core_dev *mdev,
+ 	*promisc_mc = MLX5_GET(query_nic_vport_context_out, out,
+ 			       nic_vport_context.promisc_mc);
+ 	*promisc_all = MLX5_GET(query_nic_vport_context_out, out,
+-				nic_vport_context.promisc_all);
++			        nic_vport_context.promisc_all);
+ 
+ out:
+ 	kfree(out);
+@@ -641,11 +652,9 @@ int mlx5_modify_nic_vport_promisc(struct mlx5_core_dev *mdev,
+ 	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
+ 	int err;
+ 
+-	in = mlx5_vzalloc(inlen);
+-	if (!in) {
+-		mlx5_core_err(mdev, "failed to allocate inbox\n");
++	in = kvzalloc(inlen, GFP_KERNEL);
++	if (!in)
+ 		return -ENOMEM;
+-	}
+ 
+ 	MLX5_SET(modify_nic_vport_context_in, in, field_select.promisc, 1);
+ 	MLX5_SET(modify_nic_vport_context_in, in,
+@@ -662,3 +671,44 @@ int mlx5_modify_nic_vport_promisc(struct mlx5_core_dev *mdev,
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(mlx5_modify_nic_vport_promisc);
++
++enum mlx5_vport_roce_state {
++	MLX5_VPORT_ROCE_DISABLED = 0,
++	MLX5_VPORT_ROCE_ENABLED  = 1,
++};
++
++static int mlx5_nic_vport_update_roce_state(struct mlx5_core_dev *mdev,
++					    enum mlx5_vport_roce_state state)
++{
++	void *in;
++	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
++	int err;
++
++	in = mlx5_vzalloc(inlen);
++	if (!in) {
++		mlx5_core_warn(mdev, "failed to allocate inbox\n");
++		return -ENOMEM;
++	}
++
++	MLX5_SET(modify_nic_vport_context_in, in, field_select.roce_en, 1);
++	MLX5_SET(modify_nic_vport_context_in, in, nic_vport_context.roce_en,
++		 state);
++
++	err = mlx5_modify_nic_vport_context(mdev, in, inlen);
++
++	kvfree(in);
++
++	return err;
++}
++
++int mlx5_nic_vport_enable_roce(struct mlx5_core_dev *mdev)
++{
++	return mlx5_nic_vport_update_roce_state(mdev, MLX5_VPORT_ROCE_ENABLED);
++}
++EXPORT_SYMBOL_GPL(mlx5_nic_vport_enable_roce);
++
++int mlx5_nic_vport_disable_roce(struct mlx5_core_dev *mdev)
++{
++	return mlx5_nic_vport_update_roce_state(mdev, MLX5_VPORT_ROCE_DISABLED);
++}
++EXPORT_SYMBOL_GPL(mlx5_nic_vport_disable_roce);
+diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
+index 638f2ca7a527..6290fd347fa7 100644
+--- a/include/linux/mlx5/vport.h
++++ b/include/linux/mlx5/vport.h
+@@ -85,4 +85,7 @@ int mlx5_modify_nic_vport_vlans(struct mlx5_core_dev *dev,
+ 				u16 vlans[],
+ 				int list_size);
+ 
++int mlx5_nic_vport_enable_roce(struct mlx5_core_dev *mdev);
++int mlx5_nic_vport_disable_roce(struct mlx5_core_dev *mdev);
++
+ #endif /* __MLX5_VPORT_H__ */
+-- 
+2.17.1
+

@@ -1,0 +1,161 @@
+From 643d0e808fe2bbce5326f4bb9fbc4d99218336c9 Mon Sep 17 00:00:00 2001
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Fri, 8 Apr 2016 14:40:15 +0200
+Subject: cpu/hotplug: Fix rollback during error-out in __cpu_disable()
+Reply-To: joseph.salisbury@microsoft.com
+
+The recent introduction of the hotplug thread which invokes the callbacks on
+the plugged cpu, cased the following regression:
+
+If takedown_cpu() fails, then we run into several issues:
+
+ 1) The rollback of the target cpu states is not invoked. That leaves the smp
+    threads and the hotplug thread in disabled state.
+
+ 2) notify_online() is executed due to a missing skip_onerr flag. That causes
+    that both CPU_DOWN_FAILED and CPU_ONLINE notifications are invoked which
+    confuses quite some notifiers.
+
+ 3) The CPU_DOWN_FAILED notification is not invoked on the target CPU. That's
+    not an issue per se, but it is inconsistent and in consequence blocks the
+    patches which rely on these states being invoked on the target CPU and not
+    on the controlling cpu. It also does not preserve the strict call order on
+    rollback which is problematic for the ongoing state machine conversion as
+    well.
+
+To fix this we add a rollback flag to the remote callback machinery and invoke
+the rollback including the CPU_DOWN_FAILED notification on the remote
+cpu. Further mark the notify online state with 'skip_onerr' so we don't get a
+double invokation.
+
+This workaround will go away once we moved the unplug invocation to the target
+cpu itself.
+
+[ tglx: Massaged changelog and moved the CPU_DOWN_FAILED notifiaction to the
+  	target cpu ]
+
+Fixes: 4cb28ced23c4 ("cpu/hotplug: Create hotplug threads")
+Reported-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Cc: linux-s390@vger.kernel.org
+Cc: rt@linutronix.de
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Link: http://lkml.kernel.org/r/20160408124015.GA21960@linutronix.de
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+(cherry picked from commit 3b9d6da67e11ca8f78fde887918983523a36b0fa)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ kernel/cpu.c | 39 ++++++++++++++++++++++++++-------------
+ 1 file changed, 26 insertions(+), 13 deletions(-)
+
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index e7abf689a64d..ae3e4a613185 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -37,6 +37,7 @@
+  * @target:	The target state
+  * @thread:	Pointer to the hotplug thread
+  * @should_run:	Thread should execute
++ * @rollback:	Perform a rollback
+  * @cb_stat:	The state for a single callback (install/uninstall)
+  * @cb:		Single callback function (install/uninstall)
+  * @result:	Result of the operation
+@@ -48,6 +49,7 @@ struct cpuhp_cpu_state {
+ #ifdef CONFIG_SMP
+ 	struct task_struct	*thread;
+ 	bool			should_run;
++	bool			rollback;
+ 	enum cpuhp_state	cb_state;
+ 	int			(*cb)(unsigned int cpu);
+ 	int			result;
+@@ -315,6 +317,11 @@ static int cpu_notify(unsigned long val, unsigned int cpu)
+ 	return __cpu_notify(val, cpu, -1, NULL);
+ }
+ 
++static void cpu_notify_nofail(unsigned long val, unsigned int cpu)
++{
++	BUG_ON(cpu_notify(val, cpu));
++}
++
+ /* Notifier wrappers for transitioning to state machine */
+ static int notify_prepare(unsigned int cpu)
+ {
+@@ -491,6 +498,16 @@ static void cpuhp_thread_fun(unsigned int cpu)
+ 		} else {
+ 			ret = cpuhp_invoke_callback(cpu, st->cb_state, st->cb);
+ 		}
++	} else if (st->rollback) {
++		BUG_ON(st->state < CPUHP_AP_ONLINE_IDLE);
++
++		undo_cpu_down(cpu, st, cpuhp_ap_states);
++		/*
++		 * This is a momentary workaround to keep the notifier users
++		 * happy. Will go away once we got rid of the notifiers.
++		 */
++		cpu_notify_nofail(CPU_DOWN_FAILED, cpu);
++		st->rollback = false;
+ 	} else {
+ 		/* Cannot happen .... */
+ 		BUG_ON(st->state < CPUHP_AP_ONLINE_IDLE);
+@@ -585,12 +602,6 @@ void __unregister_cpu_notifier(struct notifier_block *nb)
+ }
+ EXPORT_SYMBOL(__unregister_cpu_notifier);
+ 
+-#ifdef CONFIG_HOTPLUG_CPU
+-static void cpu_notify_nofail(unsigned long val, void *v)
+-{
+-	BUG_ON(cpu_notify(val, v));
+-}
+-
+ /**
+  * clear_tasks_mm_cpumask - Safely clear tasks' mm_cpumask for a CPU
+  * @cpu: a CPU id
+@@ -656,11 +667,6 @@ static inline void check_for_tasks(int dead_cpu)
+ 	read_unlock(&tasklist_lock);
+ }
+ 
+-static void cpu_notify_nofail(unsigned long val, unsigned int cpu)
+-{
+-	BUG_ON(cpu_notify(val, cpu));
+-}
+-
+ static int notify_down_prepare(unsigned int cpu)
+ {
+ 	int err, nr_calls = 0;
+@@ -741,9 +747,10 @@ static int takedown_cpu(unsigned int cpu)
+ 	 */
+ 	err = stop_machine(take_cpu_down, NULL, cpumask_of(cpu));
+ 	if (err) {
+-		/* CPU didn't die: tell everyone.  Can't complain. */
+-		cpu_notify_nofail(CPU_DOWN_FAILED, cpu);
++		/* CPU refused to die */
+ 		irq_unlock_sparse();
++		/* Unpark the hotplug thread so we can rollback there */
++		kthread_unpark(per_cpu_ptr(&cpuhp_state, cpu)->thread);
+ 		return err;
+ 	}
+ 	BUG_ON(cpu_online(cpu));
+@@ -839,6 +846,11 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
+ 	 * to do the further cleanups.
+ 	 */
+ 	ret = cpuhp_down_callbacks(cpu, st, cpuhp_bp_states, target);
++	if (ret && st->state > CPUHP_TEARDOWN_CPU && st->state < prev_state) {
++		st->target = prev_state;
++		st->rollback = true;
++		cpuhp_kick_ap_work(cpu);
++	}
+ 
+ 	hasdied = prev_state != st->state && st->state == CPUHP_OFFLINE;
+ out:
+@@ -1220,6 +1232,7 @@ static struct cpuhp_step cpuhp_ap_states[] = {
+ 		.name			= "notify:online",
+ 		.startup		= notify_online,
+ 		.teardown		= notify_down_prepare,
++		.skip_onerr		= true,
+ 	},
+ #endif
+ 	[CPUHP_ONLINE] = {
+-- 
+2.17.1
+

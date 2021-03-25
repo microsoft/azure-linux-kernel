@@ -1,0 +1,38 @@
+From b6f9ec837316e3647f3f363727d8190f220eb60f Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 27 Mar 2018 11:28:48 -0700
+Subject: hv_netvsc: enable multicast if necessary
+Reply-To: joseph.salisbury@microsoft.com
+
+My recent change to netvsc drive in how receive flags are handled
+broke multicast.  The Hyper-v/Azure virtual interface there is not a
+multicast filter list, filtering is only all or none. The driver must
+enable all multicast if any multicast address is present.
+
+Fixes: 009f766ca238 ("hv_netvsc: filter multicast/broadcast")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit f03dbb06dc380274e351ca4b1ee1587ed4529e62)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/rndis_filter.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 20c3d73434a5..9963c7480a1d 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -872,8 +872,8 @@ static void rndis_set_multicast(struct work_struct *w)
+ 	if (flags & IFF_PROMISC) {
+ 		filter = NDIS_PACKET_TYPE_PROMISCUOUS;
+ 	} else {
+-		if (flags & IFF_ALLMULTI)
+-			flags |= NDIS_PACKET_TYPE_ALL_MULTICAST;
++		if (!netdev_mc_empty(rdev->ndev) || (flags & IFF_ALLMULTI))
++			filter |= NDIS_PACKET_TYPE_ALL_MULTICAST;
+ 		if (flags & IFF_BROADCAST)
+ 			flags |= NDIS_PACKET_TYPE_BROADCAST;
+ 	}
+-- 
+2.17.1
+

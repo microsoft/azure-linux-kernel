@@ -1,4 +1,4 @@
-From 14b934d841b27488ba2f2757ecb186e41d854022 Mon Sep 17 00:00:00 2001
+From 751928c8940d6903c20180dddf9fc48e00ef1d4d Mon Sep 17 00:00:00 2001
 From: Dexuan Cui <decui@microsoft.com>
 Date: Thu, 30 Aug 2018 05:42:13 +0000
 Subject: hv_netvsc: Fix a deadlock by getting rtnl lock earlier in
@@ -88,10 +88,10 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  1 file changed, 10 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 0b4b3a90cab1..fb9b48028d7d 100644
+index c1cd123802e2..70ab6ebd171d 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -2079,6 +2079,16 @@ static int netvsc_probe(struct hv_device *dev,
+@@ -2081,6 +2081,16 @@ static int netvsc_probe(struct hv_device *dev,
  
  	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
  
@@ -108,7 +108,7 @@ index 0b4b3a90cab1..fb9b48028d7d 100644
  	if (nvdev->num_chn > 1)
  		schedule_work(&nvdev->subchan_work);
  
-@@ -2097,7 +2107,6 @@ static int netvsc_probe(struct hv_device *dev,
+@@ -2099,7 +2109,6 @@ static int netvsc_probe(struct hv_device *dev,
  	else
  		net->max_mtu = ETH_DATA_LEN;
  

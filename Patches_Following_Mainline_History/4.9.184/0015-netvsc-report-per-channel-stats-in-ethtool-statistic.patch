@@ -1,4 +1,4 @@
-From 9306a34e86077f43fb902d27ec0cc60761ec1f9e Mon Sep 17 00:00:00 2001
+From c26f587b553e385b94d316f06f970db67bf5f010 Mon Sep 17 00:00:00 2001
 From: Simon Xiao <sixiao@microsoft.com>
 Date: Tue, 24 Jan 2017 13:06:13 -0800
 Subject: netvsc: report per-channel stats in ethtool statistics

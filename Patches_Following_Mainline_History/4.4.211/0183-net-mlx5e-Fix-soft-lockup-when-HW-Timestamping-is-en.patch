@@ -1,0 +1,117 @@
+From 21b642fe682808e56aca99fd24c9fb6df983b80c Mon Sep 17 00:00:00 2001
+From: Eran Ben Elisha <eranbe@mellanox.com>
+Date: Mon, 29 Feb 2016 21:17:11 +0200
+Subject: net/mlx5e: Fix soft lockup when HW Timestamping is enabled
+Reply-To: joseph.salisbury@microsoft.com
+
+Readers/Writers lock for SW timecounter was acquired without disabling
+interrupts on local CPU.
+
+The problematic scenario:
+* HW timestamping is enabled
+* Timestamp overflow periodic service task is running on local CPU and
+  holding write_lock for SW timecounter
+* Completion arrives, triggers interrupt for local CPU.
+  Interrupt routine calls napi_schedule(), which triggers rx/tx
+  skb process.
+  An attempt to read SW timecounter using read_lock is done, which is
+  already locked by a writer on the same CPU and cause soft lockup.
+
+Add irqsave/irqrestore for when using the readers/writers lock for
+writing.
+
+Fixes: ef9814deafd0 ('net/mlx5e: Add HW timestamping (TS) support')
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 0ad9b20415a461332611666301e7812900a15ad4)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../ethernet/mellanox/mlx5/core/en_clock.c    | 25 +++++++++++--------
+ 1 file changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+index be6543570b2b..2018eebe1531 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+@@ -62,10 +62,11 @@ static void mlx5e_timestamp_overflow(struct work_struct *work)
+ 	struct delayed_work *dwork = to_delayed_work(work);
+ 	struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp,
+ 						   overflow_work);
++	unsigned long flags;
+ 
+-	write_lock(&tstamp->lock);
++	write_lock_irqsave(&tstamp->lock, flags);
+ 	timecounter_read(&tstamp->clock);
+-	write_unlock(&tstamp->lock);
++	write_unlock_irqrestore(&tstamp->lock, flags);
+ 	schedule_delayed_work(&tstamp->overflow_work, tstamp->overflow_period);
+ }
+ 
+@@ -136,10 +137,11 @@ static int mlx5e_ptp_settime(struct ptp_clock_info *ptp,
+ 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
+ 						   ptp_info);
+ 	u64 ns = timespec64_to_ns(ts);
++	unsigned long flags;
+ 
+-	write_lock(&tstamp->lock);
++	write_lock_irqsave(&tstamp->lock, flags);
+ 	timecounter_init(&tstamp->clock, &tstamp->cycles, ns);
+-	write_unlock(&tstamp->lock);
++	write_unlock_irqrestore(&tstamp->lock, flags);
+ 
+ 	return 0;
+ }
+@@ -150,10 +152,11 @@ static int mlx5e_ptp_gettime(struct ptp_clock_info *ptp,
+ 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
+ 						   ptp_info);
+ 	u64 ns;
++	unsigned long flags;
+ 
+-	write_lock(&tstamp->lock);
++	write_lock_irqsave(&tstamp->lock, flags);
+ 	ns = timecounter_read(&tstamp->clock);
+-	write_unlock(&tstamp->lock);
++	write_unlock_irqrestore(&tstamp->lock, flags);
+ 
+ 	*ts = ns_to_timespec64(ns);
+ 
+@@ -164,10 +167,11 @@ static int mlx5e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ {
+ 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
+ 						   ptp_info);
++	unsigned long flags;
+ 
+-	write_lock(&tstamp->lock);
++	write_lock_irqsave(&tstamp->lock, flags);
+ 	timecounter_adjtime(&tstamp->clock, delta);
+-	write_unlock(&tstamp->lock);
++	write_unlock_irqrestore(&tstamp->lock, flags);
+ 
+ 	return 0;
+ }
+@@ -176,6 +180,7 @@ static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
+ {
+ 	u64 adj;
+ 	u32 diff;
++	unsigned long flags;
+ 	int neg_adj = 0;
+ 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
+ 						  ptp_info);
+@@ -189,11 +194,11 @@ static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
+ 	adj *= delta;
+ 	diff = div_u64(adj, 1000000000ULL);
+ 
+-	write_lock(&tstamp->lock);
++	write_lock_irqsave(&tstamp->lock, flags);
+ 	timecounter_read(&tstamp->clock);
+ 	tstamp->cycles.mult = neg_adj ? tstamp->nominal_c_mult - diff :
+ 					tstamp->nominal_c_mult + diff;
+-	write_unlock(&tstamp->lock);
++	write_unlock_irqrestore(&tstamp->lock, flags);
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+

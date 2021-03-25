@@ -1,0 +1,62 @@
+From d6511eeb5344f9e2d53647f8bbe3196111ae081c Mon Sep 17 00:00:00 2001
+From: Leon Romanovsky <leonro@mellanox.com>
+Date: Tue, 29 Dec 2015 17:01:30 +0200
+Subject: IB/mlx5: Unify CQ create flags check
+Reply-To: joseph.salisbury@microsoft.com
+
+The create_cq() can receive creation flags which were used
+differently by two commits which added create_cq extended
+command and cross-channel. The merged code caused to not
+accept any flags at all.
+
+This patch unifies the check into one function and one return
+error code.
+
+Fixes: 972ecb821379 ("IB/mlx5: Add create_cq extended command")
+Fixes: 051f263098a9 ("IB/mlx5: Add driver cross-channel support")
+Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit 34356f64ac0df2326fa50e2d4bca6f7c03ed16c1)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/cq.c      | 7 +++----
+ drivers/infiniband/hw/mlx5/mlx5_ib.h | 3 ++-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/cq.c b/drivers/infiniband/hw/mlx5/cq.c
+index d495f8cdd454..40262fa93a4f 100644
+--- a/drivers/infiniband/hw/mlx5/cq.c
++++ b/drivers/infiniband/hw/mlx5/cq.c
+@@ -774,12 +774,11 @@ struct ib_cq *mlx5_ib_create_cq(struct ib_device *ibdev,
+ 	int eqn;
+ 	int err;
+ 
+-	if (attr->flags)
++	if (entries < 0)
+ 		return ERR_PTR(-EINVAL);
+ 
+-	if (entries < 0 ||
+-	    (entries > (1 << MLX5_CAP_GEN(dev->mdev, log_max_cq_sz))))
+-		return ERR_PTR(-EINVAL);
++	if (check_cq_create_flags(attr->flags))
++		return ERR_PTR(-EOPNOTSUPP);
+ 
+ 	entries = roundup_pow_of_two(entries + 1);
+ 	if (entries > (1 << MLX5_CAP_GEN(dev->mdev, log_max_cq_sz)))
+diff --git a/drivers/infiniband/hw/mlx5/mlx5_ib.h b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+index 0bdff06d1041..8b0c1a85e28d 100644
+--- a/drivers/infiniband/hw/mlx5/mlx5_ib.h
++++ b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+@@ -738,7 +738,8 @@ static inline u32 check_cq_create_flags(u32 flags)
+ 	 * It returns non-zero value for unsupported CQ
+ 	 * create flags, otherwise it returns zero.
+ 	 */
+-	return (flags & ~IB_CQ_FLAGS_IGNORE_OVERRUN);
++	return (flags & ~(IB_CQ_FLAGS_IGNORE_OVERRUN |
++			  IB_CQ_FLAGS_TIMESTAMP_COMPLETION));
+ }
+ 
+ static inline int verify_assign_uidx(u8 cqe_version, u32 cmd_uidx,
+-- 
+2.17.1
+

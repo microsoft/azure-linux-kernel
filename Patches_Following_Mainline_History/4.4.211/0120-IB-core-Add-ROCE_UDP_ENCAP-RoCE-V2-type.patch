@@ -1,0 +1,111 @@
+From 0c4c2c10a9b2e4081e5d5a6fbc41f9c2a072efa2 Mon Sep 17 00:00:00 2001
+From: Matan Barak <matanb@mellanox.com>
+Date: Wed, 23 Dec 2015 14:56:50 +0200
+Subject: IB/core: Add ROCE_UDP_ENCAP (RoCE V2) type
+Reply-To: joseph.salisbury@microsoft.com
+
+Adding RoCE v2 GID type and port type. Vendors
+which support this type will get their GID table
+populated with RoCE v2 GIDs automatically.
+
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 7766a99fdcd30c78fc8299db9102e3624232007c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/core/cache.c         |  1 +
+ drivers/infiniband/core/roce_gid_mgmt.c |  3 ++-
+ include/rdma/ib_verbs.h                 | 23 +++++++++++++++++++++--
+ 3 files changed, 24 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/infiniband/core/cache.c b/drivers/infiniband/core/cache.c
+index 06e47e197fde..4a2968b1cf56 100644
+--- a/drivers/infiniband/core/cache.c
++++ b/drivers/infiniband/core/cache.c
+@@ -128,6 +128,7 @@ static void dispatch_gid_change_event(struct ib_device *ib_dev, u8 port)
+ 
+ static const char * const gid_type_str[] = {
+ 	[IB_GID_TYPE_IB]	= "IB/RoCE v1",
++	[IB_GID_TYPE_ROCE_UDP_ENCAP]	= "RoCE v2",
+ };
+ 
+ const char *ib_cache_gid_type_str(enum ib_gid_type gid_type)
+diff --git a/drivers/infiniband/core/roce_gid_mgmt.c b/drivers/infiniband/core/roce_gid_mgmt.c
+index 61c27a704e77..1e3673f31dad 100644
+--- a/drivers/infiniband/core/roce_gid_mgmt.c
++++ b/drivers/infiniband/core/roce_gid_mgmt.c
+@@ -71,7 +71,8 @@ static const struct {
+ 	bool (*is_supported)(const struct ib_device *device, u8 port_num);
+ 	enum ib_gid_type gid_type;
+ } PORT_CAP_TO_GID_TYPE[] = {
+-	{rdma_protocol_roce,   IB_GID_TYPE_ROCE},
++	{rdma_protocol_roce_eth_encap, IB_GID_TYPE_ROCE},
++	{rdma_protocol_roce_udp_encap, IB_GID_TYPE_ROCE_UDP_ENCAP},
+ };
+ 
+ #define CAP_TO_GID_TABLE_SIZE	ARRAY_SIZE(PORT_CAP_TO_GID_TYPE)
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index f06e037a7dfc..aa5cd1da8395 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -73,6 +73,7 @@ enum ib_gid_type {
+ 	/* If link layer is Ethernet, this is RoCE V1 */
+ 	IB_GID_TYPE_IB        = 0,
+ 	IB_GID_TYPE_ROCE      = 0,
++	IB_GID_TYPE_ROCE_UDP_ENCAP = 1,
+ 	IB_GID_TYPE_SIZE
+ };
+ 
+@@ -403,6 +404,7 @@ union rdma_protocol_stats {
+ #define RDMA_CORE_CAP_PROT_IB           0x00100000
+ #define RDMA_CORE_CAP_PROT_ROCE         0x00200000
+ #define RDMA_CORE_CAP_PROT_IWARP        0x00400000
++#define RDMA_CORE_CAP_PROT_ROCE_UDP_ENCAP 0x00800000
+ 
+ #define RDMA_CORE_PORT_IBA_IB          (RDMA_CORE_CAP_PROT_IB  \
+ 					| RDMA_CORE_CAP_IB_MAD \
+@@ -415,6 +417,12 @@ union rdma_protocol_stats {
+ 					| RDMA_CORE_CAP_IB_CM   \
+ 					| RDMA_CORE_CAP_AF_IB   \
+ 					| RDMA_CORE_CAP_ETH_AH)
++#define RDMA_CORE_PORT_IBA_ROCE_UDP_ENCAP			\
++					(RDMA_CORE_CAP_PROT_ROCE_UDP_ENCAP \
++					| RDMA_CORE_CAP_IB_MAD  \
++					| RDMA_CORE_CAP_IB_CM   \
++					| RDMA_CORE_CAP_AF_IB   \
++					| RDMA_CORE_CAP_ETH_AH)
+ #define RDMA_CORE_PORT_IWARP           (RDMA_CORE_CAP_PROT_IWARP \
+ 					| RDMA_CORE_CAP_IW_CM)
+ #define RDMA_CORE_PORT_INTEL_OPA       (RDMA_CORE_PORT_IBA_IB  \
+@@ -2002,6 +2010,17 @@ static inline bool rdma_protocol_ib(const struct ib_device *device, u8 port_num)
+ }
+ 
+ static inline bool rdma_protocol_roce(const struct ib_device *device, u8 port_num)
++{
++	return device->port_immutable[port_num].core_cap_flags &
++		(RDMA_CORE_CAP_PROT_ROCE | RDMA_CORE_CAP_PROT_ROCE_UDP_ENCAP);
++}
++
++static inline bool rdma_protocol_roce_udp_encap(const struct ib_device *device, u8 port_num)
++{
++	return device->port_immutable[port_num].core_cap_flags & RDMA_CORE_CAP_PROT_ROCE_UDP_ENCAP;
++}
++
++static inline bool rdma_protocol_roce_eth_encap(const struct ib_device *device, u8 port_num)
+ {
+ 	return device->port_immutable[port_num].core_cap_flags & RDMA_CORE_CAP_PROT_ROCE;
+ }
+@@ -2013,8 +2032,8 @@ static inline bool rdma_protocol_iwarp(const struct ib_device *device, u8 port_n
+ 
+ static inline bool rdma_ib_or_roce(const struct ib_device *device, u8 port_num)
+ {
+-	return device->port_immutable[port_num].core_cap_flags &
+-		(RDMA_CORE_CAP_PROT_IB | RDMA_CORE_CAP_PROT_ROCE);
++	return rdma_protocol_ib(device, port_num) ||
++		rdma_protocol_roce(device, port_num);
+ }
+ 
+ /**
+-- 
+2.17.1
+

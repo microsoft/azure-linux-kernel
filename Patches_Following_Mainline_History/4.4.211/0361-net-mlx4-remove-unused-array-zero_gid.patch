@@ -1,0 +1,32 @@
+From b354fc81c9cb375efe11de28b1df960681364f35 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Sun, 20 Mar 2016 17:44:56 +0000
+Subject: net/mlx4: remove unused array zero_gid[]
+Reply-To: joseph.salisbury@microsoft.com
+
+zero_gid is not used, so remove this redundant array.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 5a779c4feda5d52e0f19e48af71b75dd1032a5b8)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/mcg.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index 0e05adcd72d8..536240b1f5a6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -40,8 +40,6 @@
+ 
+ #include "mlx4.h"
+ 
+-static const u8 zero_gid[16];	/* automatically initialized to 0 */
+-
+ int mlx4_get_mgm_entry_size(struct mlx4_dev *dev)
+ {
+ 	return 1 << dev->oper_log_mgm_entry_size;
+-- 
+2.17.1
+

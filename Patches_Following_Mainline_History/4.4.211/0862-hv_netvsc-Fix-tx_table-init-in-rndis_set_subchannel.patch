@@ -1,0 +1,103 @@
+From d9c1a78e04726de8545c4bcea0e8893ec3dd8e01 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Wed, 11 Dec 2019 14:26:27 -0800
+Subject: hv_netvsc: Fix tx_table init in rndis_set_subchannel()
+Reply-To: joseph.salisbury@microsoft.com
+
+Host can provide send indirection table messages anytime after RSS is
+enabled by calling rndis_filter_set_rss_param(). So the host provided
+table values may be overwritten by the initialization in
+rndis_set_subchannel().
+
+To prevent this problem, move the tx_table initialization before calling
+rndis_filter_set_rss_param().
+
+Fixes: a6fb6aa3cfa9 ("hv_netvsc: Set tx_table to equal weight after subchannels open")
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+(backported from commit c39ea5cba5a2e97fc01b78c85208bf31383b399c)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   | 2 +-
+ drivers/net/hyperv/netvsc.c       | 2 +-
+ drivers/net/hyperv/netvsc_drv.c   | 4 ++--
+ drivers/net/hyperv/rndis_filter.c | 8 ++++----
+ 4 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 1463455fd8d3..0d3519a051c4 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -763,7 +763,7 @@ struct net_device_context {
+ 
+ 	u32 tx_checksum_mask;
+ 
+-	u32 tx_send_table[VRSS_SEND_TAB_SIZE];
++	u32 tx_table[VRSS_SEND_TAB_SIZE];
+ 
+ 	/* Ethtool settings */
+ 	u8 duplex;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 1b1ae8993bf3..10a222b75540 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1212,7 +1212,7 @@ static void netvsc_send_table(struct net_device *ndev,
+ 	tab = (void *)nvmsg + offset;
+ 
+ 	for (i = 0; i < count; i++)
+-		net_device_ctx->tx_send_table[i] = tab[i];
++		net_device_ctx->tx_table[i] = tab[i];
+ }
+ 
+ static void netvsc_send_vf(struct net_device *ndev,
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index e9433e0e528e..48ab2db4f19a 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -130,7 +130,7 @@ static int netvsc_open(struct net_device *net)
+ 	}
+ 
+ 	rdev = nvdev->extension;
+-	if (!rdev->link_state)
++	if (!rdev->link_state) {
+ 		netif_carrier_on(net);
+ 		netvsc_tx_enable(nvdev, net);
+ 	}
+@@ -306,7 +306,7 @@ static inline int netvsc_get_tx_queue(struct net_device *ndev,
+ 	struct sock *sk = skb->sk;
+ 	int q_idx;
+ 
+-	q_idx = ndc->tx_send_table[netvsc_get_hash(skb, ndc) &
++	q_idx = ndc->tx_table[netvsc_get_hash(skb, ndc) &
+ 				   (VRSS_SEND_TAB_SIZE - 1)];
+ 
+ 	/* If queue index changed record the new value */
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 1fe3c583b742..20c3d73434a5 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1113,7 +1113,10 @@ int rndis_set_subchannel(struct net_device *ndev,
+ 	wait_event(nvdev->subchan_open,
+ 		   atomic_read(&nvdev->open_chn) == nvdev->num_chn);
+ 
+-	/* ignore failues from setting rss parameters, still have channels */
++	for (i = 0; i < VRSS_SEND_TAB_SIZE; i++)
++		ndev_ctx->tx_table[i] = i % nvdev->num_chn;
++
++	/* ignore failures from setting rss parameters, still have channels */
+ 	if (dev_info)
+ 		rndis_filter_set_rss_param(rdev, dev_info->rss_key);
+ 	else
+@@ -1122,9 +1125,6 @@ int rndis_set_subchannel(struct net_device *ndev,
+ 	netif_set_real_num_tx_queues(ndev, nvdev->num_chn);
+ 	netif_set_real_num_rx_queues(ndev, nvdev->num_chn);
+ 
+-	for (i = 0; i < VRSS_SEND_TAB_SIZE; i++)
+-		ndev_ctx->tx_table[i] = i % nvdev->num_chn;
+-
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

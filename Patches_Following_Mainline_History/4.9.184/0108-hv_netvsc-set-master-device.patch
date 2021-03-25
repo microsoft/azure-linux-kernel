@@ -1,4 +1,4 @@
-From d820dc7a6bc5ee6f5a471e6c7610470ba4a20a29 Mon Sep 17 00:00:00 2001
+From 8fa3ea20808a82473fd1988175fb19deeac5c7af Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Wed, 9 May 2018 14:09:04 -0700
 Subject: hv_netvsc: set master device
@@ -21,10 +21,10 @@ Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 57f82fb16b88..3141f032b59d 100644
+index b0f28ace1705..c7a1a2c8cb33 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1839,7 +1839,8 @@ static int netvsc_vf_join(struct net_device *vf_netdev,
+@@ -1841,7 +1841,8 @@ static int netvsc_vf_join(struct net_device *vf_netdev,
  		goto rx_handler_failed;
  	}
  

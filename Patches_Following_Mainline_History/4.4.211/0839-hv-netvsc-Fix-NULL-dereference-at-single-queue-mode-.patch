@@ -1,0 +1,40 @@
+From 717c2c6f0db0e96779ea7b90b6997c89efa4eda3 Mon Sep 17 00:00:00 2001
+From: Takashi Iwai <tiwai@suse.de>
+Date: Tue, 14 Aug 2018 19:10:50 +0200
+Subject: hv/netvsc: Fix NULL dereference at single queue mode fallback
+Reply-To: joseph.salisbury@microsoft.com
+
+The recent commit 916c5e1413be ("hv/netvsc: fix handling of fallback
+to single queue mode") tried to fix the fallback behavior to a single
+queue mode, but it changed the function to return zero incorrectly,
+while the function should return an object pointer.  Eventually this
+leads to a NULL dereference at the callers that expect non-NULL
+value.
+
+Fix it by returning the proper net_device object.
+
+Fixes: 916c5e1413be ("hv/netvsc: fix handling of fallback to single queue mode")
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit b19b46346f483ae055fa027cb2d5c2ca91484b91)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/rndis_filter.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 851ee9320e09..00973d2f6ba3 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1304,6 +1304,7 @@ out:
+ 	/* setting up multiple channels failed */
+ 	net_device->max_chn = 1;
+ 	net_device->num_chn = 1;
++	return net_device;
+ 
+ err_dev_remv:
+ 	rndis_filter_device_remove(dev, net_device);
+-- 
+2.17.1
+

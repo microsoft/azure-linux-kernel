@@ -1,0 +1,82 @@
+From 4d1024a74a3f0f04640ddff238bebe5d3389a59d Mon Sep 17 00:00:00 2001
+From: Gal Pressman <galp@mellanox.com>
+Date: Mon, 29 Feb 2016 21:17:15 +0200
+Subject: net/mlx5e: Provide correct packet/bytes statistics
+Reply-To: joseph.salisbury@microsoft.com
+
+Using the HW VPort counters for traffic (rx/tx packets/bytes)
+statistics is wrong. This is because frames dropped due to steering or
+out of buffer will be counted as received. To fix that, we move to use
+the packet/bytes accounting done by the driver for what the netdev
+reports out.
+
+Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support [...]')
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit faf4478bf8b7b5e6c94cb07a52a00e4d1cd647c6)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/en_main.c | 25 ++++++-------------
+ 1 file changed, 8 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 9b28e5ad9fcc..3fa12050d433 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -145,6 +145,10 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 		return;
+ 
+ 	/* Collect firts the SW counters and then HW for consistency */
++	s->rx_packets		= 0;
++	s->rx_bytes		= 0;
++	s->tx_packets		= 0;
++	s->tx_bytes		= 0;
+ 	s->tso_packets		= 0;
+ 	s->tso_bytes		= 0;
+ 	s->tx_queue_stopped	= 0;
+@@ -159,6 +163,8 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 	for (i = 0; i < priv->params.num_channels; i++) {
+ 		rq_stats = &priv->channel[i]->rq.stats;
+ 
++		s->rx_packets	+= rq_stats->packets;
++		s->rx_bytes	+= rq_stats->bytes;
+ 		s->lro_packets	+= rq_stats->lro_packets;
+ 		s->lro_bytes	+= rq_stats->lro_bytes;
+ 		s->rx_csum_none	+= rq_stats->csum_none;
+@@ -168,6 +174,8 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 		for (j = 0; j < priv->params.num_tc; j++) {
+ 			sq_stats = &priv->channel[i]->sq[j].stats;
+ 
++			s->tx_packets		+= sq_stats->packets;
++			s->tx_bytes		+= sq_stats->bytes;
+ 			s->tso_packets		+= sq_stats->tso_packets;
+ 			s->tso_bytes		+= sq_stats->tso_bytes;
+ 			s->tx_queue_stopped	+= sq_stats->stopped;
+@@ -229,23 +237,6 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 	s->tx_broadcast_bytes   =
+ 		MLX5_GET_CTR(out, transmitted_eth_broadcast.octets);
+ 
+-	s->rx_packets =
+-		s->rx_unicast_packets +
+-		s->rx_multicast_packets +
+-		s->rx_broadcast_packets;
+-	s->rx_bytes =
+-		s->rx_unicast_bytes +
+-		s->rx_multicast_bytes +
+-		s->rx_broadcast_bytes;
+-	s->tx_packets =
+-		s->tx_unicast_packets +
+-		s->tx_multicast_packets +
+-		s->tx_broadcast_packets;
+-	s->tx_bytes =
+-		s->tx_unicast_bytes +
+-		s->tx_multicast_bytes +
+-		s->tx_broadcast_bytes;
+-
+ 	/* Update calculated offload counters */
+ 	s->tx_csum_offload = s->tx_packets - tx_offload_none;
+ 	s->rx_csum_good    = s->rx_packets - s->rx_csum_none -
+-- 
+2.17.1
+

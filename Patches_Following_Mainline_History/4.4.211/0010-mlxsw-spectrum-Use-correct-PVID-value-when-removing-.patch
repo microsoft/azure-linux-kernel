@@ -1,0 +1,69 @@
+From 8bb62ee6a4c674a56c5382193af86f339fb5b7c2 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Thu, 19 Nov 2015 12:27:38 +0100
+Subject: mlxsw: spectrum: Use correct PVID value when removing VLANs
+Reply-To: joseph.salisbury@microsoft.com
+
+When removing a range of VLANs in which PVID is a member we should use
+the correct PVID value instead of some VLAN in the range.
+
+Also, change two print statements to use 'dev' instead of
+'mlxsw_sp_port->dev', as it's already used in other print statements in
+the function.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 06c071f68d8123bef0f152e5d2c7272920597a7e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../mellanox/mlxsw/spectrum_switchdev.c        | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index d4c4c2b5156c..5ba40142f33e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -538,7 +538,7 @@ static int __mlxsw_sp_port_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				     u16 vid_begin, u16 vid_end, bool init)
+ {
+ 	struct net_device *dev = mlxsw_sp_port->dev;
+-	u16 vid, vid_e;
++	u16 vid, vid_e, pvid;
+ 	int err;
+ 
+ 	/* In case this is invoked with BRIDGE_FLAGS_SELF and port is
+@@ -555,23 +555,21 @@ static int __mlxsw_sp_port_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		err = mlxsw_sp_port_vlan_set(mlxsw_sp_port, vid, vid_e, false,
+ 					     false);
+ 		if (err) {
+-			netdev_err(mlxsw_sp_port->dev, "Unable to del VIDs %d-%d\n",
+-				   vid, vid_e);
++			netdev_err(dev, "Unable to del VIDs %d-%d\n", vid,
++				   vid_e);
+ 			return err;
+ 		}
+ 	}
+ 
+-	if ((mlxsw_sp_port->pvid >= vid_begin) &&
+-	    (mlxsw_sp_port->pvid <= vid_end)) {
++	pvid = mlxsw_sp_port->pvid;
++	if (pvid >= vid_begin && pvid <= vid_end && pvid != 1) {
+ 		/* Default VLAN is always 1 */
+-		mlxsw_sp_port->pvid = 1;
+-		err = mlxsw_sp_port_pvid_set(mlxsw_sp_port,
+-					     mlxsw_sp_port->pvid);
++		err = mlxsw_sp_port_pvid_set(mlxsw_sp_port, 1);
+ 		if (err) {
+-			netdev_err(mlxsw_sp_port->dev, "Unable to del PVID %d\n",
+-				   vid);
++			netdev_err(dev, "Unable to del PVID %d\n", pvid);
+ 			return err;
+ 		}
++		mlxsw_sp_port->pvid = 1;
+ 	}
+ 
+ 	if (init)
+-- 
+2.17.1
+

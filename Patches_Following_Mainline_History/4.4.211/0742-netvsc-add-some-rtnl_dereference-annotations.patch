@@ -1,0 +1,76 @@
+From c3418c5b3a676c77e0a0d4110644f3bdd5df5b21 Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Wed, 19 Jul 2017 11:53:13 -0700
+Subject: netvsc: add some rtnl_dereference annotations
+Reply-To: joseph.salisbury@microsoft.com
+
+In a couple places RTNL is held, and the netvsc_device pointer
+is acquired without annotation.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 79e8cbe7a789a0863cc6cd874872b4dd63ec5947)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c     | 5 +++--
+ drivers/net/hyperv/netvsc_drv.c | 7 ++++---
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index c3168d5ec668..cbe31f4e6625 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -41,7 +41,7 @@ void netvsc_switch_datapath(struct net_device *ndev, bool vf)
+ {
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+ 	struct hv_device *dev = net_device_ctx->device_ctx;
+-	struct netvsc_device *nv_dev = net_device_ctx->nvdev;
++	struct netvsc_device *nv_dev = rtnl_dereference(net_device_ctx->nvdev);
+ 	struct nvsp_message *init_pkt = &nv_dev->channel_init_pkt;
+ 
+ 	memset(init_pkt, 0, sizeof(struct nvsp_message));
+@@ -535,7 +535,8 @@ void netvsc_device_remove(struct hv_device *device)
+ {
+ 	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *net_device = net_device_ctx->nvdev;
++	struct netvsc_device *net_device
++		= rtnl_dereference(net_device_ctx->nvdev);
+ 	int i;
+ 
+ 	netvsc_disconnect_vsp(device);
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 1ac7a08458e8..c9944af70b16 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -67,7 +67,7 @@ static void netvsc_set_multicast_list(struct net_device *net)
+ static int netvsc_open(struct net_device *net)
+ {
+ 	struct net_device_context *ndev_ctx = netdev_priv(net);
+-	struct netvsc_device *nvdev = ndev_ctx->nvdev;
++	struct netvsc_device *nvdev = rtnl_dereference(ndev_ctx->nvdev);
+ 	struct rndis_device *rdev;
+ 	int ret = 0;
+ 
+@@ -1279,7 +1279,7 @@ static struct net_device *get_netvsc_byref(struct net_device *vf_netdev)
+ 			continue;	/* not a netvsc device */
+ 
+ 		net_device_ctx = netdev_priv(dev);
+-		if (net_device_ctx->nvdev == NULL)
++		if (!rtnl_dereference(net_device_ctx->nvdev))
+ 			continue;	/* device is removed */
+ 
+ 		if (rtnl_dereference(net_device_ctx->vf_netdev) == vf_netdev)
+@@ -1506,7 +1506,8 @@ static int netvsc_remove(struct hv_device *dev)
+ 	 * removed. Also blocks mtu and channel changes.
+ 	 */
+ 	rtnl_lock();
+-	rndis_filter_device_remove(dev, ndev_ctx->nvdev);
++	rndis_filter_device_remove(dev,
++				   rtnl_dereference(ndev_ctx->nvdev));
+ 	rtnl_unlock();
+ 
+ 	unregister_netdev(net);
+-- 
+2.17.1
+

@@ -1,4 +1,4 @@
-From 27f7166ec54fa572025b3992a263f5e3f8a0c12c Mon Sep 17 00:00:00 2001
+From 171aa8b31f8fd7b4b84aefd0f6ab3e602f0d91d8 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Thu, 31 Aug 2017 16:16:13 -0700
 Subject: netvsc: allow driver to be removed even if VF is present

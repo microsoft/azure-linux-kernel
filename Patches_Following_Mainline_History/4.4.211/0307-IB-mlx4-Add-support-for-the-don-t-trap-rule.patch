@@ -1,0 +1,212 @@
+From b1f55122e13017fb1203b63473ca3058e5613052 Mon Sep 17 00:00:00 2001
+From: Marina Varshaver <marinav@mellanox.com>
+Date: Thu, 18 Feb 2016 18:31:06 +0200
+Subject: IB/mlx4: Add support for the don't trap rule
+Reply-To: joseph.salisbury@microsoft.com
+
+Add support for receiving multicast/unicast traffic with
+the don't trap rule.
+
+Sniffing these packets requires a flow steering rule of type NORMAL
+at priority 0 with flag IB_FLOW_ATTR_FLAGS_DONT_TRAP set.
+Choosing between multicast or unicast is done via ethernet L2 dest_mac
+mask and value:
+- If mask is all zeros - unicast and multicast are set.
+- If mask non zero - only mask with multicast bit 1 and rest 0 is
+                     supported, the mac value will choose if it is
+                     multicast or unicast rule.
+
+If the mask multicast bit is on and some other bits are on too, it means
+a request for specific multicast or unicast, this is not supported,
+either receive all multicast or all unicast.
+
+Only when limitations are met registered QP will receive requested type
+but other QPs can receive same traffic if registered for it.
+Otherwise, if limitations are not met, an error will be returned.
+
+Limitations:
+- Rule must be with priority 0.
+- A0 mode is not supported.
+- Sniffer QP cannot appear in any other flow steering rule.
+
+Signed-off-by: Marina Varshaver <marinav@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Reviewed-by: Yishai Hadas <yishaih@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit 0e451e883bd13ce616f439e2414b8c17fa28318a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx4/main.c        | 72 +++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/fw.c  |  5 +-
+ drivers/net/ethernet/mellanox/mlx4/mcg.c |  6 +-
+ include/linux/mlx4/device.h              |  3 +
+ 4 files changed, 80 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index d20912bdb9fa..e165fa48ab37 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -1584,6 +1584,56 @@ static int mlx4_ib_tunnel_steer_add(struct ib_qp *qp, struct ib_flow_attr *flow_
+ 	return err;
+ }
+ 
++static int mlx4_ib_add_dont_trap_rule(struct mlx4_dev *dev,
++				      struct ib_flow_attr *flow_attr,
++				      enum mlx4_net_trans_promisc_mode *type)
++{
++	int err = 0;
++
++	if (!(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_DMFS_UC_MC_SNIFFER) ||
++	    (dev->caps.dmfs_high_steer_mode == MLX4_STEERING_DMFS_A0_STATIC) ||
++	    (flow_attr->num_of_specs > 1) || (flow_attr->priority != 0)) {
++		return -EOPNOTSUPP;
++	}
++
++	if (flow_attr->num_of_specs == 0) {
++		type[0] = MLX4_FS_MC_SNIFFER;
++		type[1] = MLX4_FS_UC_SNIFFER;
++	} else {
++		union ib_flow_spec *ib_spec;
++
++		ib_spec = (union ib_flow_spec *)(flow_attr + 1);
++		if (ib_spec->type !=  IB_FLOW_SPEC_ETH)
++			return -EINVAL;
++
++		/* if all is zero than MC and UC */
++		if (is_zero_ether_addr(ib_spec->eth.mask.dst_mac)) {
++			type[0] = MLX4_FS_MC_SNIFFER;
++			type[1] = MLX4_FS_UC_SNIFFER;
++		} else {
++			u8 mac[ETH_ALEN] = {ib_spec->eth.mask.dst_mac[0] ^ 0x01,
++					    ib_spec->eth.mask.dst_mac[1],
++					    ib_spec->eth.mask.dst_mac[2],
++					    ib_spec->eth.mask.dst_mac[3],
++					    ib_spec->eth.mask.dst_mac[4],
++					    ib_spec->eth.mask.dst_mac[5]};
++
++			/* Above xor was only on MC bit, non empty mask is valid
++			 * only if this bit is set and rest are zero.
++			 */
++			if (!is_zero_ether_addr(&mac[0]))
++				return -EINVAL;
++
++			if (is_multicast_ether_addr(ib_spec->eth.val.dst_mac))
++				type[0] = MLX4_FS_MC_SNIFFER;
++			else
++				type[0] = MLX4_FS_UC_SNIFFER;
++		}
++	}
++
++	return err;
++}
++
+ static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
+ 				    struct ib_flow_attr *flow_attr,
+ 				    int domain)
+@@ -1594,6 +1644,10 @@ static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
+ 	struct mlx4_dev *dev = (to_mdev(qp->device))->dev;
+ 	int is_bonded = mlx4_is_bonded(dev);
+ 
++	if ((flow_attr->flags & IB_FLOW_ATTR_FLAGS_DONT_TRAP) &&
++	    (flow_attr->type != IB_FLOW_ATTR_NORMAL))
++		return ERR_PTR(-EOPNOTSUPP);
++
+ 	memset(type, 0, sizeof(type));
+ 
+ 	mflow = kzalloc(sizeof(*mflow), GFP_KERNEL);
+@@ -1604,7 +1658,19 @@ static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
+ 
+ 	switch (flow_attr->type) {
+ 	case IB_FLOW_ATTR_NORMAL:
+-		type[0] = MLX4_FS_REGULAR;
++		/* If dont trap flag (continue match) is set, under specific
++		 * condition traffic be replicated to given qp,
++		 * without stealing it
++		 */
++		if (unlikely(flow_attr->flags & IB_FLOW_ATTR_FLAGS_DONT_TRAP)) {
++			err = mlx4_ib_add_dont_trap_rule(dev,
++							 flow_attr,
++							 type);
++			if (err)
++				goto err_free;
++		} else {
++			type[0] = MLX4_FS_REGULAR;
++		}
+ 		break;
+ 
+ 	case IB_FLOW_ATTR_ALL_DEFAULT:
+@@ -1616,8 +1682,8 @@ static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
+ 		break;
+ 
+ 	case IB_FLOW_ATTR_SNIFFER:
+-		type[0] = MLX4_FS_UC_SNIFFER;
+-		type[1] = MLX4_FS_MC_SNIFFER;
++		type[0] = MLX4_FS_MIRROR_RX_PORT;
++		type[1] = MLX4_FS_MIRROR_SX_PORT;
+ 		break;
+ 
+ 	default:
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index e960c1dbf099..4105a72e0a40 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -157,7 +157,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
+ 		[29] = "802.1ad offload support",
+ 		[31] = "Modifying loopback source checks using UPDATE_QP support",
+ 		[32] = "Loopback source checks support",
+-		[33] = "RoCEv2 support"
++		[33] = "RoCEv2 support",
++		[34] = "DMFS Sniffer support (UC & MC)"
+ 	};
+ 	int i;
+ 
+@@ -810,6 +811,8 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	if (field & 0x80)
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_FS_EN;
+ 	dev_cap->fs_log_max_ucast_qp_range_size = field & 0x1f;
++	if (field & 0x20)
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_DMFS_UC_MC_SNIFFER;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_PORT_BEACON_OFFSET);
+ 	if (field & 0x80)
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_PORT_BEACON;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index 3bf63de3a725..0e05adcd72d8 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -753,8 +753,10 @@ static const u8 __promisc_mode[] = {
+ 	[MLX4_FS_REGULAR]   = 0x0,
+ 	[MLX4_FS_ALL_DEFAULT] = 0x1,
+ 	[MLX4_FS_MC_DEFAULT] = 0x3,
+-	[MLX4_FS_UC_SNIFFER] = 0x4,
+-	[MLX4_FS_MC_SNIFFER] = 0x5,
++	[MLX4_FS_MIRROR_RX_PORT] = 0x4,
++	[MLX4_FS_MIRROR_SX_PORT] = 0x5,
++	[MLX4_FS_UC_SNIFFER] = 0x6,
++	[MLX4_FS_MC_SNIFFER] = 0x7,
+ };
+ 
+ int mlx4_map_sw_to_hw_steering_mode(struct mlx4_dev *dev,
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 6b6b777e73ec..3472c07ea98d 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -219,6 +219,7 @@ enum {
+ 	MLX4_DEV_CAP_FLAG2_UPDATE_QP_SRC_CHECK_LB = 1ULL << 31,
+ 	MLX4_DEV_CAP_FLAG2_LB_SRC_CHK           = 1ULL << 32,
+ 	MLX4_DEV_CAP_FLAG2_ROCE_V1_V2		= 1ULL <<  33,
++	MLX4_DEV_CAP_FLAG2_DMFS_UC_MC_SNIFFER   = 1ULL <<  34,
+ };
+ 
+ enum {
+@@ -1165,6 +1166,8 @@ enum mlx4_net_trans_promisc_mode {
+ 	MLX4_FS_REGULAR = 1,
+ 	MLX4_FS_ALL_DEFAULT,
+ 	MLX4_FS_MC_DEFAULT,
++	MLX4_FS_MIRROR_RX_PORT,
++	MLX4_FS_MIRROR_SX_PORT,
+ 	MLX4_FS_UC_SNIFFER,
+ 	MLX4_FS_MC_SNIFFER,
+ 	MLX4_FS_MODE_NUM, /* should be last */
+-- 
+2.17.1
+

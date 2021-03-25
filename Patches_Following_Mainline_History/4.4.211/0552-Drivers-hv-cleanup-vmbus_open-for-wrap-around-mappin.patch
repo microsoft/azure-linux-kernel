@@ -1,0 +1,153 @@
+From 21435fa4c593f18989d98d3a9fe859bd5972c482 Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Fri, 2 Sep 2016 05:58:19 -0700
+Subject: Drivers: hv: cleanup vmbus_open() for wrap around mappings
+Reply-To: joseph.salisbury@microsoft.com
+
+In preparation for doing wrap around mappings for ring buffers cleanup
+vmbus_open() function:
+- check that ring sizes are PAGE_SIZE aligned (they are for all in-kernel
+  drivers now);
+- kfree(open_info) on error only after we kzalloc() it (not an issue as it
+  is valid to call kfree(NULL);
+- rename poorly named labels;
+- use alloc_pages() instead of __get_free_pages() as we need struct page
+  pointer for future.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Tested-by: Dexuan Cui <decui@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 98f531b10d23e3c28e8d34c0e88822a81231b3c2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel.c | 41 ++++++++++++++++++++++-------------------
+ 1 file changed, 22 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index df4a92bb8549..cb3205a3b03a 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -75,6 +75,10 @@ int vmbus_open(struct vmbus_channel *newchannel, u32 send_ringbuffer_size,
+ 	int ret, err = 0;
+ 	struct page *page;
+ 
++	if (send_ringbuffer_size % PAGE_SIZE ||
++	    recv_ringbuffer_size % PAGE_SIZE)
++		return -EINVAL;
++
+ 	spin_lock_irqsave(&newchannel->lock, flags);
+ 	if (newchannel->state == CHANNEL_OPEN_STATE) {
+ 		newchannel->state = CHANNEL_OPENING_STATE;
+@@ -94,17 +98,16 @@ int vmbus_open(struct vmbus_channel *newchannel, u32 send_ringbuffer_size,
+ 				recv_ringbuffer_size));
+ 
+ 	if (!page)
+-		out = (void *)__get_free_pages(GFP_KERNEL|__GFP_ZERO,
+-					       get_order(send_ringbuffer_size +
+-					       recv_ringbuffer_size));
+-	else
+-		out = (void *)page_address(page);
++		page = alloc_pages(GFP_KERNEL|__GFP_ZERO,
++				   get_order(send_ringbuffer_size +
++					     recv_ringbuffer_size));
+ 
+-	if (!out) {
++	if (!page) {
+ 		err = -ENOMEM;
+-		goto error0;
++		goto error_set_chnstate;
+ 	}
+ 
++	out = page_address(page);
+ 	in = (void *)((unsigned long)out + send_ringbuffer_size);
+ 
+ 	newchannel->ringbuffer_pages = out;
+@@ -116,14 +119,14 @@ int vmbus_open(struct vmbus_channel *newchannel, u32 send_ringbuffer_size,
+ 
+ 	if (ret != 0) {
+ 		err = ret;
+-		goto error0;
++		goto error_free_pages;
+ 	}
+ 
+ 	ret = hv_ringbuffer_init(
+ 		&newchannel->inbound, in, recv_ringbuffer_size);
+ 	if (ret != 0) {
+ 		err = ret;
+-		goto error0;
++		goto error_free_pages;
+ 	}
+ 
+ 
+@@ -138,7 +141,7 @@ int vmbus_open(struct vmbus_channel *newchannel, u32 send_ringbuffer_size,
+ 
+ 	if (ret != 0) {
+ 		err = ret;
+-		goto error0;
++		goto error_free_pages;
+ 	}
+ 
+ 	/* Create and init the channel open message */
+@@ -147,7 +150,7 @@ int vmbus_open(struct vmbus_channel *newchannel, u32 send_ringbuffer_size,
+ 			   GFP_KERNEL);
+ 	if (!open_info) {
+ 		err = -ENOMEM;
+-		goto error_gpadl;
++		goto error_free_gpadl;
+ 	}
+ 
+ 	init_completion(&open_info->waitevent);
+@@ -163,7 +166,7 @@ int vmbus_open(struct vmbus_channel *newchannel, u32 send_ringbuffer_size,
+ 
+ 	if (userdatalen > MAX_USER_DEFINED_BYTES) {
+ 		err = -EINVAL;
+-		goto error_gpadl;
++		goto error_free_gpadl;
+ 	}
+ 
+ 	if (userdatalen)
+@@ -179,7 +182,7 @@ int vmbus_open(struct vmbus_channel *newchannel, u32 send_ringbuffer_size,
+ 
+ 	if (ret != 0) {
+ 		err = ret;
+-		goto error1;
++		goto error_clean_msglist;
+ 	}
+ 
+ 	wait_for_completion(&open_info->waitevent);
+@@ -190,25 +193,25 @@ int vmbus_open(struct vmbus_channel *newchannel, u32 send_ringbuffer_size,
+ 
+ 	if (open_info->response.open_result.status) {
+ 		err = -EAGAIN;
+-		goto error_gpadl;
++		goto error_free_gpadl;
+ 	}
+ 
+ 	newchannel->state = CHANNEL_OPENED_STATE;
+ 	kfree(open_info);
+ 	return 0;
+ 
+-error1:
++error_clean_msglist:
+ 	spin_lock_irqsave(&vmbus_connection.channelmsg_lock, flags);
+ 	list_del(&open_info->msglistentry);
+ 	spin_unlock_irqrestore(&vmbus_connection.channelmsg_lock, flags);
+ 
+-error_gpadl:
++error_free_gpadl:
+ 	vmbus_teardown_gpadl(newchannel, newchannel->ringbuffer_gpadlhandle);
+-
+-error0:
++	kfree(open_info);
++error_free_pages:
+ 	free_pages((unsigned long)out,
+ 		get_order(send_ringbuffer_size + recv_ringbuffer_size));
+-	kfree(open_info);
++error_set_chnstate:
+ 	newchannel->state = CHANNEL_OPEN_STATE;
+ 	return err;
+ }
+-- 
+2.17.1
+

@@ -1,4 +1,4 @@
-From f844b7b4d2cf5e81fccce01d299b9b653905443b Mon Sep 17 00:00:00 2001
+From bc304c8d3df23aacbf85f911a0acfd2566124504 Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Thu, 22 Mar 2018 12:01:13 -0700
 Subject: hv_netvsc: Fix the return status in RX path

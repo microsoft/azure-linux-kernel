@@ -1,0 +1,41 @@
+From 76e488f88cf9e836fbb15c5f2a742f4ae160026e Mon Sep 17 00:00:00 2001
+From: Olaf Hering <olaf@aepfle.de>
+Date: Mon, 14 Dec 2015 16:01:42 -0800
+Subject: Drivers: hv: vss: run only on supported host versions
+Reply-To: joseph.salisbury@microsoft.com
+
+The Backup integration service on WS2012 has appearently trouble to
+negotiate with a guest which does not support the provided util version.
+Currently the VSS driver supports only version 5/0. A WS2012 offers only
+version 1/x and 3/x, and vmbus_prep_negotiate_resp correctly returns an
+empty icframe_vercnt/icmsg_vercnt. But the host ignores that and
+continues to send ICMSGTYPE_NEGOTIATE messages. The result are weird
+errors during boot and general misbehaviour.
+
+Check the Windows version to work around the host bug, skip hv_vss_init
+on WS2012 and older.
+
+Signed-off-by: Olaf Hering <olaf@aepfle.de>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit ed9ba608e4851144af8c7061cbb19f751c73e998)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/hv_snapshot.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/hv/hv_snapshot.c b/drivers/hv/hv_snapshot.c
+index b0feddb17170..ef0d24b78ae8 100644
+--- a/drivers/hv/hv_snapshot.c
++++ b/drivers/hv/hv_snapshot.c
+@@ -332,7 +332,6 @@ static void vss_on_reset(void)
+ int
+ hv_vss_init(struct hv_util_service *srv)
+ {
+-	init_completion(&release_event);
+ 	if (vmbus_proto_version < VERSION_WIN8_1) {
+ 		pr_warn("Integration service 'Backup (volume snapshot)'"
+ 			" not supported on this host version.\n");
+-- 
+2.17.1
+

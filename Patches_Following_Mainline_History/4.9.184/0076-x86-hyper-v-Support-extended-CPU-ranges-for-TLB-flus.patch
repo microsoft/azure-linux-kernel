@@ -1,4 +1,4 @@
-From 4a4f61015bf755fd7d807475d2a62c57b14a4318 Mon Sep 17 00:00:00 2001
+From 5b62b33e7d25b8ae46a02f27786ffe27871a4a23 Mon Sep 17 00:00:00 2001
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
 Date: Wed, 2 Aug 2017 18:09:20 +0200
 Subject: x86/hyper-v: Support extended CPU ranges for TLB flush hypercalls

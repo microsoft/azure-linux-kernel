@@ -1,0 +1,63 @@
+From a39088a3be34c9da30678d29e4d069607042901d Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon, 21 Aug 2017 19:22:38 -0700
+Subject: hv_netvsc: Clean up unused parameter from netvsc_get_rss_hash_opts()
+Reply-To: joseph.salisbury@microsoft.com
+
+The parameter "nvdev" is not in use.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(backported from commit 4c0e2cbfd9b519722529526f4d87f8aab3c32ffd)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 50d28729f4c8..819a6c007bea 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1202,6 +1202,29 @@ static void netvsc_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ 	}
+ }
+ 
++static int
++netvsc_get_rss_hash_opts(struct ethtool_rxnfc *info)
++{
++	info->data = RXH_IP_SRC | RXH_IP_DST;
++
++	switch (info->flow_type) {
++	case TCP_V4_FLOW:
++	case TCP_V6_FLOW:
++		info->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		/* fallthrough */
++	case UDP_V4_FLOW:
++	case UDP_V6_FLOW:
++	case IPV4_FLOW:
++	case IPV6_FLOW:
++		break;
++	default:
++		info->data = 0;
++		break;
++	}
++
++	return 0;
++}
++
+ static int
+ netvsc_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
+ 		 u32 *rules)
+@@ -1216,6 +1239,9 @@ netvsc_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
+ 	case ETHTOOL_GRXRINGS:
+ 		info->data = nvdev->num_chn;
+ 		return 0;
++
++	case ETHTOOL_GRXFH:
++		return netvsc_get_rss_hash_opts(info);
+ 	}
+ 	return -EOPNOTSUPP;
+ }
+-- 
+2.17.1
+

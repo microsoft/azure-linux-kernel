@@ -1,0 +1,121 @@
+From 7b2ee0ecb5250d56a9a3890bbb36d52eacb45618 Mon Sep 17 00:00:00 2001
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 14 Sep 2018 09:10:15 -0700
+Subject: vmbus: pass channel to hv_process_channel_removal
+Reply-To: joseph.salisbury@microsoft.com
+
+Rather than passing relid and then looking up the channel.
+Pass the channel directly, since caller already knows it.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 800b932969c53c4044ff9f9fd1ee793a87fa8ef0)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel.c      |  3 +--
+ drivers/hv/channel_mgmt.c | 18 ++++++------------
+ drivers/hv/vmbus_drv.c    |  3 +--
+ include/linux/hyperv.h    |  2 +-
+ 4 files changed, 9 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index be6679fe4df6..a6c133ef533a 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -667,8 +667,7 @@ void vmbus_close(struct vmbus_channel *channel)
+ 			wait_for_completion(&cur_channel->rescind_event);
+ 			mutex_lock(&vmbus_connection.channel_mutex);
+ 			vmbus_close_internal(cur_channel);
+-			hv_process_channel_removal(
+-					   cur_channel->offermsg.child_relid);
++			hv_process_channel_removal(cur_channel);
+ 		} else {
+ 			mutex_lock(&vmbus_connection.channel_mutex);
+ 			vmbus_close_internal(cur_channel);
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index 9bd113482e58..a0dc807d0c48 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -383,21 +383,14 @@ static void vmbus_release_relid(u32 relid)
+ 		       true);
+ }
+ 
+-void hv_process_channel_removal(u32 relid)
++void hv_process_channel_removal(struct vmbus_channel *channel)
+ {
++	struct vmbus_channel *primary_channel;
+ 	unsigned long flags;
+-	struct vmbus_channel *primary_channel, *channel;
+ 
+ 	BUG_ON(!mutex_is_locked(&vmbus_connection.channel_mutex));
+-
+-	/*
+-	 * Make sure channel is valid as we may have raced.
+-	 */
+-	channel = relid2channel(relid);
+-	if (!channel)
+-		return;
+-
+ 	BUG_ON(!channel->rescind);
++
+ 	if (channel->target_cpu != get_cpu()) {
+ 		put_cpu();
+ 		smp_call_function_single(channel->target_cpu,
+@@ -415,7 +408,6 @@ void hv_process_channel_removal(u32 relid)
+ 		primary_channel = channel->primary_channel;
+ 		spin_lock_irqsave(&primary_channel->lock, flags);
+ 		list_del(&channel->sc_list);
+-		primary_channel->num_sc--;
+ 		spin_unlock_irqrestore(&primary_channel->lock, flags);
+ 	}
+ 
+@@ -427,6 +419,8 @@ void hv_process_channel_removal(u32 relid)
+ 		cpumask_clear_cpu(channel->target_cpu,
+ 				  &primary_channel->alloced_cpus_in_node);
+ 
++	vmbus_release_relid(channel->offermsg.child_relid);
++
+ 	free_channel(channel);
+ }
+ 
+@@ -939,7 +933,7 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 			 * The channel is currently not open;
+ 			 * it is safe for us to cleanup the channel.
+ 			 */
+-			hv_process_channel_removal(rescind->child_relid);
++			hv_process_channel_removal(channel);
+ 		} else {
+ 			complete(&channel->rescind_event);
+ 		}
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index 5bb311291d45..9b7577a901fa 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -669,10 +669,9 @@ static void vmbus_device_release(struct device *device)
+ 	struct vmbus_channel *channel = hv_dev->channel;
+ 
+ 	mutex_lock(&vmbus_connection.channel_mutex);
+-	hv_process_channel_removal(channel->offermsg.child_relid);
++	hv_process_channel_removal(channel);
+ 	mutex_unlock(&vmbus_connection.channel_mutex);
+ 	kfree(hv_dev);
+-
+ }
+ 
+ /* The one and only one */
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 44d07f102991..c4755fd9d964 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1460,7 +1460,7 @@ extern bool vmbus_prep_negotiate_resp(struct icmsg_hdr *icmsghdrp, u8 *buf,
+ 				const int *srv_version, int srv_vercnt,
+ 				int *nego_fw_version, int *nego_srv_version);
+ 
+-void hv_process_channel_removal(u32 relid);
++void hv_process_channel_removal(struct vmbus_channel *channel);
+ 
+ void vmbus_setevent(struct vmbus_channel *channel);
+ /*
+-- 
+2.17.1
+

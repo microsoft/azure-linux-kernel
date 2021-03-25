@@ -1,0 +1,74 @@
+From 20f041ca8def8741b348ddd5980dd7f7028338a5 Mon Sep 17 00:00:00 2001
+From: Achiad Shochat <achiad@mellanox.com>
+Date: Wed, 23 Dec 2015 18:47:22 +0200
+Subject: IB/mlx5: Set network_hdr_type upon RoCE responder completion
+Reply-To: joseph.salisbury@microsoft.com
+
+When handling a responder completion, if the link layer is Ethernet,
+set the work completion network_hdr_type field according to CQE's
+info and the IB_WC_WITH_NETWORK_HDR_TYPE flag.
+
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit cb34be6da25f45034ef4ff6103d401b451165e39)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/hw/mlx5/cq.c | 17 +++++++++++++++++
+ include/linux/mlx5/device.h     |  6 ++++++
+ 2 files changed, 23 insertions(+)
+
+diff --git a/drivers/infiniband/hw/mlx5/cq.c b/drivers/infiniband/hw/mlx5/cq.c
+index 4a4ab433062f..e79a56b50483 100644
+--- a/drivers/infiniband/hw/mlx5/cq.c
++++ b/drivers/infiniband/hw/mlx5/cq.c
+@@ -171,6 +171,7 @@ enum {
+ static void handle_responder(struct ib_wc *wc, struct mlx5_cqe64 *cqe,
+ 			     struct mlx5_ib_qp *qp)
+ {
++	enum rdma_link_layer ll = rdma_port_get_link_layer(qp->ibqp.device, 1);
+ 	struct mlx5_ib_dev *dev = to_mdev(qp->ibqp.device);
+ 	struct mlx5_ib_srq *srq;
+ 	struct mlx5_ib_wq *wq;
+@@ -236,6 +237,22 @@ static void handle_responder(struct ib_wc *wc, struct mlx5_cqe64 *cqe,
+ 	} else {
+ 		wc->pkey_index = 0;
+ 	}
++
++	if (ll != IB_LINK_LAYER_ETHERNET)
++		return;
++
++	switch (wc->sl & 0x3) {
++	case MLX5_CQE_ROCE_L3_HEADER_TYPE_GRH:
++		wc->network_hdr_type = RDMA_NETWORK_IB;
++		break;
++	case MLX5_CQE_ROCE_L3_HEADER_TYPE_IPV6:
++		wc->network_hdr_type = RDMA_NETWORK_IPV6;
++		break;
++	case MLX5_CQE_ROCE_L3_HEADER_TYPE_IPV4:
++		wc->network_hdr_type = RDMA_NETWORK_IPV4;
++		break;
++	}
++	wc->wc_flags |= IB_WC_WITH_NETWORK_HDR_TYPE;
+ }
+ 
+ static void dump_cqe(struct mlx5_ib_dev *dev, struct mlx5_err_cqe *cqe)
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 60022522c6b4..5406bec11716 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -667,6 +667,12 @@ enum {
+ 	 */
+ };
+ 
++enum {
++	MLX5_CQE_ROCE_L3_HEADER_TYPE_GRH	= 0x0,
++	MLX5_CQE_ROCE_L3_HEADER_TYPE_IPV6	= 0x1,
++	MLX5_CQE_ROCE_L3_HEADER_TYPE_IPV4	= 0x2,
++};
++
+ enum {
+ 	CQE_L2_OK	= 1 << 0,
+ 	CQE_L3_OK	= 1 << 1,
+-- 
+2.17.1
+

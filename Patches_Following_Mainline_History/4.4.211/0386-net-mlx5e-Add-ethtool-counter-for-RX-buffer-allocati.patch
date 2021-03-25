@@ -1,0 +1,116 @@
+From 760923ad65a413985f858114cbc994d8e54080a1 Mon Sep 17 00:00:00 2001
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Wed, 20 Apr 2016 22:02:19 +0300
+Subject: net/mlx5e: Add ethtool counter for RX buffer allocation failures
+Reply-To: joseph.salisbury@microsoft.com
+
+Counts the number of RX buffer allocation failures and shows it
+in ethtool statistics.
+
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 54984407564ef6b35488f52654f828c17b9d6fa8)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  8 ++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  2 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 11 +++++++++--
+ 3 files changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index a922a65a17a2..4dedec34c68b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -189,6 +189,7 @@ static const char vport_strings[][ETH_GSTRING_LEN] = {
+ 	"rx_wqe_err",
+ 	"rx_mpwqe_filler",
+ 	"rx_mpwqe_frag",
++	"rx_buff_alloc_err",
+ };
+ 
+ struct mlx5e_vport_stats {
+@@ -232,8 +233,9 @@ struct mlx5e_vport_stats {
+ 	u64 rx_wqe_err;
+ 	u64 rx_mpwqe_filler;
+ 	u64 rx_mpwqe_frag;
++	u64 rx_buff_alloc_err;
+ 
+-#define NUM_VPORT_COUNTERS     37
++#define NUM_VPORT_COUNTERS     38
+ };
+ 
+ static const char pport_strings[][ETH_GSTRING_LEN] = {
+@@ -329,6 +331,7 @@ static const char rq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"wqe_err",
+ 	"mpwqe_filler",
+ 	"mpwqe_frag",
++	"buff_alloc_err",
+ };
+ 
+ struct mlx5e_rq_stats {
+@@ -341,7 +344,8 @@ struct mlx5e_rq_stats {
+ 	u64 wqe_err;
+ 	u64 mpwqe_filler;
+ 	u64 mpwqe_frag;
+-#define NUM_RQ_STATS 9
++	u64 buff_alloc_err;
++#define NUM_RQ_STATS 10
+ };
+ 
+ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index e21fe2be5e4e..430308309b50 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -184,6 +184,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 	s->rx_wqe_err		= 0;
+ 	s->rx_mpwqe_filler	= 0;
+ 	s->rx_mpwqe_frag	= 0;
++	s->rx_buff_alloc_err	= 0;
+ 	for (i = 0; i < priv->params.num_channels; i++) {
+ 		rq_stats = &priv->channel[i]->rq.stats;
+ 
+@@ -196,6 +197,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 		s->rx_wqe_err   += rq_stats->wqe_err;
+ 		s->rx_mpwqe_filler += rq_stats->mpwqe_filler;
+ 		s->rx_mpwqe_frag   += rq_stats->mpwqe_frag;
++		s->rx_buff_alloc_err += rq_stats->buff_alloc_err;
+ 
+ 		for (j = 0; j < priv->params.num_tc; j++) {
+ 			sq_stats = &priv->channel[i]->sq[j].stats;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 6d88dd225fe6..4ec581f4fe52 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -446,9 +446,14 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
+ 
+ 	while (!mlx5_wq_ll_is_full(wq)) {
+ 		struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
++		int err;
+ 
+-		if (unlikely(rq->alloc_wqe(rq, wqe, wq->head)))
++		err = rq->alloc_wqe(rq, wqe, wq->head);
++		if (unlikely(err)) {
++			if (err != -EBUSY)
++				rq->stats.buff_alloc_err++;
+ 			break;
++		}
+ 
+ 		mlx5_wq_ll_push(wq, be16_to_cpu(wqe->next.next_wqe_index));
+ 	}
+@@ -704,8 +709,10 @@ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ 	skb = napi_alloc_skb(rq->cq.napi,
+ 			     ALIGN(MLX5_MPWRQ_SMALL_PACKET_THRESHOLD,
+ 				   sizeof(long)));
+-	if (unlikely(!skb))
++	if (unlikely(!skb)) {
++		rq->stats.buff_alloc_err++;
+ 		goto mpwrq_cqe_out;
++	}
+ 
+ 	prefetch(skb->data);
+ 	cqe_bcnt = mpwrq_get_cqe_byte_cnt(cqe);
+-- 
+2.17.1
+

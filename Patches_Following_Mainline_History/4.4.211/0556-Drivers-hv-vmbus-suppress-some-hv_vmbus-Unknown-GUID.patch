@@ -1,0 +1,107 @@
+From 586f344c5b57fdf8b331f15d7cf06671aecd82df Mon Sep 17 00:00:00 2001
+From: Dexuan Cui <decui@microsoft.com>
+Date: Wed, 7 Sep 2016 05:39:34 -0700
+Subject: Drivers: hv: vmbus: suppress some "hv_vmbus: Unknown GUID" warnings
+Reply-To: joseph.salisbury@microsoft.com
+
+Some VMBus devices are not needed by Linux guest[1][2], and, VMBus channels
+of Hyper-V Sockets don't really mean usual synthetic devices, so let's
+suppress the warnings for them.
+
+[1] https://support.microsoft.com/en-us/kb/2925727
+[2] https://msdn.microsoft.com/en-us/library/jj980180(v=winembedded.81).aspx
+
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit 0f98829a99850836cf7c2cc9fbf1d7ce0f795780)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/channel_mgmt.c | 28 ++++++++++++++++++++++++++--
+ include/linux/hyperv.h    | 21 +++++++++++++++++++++
+ 2 files changed, 47 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index a34ce9aa673f..f94f9c36a8de 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -138,10 +138,32 @@ static const struct vmbus_device vmbus_devs[] = {
+ 	},
+ };
+ 
+-static u16 hv_get_dev_type(const uuid_le *guid)
++static const struct {
++	uuid_le guid;
++} vmbus_unsupported_devs[] = {
++	{ HV_AVMA1_GUID },
++	{ HV_AVMA2_GUID },
++	{ HV_RDV_GUID	},
++};
++
++static bool is_unsupported_vmbus_devs(const uuid_le *guid)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(vmbus_unsupported_devs); i++)
++		if (!uuid_le_cmp(*guid, vmbus_unsupported_devs[i].guid))
++			return true;
++	return false;
++}
++
++static u16 hv_get_dev_type(const struct vmbus_channel *channel)
+ {
++	const uuid_le *guid = &channel->offermsg.offer.if_type;
+ 	u16 i;
+ 
++	if (is_hvsock_channel(channel) || is_unsupported_vmbus_devs(guid))
++		return HV_UNKOWN;
++
+ 	for (i = HV_IDE; i < HV_UNKOWN; i++) {
+ 		if (!uuid_le_cmp(*guid, vmbus_devs[i].guid))
+ 			return i;
+@@ -406,7 +428,9 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
+ 			goto err_free_chan;
+ 	}
+ 
+-	dev_type = hv_get_dev_type(&newchannel->offermsg.offer.if_type);
++	dev_type = hv_get_dev_type(newchannel);
++	if (dev_type == HV_NIC)
++		set_channel_signal_state(newchannel, HV_SIGNAL_POLICY_EXPLICIT);
+ 
+ 	init_vp_index(newchannel, dev_type);
+ 
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index b57388d67264..d904da4dae36 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1296,6 +1296,27 @@ u64 hv_do_hypercall(u64 control, void *input, void *output);
+ 	.guid = UUID_LE(0x44c4f61d, 0x4444, 0x4400, 0x9d, 0x52, \
+ 			0x80, 0x2e, 0x27, 0xed, 0xe1, 0x9f)
+ 
++/*
++ * Linux doesn't support the 3 devices: the first two are for
++ * Automatic Virtual Machine Activation, and the third is for
++ * Remote Desktop Virtualization.
++ * {f8e65716-3cb3-4a06-9a60-1889c5cccab5}
++ * {3375baf4-9e15-4b30-b765-67acb10d607b}
++ * {276aacf4-ac15-426c-98dd-7521ad3f01fe}
++ */
++
++#define HV_AVMA1_GUID \
++	.guid = UUID_LE(0xf8e65716, 0x3cb3, 0x4a06, 0x9a, 0x60, \
++			0x18, 0x89, 0xc5, 0xcc, 0xca, 0xb5)
++
++#define HV_AVMA2_GUID \
++	.guid = UUID_LE(0x3375baf4, 0x9e15, 0x4b30, 0xb7, 0x65, \
++			0x67, 0xac, 0xb1, 0x0d, 0x60, 0x7b)
++
++#define HV_RDV_GUID \
++	.guid = UUID_LE(0x276aacf4, 0xac15, 0x426c, 0x98, 0xdd, \
++			0x75, 0x21, 0xad, 0x3f, 0x01, 0xfe)
++
+ /*
+  * PCI Express Pass Through
+  * {44C4F61D-4444-4400-9D52-802E27EDE19F}
+-- 
+2.17.1
+

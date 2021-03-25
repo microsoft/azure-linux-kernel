@@ -1,0 +1,129 @@
+From 7d4db0bb6374b4f2b10437f0bf34e5d0348c294f Mon Sep 17 00:00:00 2001
+From: Gal Pressman <galp@mellanox.com>
+Date: Sun, 24 Apr 2016 22:51:53 +0300
+Subject: net/mlx5e: Add ethtool support for interface identify (LED blinking)
+Reply-To: joseph.salisbury@microsoft.com
+
+Add the needed hardware command and mlx5_ifc structs for managing LED
+control.
+Add set_phys_id ethtool callback to support ethtool -p flag.
+
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit da54d24ec3ef736de04c61a01653776a9750334f)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../ethernet/mellanox/mlx5/core/en_ethtool.c  | 25 +++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/port.c    | 13 ++++++++++
+ include/linux/mlx5/driver.h                   |  1 +
+ include/linux/mlx5/port.h                     |  6 +++++
+ 4 files changed, 45 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index ff5f8162dd7f..99836a36a8d3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -1139,6 +1139,30 @@ static int mlx5e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ 	return mlx5_set_port_wol(mdev, mlx5_wol_mode);
+ }
+ 
++static int mlx5e_set_phys_id(struct net_device *dev,
++			     enum ethtool_phys_id_state state)
++{
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5_core_dev *mdev = priv->mdev;
++	u16 beacon_duration;
++
++	if (!MLX5_CAP_GEN(mdev, beacon_led))
++		return -EOPNOTSUPP;
++
++	switch (state) {
++	case ETHTOOL_ID_ACTIVE:
++		beacon_duration = MLX5_BEACON_DURATION_INF;
++		break;
++	case ETHTOOL_ID_INACTIVE:
++		beacon_duration = MLX5_BEACON_DURATION_OFF;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	return mlx5_set_port_beacon(mdev, beacon_duration);
++}
++
+ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.get_drvinfo       = mlx5e_get_drvinfo,
+ 	.get_link          = ethtool_op_get_link,
+@@ -1163,6 +1187,7 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.get_pauseparam    = mlx5e_get_pauseparam,
+ 	.set_pauseparam    = mlx5e_set_pauseparam,
+ 	.get_ts_info       = mlx5e_get_ts_info,
++	.set_phys_id       = mlx5e_set_phys_id,
+ 	.get_wol	   = mlx5e_get_wol,
+ 	.set_wol	   = mlx5e_set_wol,
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index c469e6a39819..1ac578084fe0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -115,6 +115,19 @@ int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_ptys);
+ 
++int mlx5_set_port_beacon(struct mlx5_core_dev *dev, u16 beacon_duration)
++{
++	u32 out[MLX5_ST_SZ_DW(mlcr_reg)];
++	u32 in[MLX5_ST_SZ_DW(mlcr_reg)];
++
++	memset(in, 0, sizeof(in));
++	MLX5_SET(mlcr_reg, in, local_port, 1);
++	MLX5_SET(mlcr_reg, in, beacon_duration, beacon_duration);
++
++	return mlx5_core_access_reg(dev, in, sizeof(in), out,
++				    sizeof(out), MLX5_REG_MLCR, 0, 1);
++}
++
+ int mlx5_query_port_proto_cap(struct mlx5_core_dev *dev,
+ 			      u32 *proto_cap, int proto_mask)
+ {
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index f2bc853dd744..c5154e5c4319 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -116,6 +116,7 @@ enum {
+ 	MLX5_REG_PMLP		 = 0, /* TBD */
+ 	MLX5_REG_NODE_DESC	 = 0x6001,
+ 	MLX5_REG_HOST_ENDIANNESS = 0x7004,
++	MLX5_REG_MLCR		 = 0x902b,
+ };
+ 
+ enum mlx5_page_fault_resume_flags {
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index fe3b82c88726..9cdb94a5534d 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -35,6 +35,11 @@
+ 
+ #include <linux/mlx5/driver.h>
+ 
++enum mlx5_beacon_duration {
++	MLX5_BEACON_DURATION_OFF = 0x0,
++	MLX5_BEACON_DURATION_INF = 0xffff,
++};
++
+ int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps);
+ int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
+ 			 int ptys_size, int proto_mask, u8 local_port);
+@@ -53,6 +58,7 @@ int mlx5_set_port_admin_status(struct mlx5_core_dev *dev,
+ 			       enum mlx5_port_status status);
+ int mlx5_query_port_admin_status(struct mlx5_core_dev *dev,
+ 				 enum mlx5_port_status *status);
++int mlx5_set_port_beacon(struct mlx5_core_dev *dev, u16 beacon_duration);
+ 
+ int mlx5_set_port_mtu(struct mlx5_core_dev *dev, u16 mtu, u8 port);
+ void mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, u16 *max_mtu, u8 port);
+-- 
+2.17.1
+

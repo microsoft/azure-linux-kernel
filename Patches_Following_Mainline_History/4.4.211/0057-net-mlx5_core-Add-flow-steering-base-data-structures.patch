@@ -1,0 +1,190 @@
+From c420d141a6447868af89cd7cc625cd617d8d44b4 Mon Sep 17 00:00:00 2001
+From: Maor Gottlieb <maorg@mellanox.com>
+Date: Thu, 10 Dec 2015 17:12:40 +0200
+Subject: net/mlx5_core: Add flow steering base data structures
+Reply-To: joseph.salisbury@microsoft.com
+
+Introducing the base data structure and its operations that are
+going to represent ConnectX-4 Flow Steering, this data structure
+is basically a tree and all Flow steering objects such as
+(Flow Table/Flow Group/FTE/etc ..) are represented as fs_node(s).
+
+fs_node is the base object which describes a basic tree node, with the
+following extra info:
+    type: describes the runtime type of the node (Object).
+    lock: lock this node sub-tree.
+    ref_count: number of children + current references.
+    remove_func: a generic destructor.
+
+fs_node types will be used and explained once the usage is added in the
+following patches.
+
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit de8575e014685034728396f9d69169428be9cc3d)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/Makefile  |   2 +-
+ .../net/ethernet/mellanox/mlx5/core/fs_core.c | 116 ++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/fs_core.h |   6 +
+ 3 files changed, 123 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index be10592e0518..7fc5e2388dec 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -2,7 +2,7 @@ obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
+ 
+ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o   \
+-		mad.o transobj.o vport.o sriov.o fs_cmd.o
++		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o flow_table.o eswitch.o \
+ 		en_main.o en_flow_table.o en_ethtool.o en_tx.o en_rx.o \
+ 		en_txrx.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+new file mode 100644
+index 000000000000..3c54d7b5a725
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -0,0 +1,116 @@
++/*
++ * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/mutex.h>
++#include <linux/mlx5/driver.h>
++
++#include "mlx5_core.h"
++#include "fs_core.h"
++
++static void tree_init_node(struct fs_node *node,
++			   unsigned int refcount,
++			   void (*remove_func)(struct fs_node *))
++{
++	atomic_set(&node->refcount, refcount);
++	INIT_LIST_HEAD(&node->list);
++	INIT_LIST_HEAD(&node->children);
++	mutex_init(&node->lock);
++	node->remove_func = remove_func;
++}
++
++static void tree_add_node(struct fs_node *node, struct fs_node *parent)
++{
++	if (parent)
++		atomic_inc(&parent->refcount);
++	node->parent = parent;
++
++	/* Parent is the root */
++	if (!parent)
++		node->root = node;
++	else
++		node->root = parent->root;
++}
++
++static void tree_get_node(struct fs_node *node)
++{
++	atomic_inc(&node->refcount);
++}
++
++static void nested_lock_ref_node(struct fs_node *node)
++{
++	if (node) {
++		mutex_lock_nested(&node->lock, SINGLE_DEPTH_NESTING);
++		atomic_inc(&node->refcount);
++	}
++}
++
++static void lock_ref_node(struct fs_node *node)
++{
++	if (node) {
++		mutex_lock(&node->lock);
++		atomic_inc(&node->refcount);
++	}
++}
++
++static void unlock_ref_node(struct fs_node *node)
++{
++	if (node) {
++		atomic_dec(&node->refcount);
++		mutex_unlock(&node->lock);
++	}
++}
++
++static void tree_put_node(struct fs_node *node)
++{
++	struct fs_node *parent_node = node->parent;
++
++	lock_ref_node(parent_node);
++	if (atomic_dec_and_test(&node->refcount)) {
++		if (parent_node)
++			list_del_init(&node->list);
++		if (node->remove_func)
++			node->remove_func(node);
++		kfree(node);
++		node = NULL;
++	}
++	unlock_ref_node(parent_node);
++	if (!node && parent_node)
++		tree_put_node(parent_node);
++}
++
++static int tree_remove_node(struct fs_node *node)
++{
++	if (atomic_read(&node->refcount) > 1)
++		return -EPERM;
++	tree_put_node(node);
++	return 0;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+index e8b34a9b147b..ae03ae497cbf 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+@@ -56,6 +56,12 @@ struct fs_node {
+ 	struct list_head	list;
+ 	struct list_head	children;
+ 	enum fs_node_type	type;
++	struct fs_node		*parent;
++	struct fs_node		*root;
++	/* lock the node for writing and traversing */
++	struct mutex		lock;
++	atomic_t		refcount;
++	void			(*remove_func)(struct fs_node *);
+ };
+ 
+ struct mlx5_flow_rule {
+-- 
+2.17.1
+

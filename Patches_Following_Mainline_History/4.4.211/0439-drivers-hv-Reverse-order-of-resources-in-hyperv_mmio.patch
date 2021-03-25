@@ -1,0 +1,43 @@
+From 2d3994d960f1e02bd86868965f277c9b1dec2efe Mon Sep 17 00:00:00 2001
+From: Jake Oshins <jakeo@microsoft.com>
+Date: Tue, 5 Apr 2016 10:22:53 -0700
+Subject: drivers:hv: Reverse order of resources in hyperv_mmio
+Reply-To: joseph.salisbury@microsoft.com
+
+A patch later in this series allocates child nodes
+in this resource tree.  For that to work, this tree
+needs to be sorted in ascending order.
+
+Signed-off-by: Jake Oshins <jakeo@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 23a0683186b7ca0083bfc76b410497f39a9d0351)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/vmbus_drv.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index cd661b30dfc9..f5ae6a123d71 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -1108,7 +1108,6 @@ static acpi_status vmbus_walk_resources(struct acpi_resource *res, void *ctx)
+ 	new_res->end = end;
+ 
+ 	/*
+-	 * Stick ranges from higher in address space at the front of the list.
+ 	 * If two ranges are adjacent, merge them.
+ 	 */
+ 	do {
+@@ -1129,7 +1128,7 @@ static acpi_status vmbus_walk_resources(struct acpi_resource *res, void *ctx)
+ 			break;
+ 		}
+ 
+-		if ((*old_res)->end < new_res->start) {
++		if ((*old_res)->start > new_res->end) {
+ 			new_res->sibling = *old_res;
+ 			if (prev_res)
+ 				(*prev_res)->sibling = new_res;
+-- 
+2.17.1
+

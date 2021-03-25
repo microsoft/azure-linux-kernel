@@ -1,0 +1,42 @@
+From 40f48d839dd33a47a524067949f9e45a82c01b48 Mon Sep 17 00:00:00 2001
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
+Date: Tue, 3 May 2016 17:13:56 +0300
+Subject: net/mlx5: E-Switch, Fix error flow memory leak
+Reply-To: joseph.salisbury@microsoft.com
+
+Fix memory leak in case query nic vport command failed.
+
+Fixes: 81848731ff40 ('net/mlx5: E-Switch, Add SR-IOV (FDB) support')
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 761e205b559be52852d85e0db4a034c9f57965f9)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index f01903a99993..c975ff593dfc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -646,7 +646,7 @@ static void esw_update_vport_addr_list(struct mlx5_eswitch *esw,
+ 	err = mlx5_query_nic_vport_mac_list(esw->dev, vport_num, list_type,
+ 					    mac_list, &size);
+ 	if (err)
+-		return;
++		goto out;
+ 	esw_debug(esw->dev, "vport[%d] context update %s list size (%d)\n",
+ 		  vport_num, is_uc ? "UC" : "MC", size);
+ 
+@@ -674,6 +674,7 @@ static void esw_update_vport_addr_list(struct mlx5_eswitch *esw,
+ 		addr->vport = vport_num;
+ 		addr->action = MLX5_ACTION_ADD;
+ 	}
++out:
+ 	kfree(mac_list);
+ }
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,201 @@
+From fd4b05f29e71ad9715416dbafa484d075527a4f9 Mon Sep 17 00:00:00 2001
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Date: Fri, 1 Jul 2016 14:51:06 +0300
+Subject: net/mlx5e: Mark enabled RQTs instances explicitly
+Reply-To: joseph.salisbury@microsoft.com
+
+In the current driver implementation two types of receive queue
+tables (RQTs) are in use - direct and indirect.
+
+Change the driver to mark each new created RQT (direct or indirect)
+as "enabled". This behaviour is needed for introducing new mlx5e
+instances which serve to represent SRIOV VFs.
+
+The VF representors will have only one type of RQTs (direct).
+
+An "enabled" flag is added to each RQT to allow better handling
+and code sharing between the representors and the nic netdevices.
+
+This patch doesn't add any new functionality.
+
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 398f33511e97aad7f259e864a1596fc8ef559dc1)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h  | 13 ++++--
+ .../ethernet/mellanox/mlx5/core/en_ethtool.c  |  2 +-
+ .../net/ethernet/mellanox/mlx5/core/en_main.c | 45 +++++++++++--------
+ 3 files changed, 37 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 380b8cbe90c5..e35f8155d498 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -552,10 +552,15 @@ struct mlx5e_flow_steering {
+ 	struct mlx5e_arfs_tables        arfs;
+ };
+ 
+-struct mlx5e_tir {
+-	u32              tirn;
++struct mlx5e_rqt {
+ 	u32              rqtn;
+-	struct list_head list;
++	bool		 enabled;
++};
++
++struct mlx5e_tir {
++	u32		  tirn;
++	struct mlx5e_rqt  rqt;
++	struct list_head  list;
+ };
+ 
+ enum {
+@@ -576,7 +581,7 @@ struct mlx5e_priv {
+ 
+ 	struct mlx5e_channel     **channel;
+ 	u32                        tisn[MLX5E_MAX_NUM_TC];
+-	u32                        indir_rqtn;
++	struct mlx5e_rqt           indir_rqt;
+ 	struct mlx5e_tir           indir_tir[MLX5E_NUM_INDIR_TIRS];
+ 	struct mlx5e_tir           direct_tir[MLX5E_MAX_NUM_CHANNELS];
+ 	u32                        tx_rates[MLX5E_MAX_NUM_SQS];
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index d2403b91ff4f..1927cf43c1a4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -898,7 +898,7 @@ static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
+ 	mutex_lock(&priv->state_lock);
+ 
+ 	if (indir) {
+-		u32 rqtn = priv->indir_rqtn;
++		u32 rqtn = priv->indir_rqt.rqtn;
+ 
+ 		memcpy(priv->params.indirection_rqt, indir,
+ 		       sizeof(priv->params.indirection_rqt));
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 89184b2ea4aa..ea32ea8270d6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1489,7 +1489,8 @@ static void mlx5e_fill_direct_rqt_rqn(struct mlx5e_priv *priv, void *rqtc,
+ 	MLX5_SET(rqtc, rqtc, rq_num[0], rqn);
+ }
+ 
+-static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz, int ix, u32 *rqtn)
++static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz,
++			    int ix, struct mlx5e_rqt *rqt)
+ {
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	void *rqtc;
+@@ -1512,34 +1513,37 @@ static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz, int ix, u32 *rqtn)
+ 	else
+ 		mlx5e_fill_direct_rqt_rqn(priv, rqtc, ix);
+ 
+-	err = mlx5_core_create_rqt(mdev, in, inlen, rqtn);
++	err = mlx5_core_create_rqt(mdev, in, inlen, &rqt->rqtn);
++	if (!err)
++		rqt->enabled = true;
+ 
+ 	kvfree(in);
+ 	return err;
+ }
+ 
+-static void mlx5e_destroy_rqt(struct mlx5e_priv *priv, u32 rqtn)
++static void mlx5e_destroy_rqt(struct mlx5e_priv *priv, struct mlx5e_rqt *rqt)
+ {
+-	mlx5_core_destroy_rqt(priv->mdev, rqtn);
++	rqt->enabled = false;
++	mlx5_core_destroy_rqt(priv->mdev, rqt->rqtn);
+ }
+ 
+ static int mlx5e_create_rqts(struct mlx5e_priv *priv)
+ {
+ 	int nch = mlx5e_get_max_num_channels(priv->mdev);
+-	u32 *rqtn;
++	struct mlx5e_rqt *rqt;
+ 	int err;
+ 	int ix;
+ 
+ 	/* Indirect RQT */
+-	rqtn = &priv->indir_rqtn;
+-	err = mlx5e_create_rqt(priv, MLX5E_INDIR_RQT_SIZE, 0, rqtn);
++	rqt = &priv->indir_rqt;
++	err = mlx5e_create_rqt(priv, MLX5E_INDIR_RQT_SIZE, 0, rqt);
+ 	if (err)
+ 		return err;
+ 
+ 	/* Direct RQTs */
+ 	for (ix = 0; ix < nch; ix++) {
+-		rqtn = &priv->direct_tir[ix].rqtn;
+-		err = mlx5e_create_rqt(priv, 1 /*size */, ix, rqtn);
++		rqt = &priv->direct_tir[ix].rqt;
++		err = mlx5e_create_rqt(priv, 1 /*size */, ix, rqt);
+ 		if (err)
+ 			goto err_destroy_rqts;
+ 	}
+@@ -1548,9 +1552,9 @@ static int mlx5e_create_rqts(struct mlx5e_priv *priv)
+ 
+ err_destroy_rqts:
+ 	for (ix--; ix >= 0; ix--)
+-		mlx5e_destroy_rqt(priv, priv->direct_tir[ix].rqtn);
++		mlx5e_destroy_rqt(priv, &priv->direct_tir[ix].rqt);
+ 
+-	mlx5e_destroy_rqt(priv, priv->indir_rqtn);
++	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
+ 
+ 	return err;
+ }
+@@ -1561,9 +1565,9 @@ static void mlx5e_destroy_rqts(struct mlx5e_priv *priv)
+ 	int i;
+ 
+ 	for (i = 0; i < nch; i++)
+-		mlx5e_destroy_rqt(priv, priv->direct_tir[i].rqtn);
++		mlx5e_destroy_rqt(priv, &priv->direct_tir[i].rqt);
+ 
+-	mlx5e_destroy_rqt(priv, priv->indir_rqtn);
++	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
+ }
+ 
+ int mlx5e_redirect_rqt(struct mlx5e_priv *priv, u32 rqtn, int sz, int ix)
+@@ -1601,10 +1605,15 @@ static void mlx5e_redirect_rqts(struct mlx5e_priv *priv)
+ 	u32 rqtn;
+ 	int ix;
+ 
+-	rqtn = priv->indir_rqtn;
+-	mlx5e_redirect_rqt(priv, rqtn, MLX5E_INDIR_RQT_SIZE, 0);
++	if (priv->indir_rqt.enabled) {
++		rqtn = priv->indir_rqt.rqtn;
++		mlx5e_redirect_rqt(priv, rqtn, MLX5E_INDIR_RQT_SIZE, 0);
++	}
++
+ 	for (ix = 0; ix < priv->params.num_channels; ix++) {
+-		rqtn = priv->direct_tir[ix].rqtn;
++		if (!priv->direct_tir[ix].rqt.enabled)
++			continue;
++		rqtn = priv->direct_tir[ix].rqt.rqtn;
+ 		mlx5e_redirect_rqt(priv, rqtn, 1, ix);
+ 	}
+ }
+@@ -2017,7 +2026,7 @@ static void mlx5e_build_indir_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
+ 	mlx5e_build_tir_ctx_lro(tirc, priv);
+ 
+ 	MLX5_SET(tirc, tirc, disp_type, MLX5_TIRC_DISP_TYPE_INDIRECT);
+-	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqtn);
++	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqt.rqtn);
+ 	mlx5e_build_tir_ctx_hash(tirc, priv);
+ 
+ 	switch (tt) {
+@@ -2149,7 +2158,7 @@ static int mlx5e_create_tirs(struct mlx5e_priv *priv)
+ 		tir = &priv->direct_tir[ix];
+ 		tirc = MLX5_ADDR_OF(create_tir_in, in, ctx);
+ 		mlx5e_build_direct_tir_ctx(priv, tirc,
+-					   priv->direct_tir[ix].rqtn);
++					   priv->direct_tir[ix].rqt.rqtn);
+ 		err = mlx5e_create_tir(priv->mdev, tir, in, inlen);
+ 		if (err)
+ 			goto err_destroy_ch_tirs;
+-- 
+2.17.1
+

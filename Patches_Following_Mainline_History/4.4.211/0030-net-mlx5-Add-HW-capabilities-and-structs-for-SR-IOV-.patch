@@ -1,0 +1,82 @@
+From 6936c60181ee1265e2589457448a46387cd97047 Mon Sep 17 00:00:00 2001
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Tue, 1 Dec 2015 18:03:10 +0200
+Subject: net/mlx5: Add HW capabilities and structs for SR-IOV E-Switch
+Reply-To: joseph.salisbury@microsoft.com
+
+Update HCA capabilities and HW struct to include needed
+capabilities for upcoming Ethernet Switch (SR-IOV E-Switch).
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 54f0a411ec72cb437d57d0c9654dcbd0f198ff3a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 26 +++++++++++++++-----------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 9b76fddd696b..836cf0e43174 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -665,7 +665,7 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         reserved_17[0x1];
+ 	u8         ets[0x1];
+ 	u8         nic_flow_table[0x1];
+-	u8	   reserved_18_0;
++	u8         eswitch_flow_table[0x1];
+ 	u8	   early_vf_enable;
+ 	u8         reserved_18[0x2];
+ 	u8         local_ca_ack_delay[0x5];
+@@ -789,22 +789,30 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         reserved_60[0x1b];
+ 	u8         log_max_wq_sz[0x5];
+ 
+-	u8         reserved_61[0xa0];
+-
++	u8         nic_vport_change_event[0x1];
++	u8         reserved_61[0xa];
++	u8         log_max_vlan_list[0x5];
+ 	u8         reserved_62[0x3];
++	u8         log_max_current_mc_list[0x5];
++	u8         reserved_63[0x3];
++	u8         log_max_current_uc_list[0x5];
++
++	u8         reserved_64[0x80];
++
++	u8         reserved_65[0x3];
+ 	u8         log_max_l2_table[0x5];
+-	u8         reserved_63[0x8];
++	u8         reserved_66[0x8];
+ 	u8         log_uar_page_sz[0x10];
+ 
+-	u8         reserved_64[0x100];
++	u8         reserved_67[0xe0];
+ 
+-	u8         reserved_65[0x1f];
++	u8         reserved_68[0x1f];
+ 	u8         cqe_zip[0x1];
+ 
+ 	u8         cqe_zip_timeout[0x10];
+ 	u8         cqe_zip_max_num[0x10];
+ 
+-	u8         reserved_66[0x220];
++	u8         reserved_69[0x220];
+ };
+ 
+ enum {
+@@ -2135,10 +2143,6 @@ struct mlx5_ifc_rmpc_bits {
+ 	struct mlx5_ifc_wq_bits wq;
+ };
+ 
+-enum {
+-	MLX5_NIC_VPORT_CONTEXT_ALLOWED_LIST_TYPE_CURRENT_UC_MAC_ADDRESS  = 0x0,
+-};
+-
+ struct mlx5_ifc_nic_vport_context_bits {
+ 	u8         reserved_0[0x1f];
+ 	u8         roce_en[0x1];
+-- 
+2.17.1
+

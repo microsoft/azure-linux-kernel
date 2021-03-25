@@ -1,0 +1,77 @@
+From 67e0badfe2820c1cb8d7655f9cb06f1e0492de45 Mon Sep 17 00:00:00 2001
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Wed, 23 Mar 2016 09:43:10 -0700
+Subject: hv_netvsc: Fix the array sizes to be max supported channels
+Reply-To: joseph.salisbury@microsoft.com
+
+The VRSS_CHANNEL_MAX is the max number of channels supported by Hyper-V
+hosts. We use it for the related array sizes instead of using NR_CPUS,
+which may be set to several thousands.
+This patch reduces possible memory allocation failures.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 9efc2f7dcd06e04d7b6a3032ae65bfd628b1aebe)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   | 7 ++++---
+ drivers/net/hyperv/rndis_filter.c | 4 ++--
+ 2 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 3d496f4d4deb..08e2fff2c58f 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -625,6 +625,7 @@ struct nvsp_message {
+ #define NETVSC_PACKET_SIZE                      4096
+ 
+ #define VRSS_SEND_TAB_SIZE 16
++#define VRSS_CHANNEL_MAX 64
+ 
+ #define RNDIS_MAX_PKT_DEFAULT 8
+ #define RNDIS_PKT_ALIGN_DEFAULT 8
+@@ -706,13 +707,13 @@ struct netvsc_device {
+ 
+ 	struct net_device *ndev;
+ 
+-	struct vmbus_channel *chn_table[NR_CPUS];
++	struct vmbus_channel *chn_table[VRSS_CHANNEL_MAX];
+ 	u32 send_table[VRSS_SEND_TAB_SIZE];
+ 	u32 max_chn;
+ 	u32 num_chn;
+ 	spinlock_t sc_lock; /* Protects num_sc_offered variable */
+ 	u32 num_sc_offered;
+-	atomic_t queue_sends[NR_CPUS];
++	atomic_t queue_sends[VRSS_CHANNEL_MAX];
+ 
+ 	/* Holds rndis device info */
+ 	void *extension;
+@@ -724,7 +725,7 @@ struct netvsc_device {
+ 	/* The sub channel callback buffer */
+ 	unsigned char *sub_cb_buf;
+ 
+-	struct multi_send_data msd[NR_CPUS];
++	struct multi_send_data msd[VRSS_CHANNEL_MAX];
+ 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
+ 	u32 pkt_align; /* alignment bytes, e.g. 8 */
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index b856141d73fc..c2e733711184 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1119,9 +1119,9 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	if (ret || rsscap.num_recv_que < 2)
+ 		goto out;
+ 
+-	num_rss_qs = min(device_info->max_num_vrss_chns, rsscap.num_recv_que);
++	net_device->max_chn = min_t(u32, VRSS_CHANNEL_MAX, rsscap.num_recv_que);
+ 
+-	net_device->max_chn = rsscap.num_recv_que;
++	num_rss_qs = min(device_info->max_num_vrss_chns, net_device->max_chn);
+ 
+ 	/*
+ 	 * We will limit the VRSS channels to the number CPUs in the NUMA node
+-- 
+2.17.1
+

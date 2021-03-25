@@ -1,4 +1,4 @@
-From 710d88a0ba972e5d68cb1e9528f0c39179e038ed Mon Sep 17 00:00:00 2001
+From c9e95afe26fafcbd91aa350fd5f360c514e20797 Mon Sep 17 00:00:00 2001
 From: Stephen Hemminger <stephen@networkplumber.org>
 Date: Fri, 2 Mar 2018 13:49:05 -0800
 Subject: hv_netvsc: fix race in napi poll when rescheduling

@@ -1,0 +1,641 @@
+From c78bcc2e29c2cf324ff8c6dfc56a166a0ab2671d Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Fri, 12 Aug 2016 19:49:39 +0200
+Subject: cpu/hotplug: Add multi instance support
+Reply-To: joseph.salisbury@microsoft.com
+
+This patch adds the ability for a given state to have multiple
+instances. Until now all states have a single instance and the startup /
+teardown callback use global variables.
+A few drivers need to perform a the same callbacks on multiple
+"instances". Currently we have three drivers in tree which all have a
+global list which they iterate over. With multi instance they support
+don't need their private list and the functionality has been moved into
+core code. Plus we hold the hotplug lock in core so no cpus comes/goes
+while instances are registered and we do rollback in error case :)
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: rt@linutronix.de
+Link: http://lkml.kernel.org/r/1471024183-12666-3-git-send-email-bigeasy@linutronix.de
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+
+(cherry picked from commit cf392d10b69e6e6c57ceea48b347a2ab1a4b75b2)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ include/linux/cpuhotplug.h   | 110 +++++++++++++++++-
+ include/trace/events/cpuhp.h |  28 +++++
+ kernel/cpu.c                 | 218 +++++++++++++++++++++++++++++------
+ 3 files changed, 318 insertions(+), 38 deletions(-)
+
+diff --git a/include/linux/cpuhotplug.h b/include/linux/cpuhotplug.h
+index 5d68e15e46b7..65b89832c631 100644
+--- a/include/linux/cpuhotplug.h
++++ b/include/linux/cpuhotplug.h
+@@ -21,7 +21,7 @@ enum cpuhp_state {
+ 
+ int __cpuhp_setup_state(enum cpuhp_state state,	const char *name, bool invoke,
+ 			int (*startup)(unsigned int cpu),
+-			int (*teardown)(unsigned int cpu));
++			int (*teardown)(unsigned int cpu), bool multi_instance);
+ 
+ /**
+  * cpuhp_setup_state - Setup hotplug state callbacks with calling the callbacks
+@@ -38,7 +38,7 @@ static inline int cpuhp_setup_state(enum cpuhp_state state,
+ 				    int (*startup)(unsigned int cpu),
+ 				    int (*teardown)(unsigned int cpu))
+ {
+-	return __cpuhp_setup_state(state, name, true, startup, teardown);
++	return __cpuhp_setup_state(state, name, true, startup, teardown, false);
+ }
+ 
+ /**
+@@ -57,7 +57,66 @@ static inline int cpuhp_setup_state_nocalls(enum cpuhp_state state,
+ 					    int (*startup)(unsigned int cpu),
+ 					    int (*teardown)(unsigned int cpu))
+ {
+-	return __cpuhp_setup_state(state, name, false, startup, teardown);
++	return __cpuhp_setup_state(state, name, false, startup, teardown,
++				   false);
++}
++
++/**
++ * cpuhp_setup_state_multi - Add callbacks for multi state
++ * @state:	The state for which the calls are installed
++ * @name:	Name of the callback.
++ * @startup:	startup callback function
++ * @teardown:	teardown callback function
++ *
++ * Sets the internal multi_instance flag and prepares a state to work as a multi
++ * instance callback. No callbacks are invoked at this point. The callbacks are
++ * invoked once an instance for this state are registered via
++ * @cpuhp_state_add_instance or @cpuhp_state_add_instance_nocalls.
++ */
++static inline int cpuhp_setup_state_multi(enum cpuhp_state state,
++					  const char *name,
++					  int (*startup)(unsigned int cpu,
++							 struct hlist_node *node),
++					  int (*teardown)(unsigned int cpu,
++							  struct hlist_node *node))
++{
++	return __cpuhp_setup_state(state, name, false,
++				   (void *) startup,
++				   (void *) teardown, true);
++}
++
++int __cpuhp_state_add_instance(enum cpuhp_state state, struct hlist_node *node,
++			       bool invoke);
++
++/**
++ * cpuhp_state_add_instance - Add an instance for a state and invoke startup
++ *                            callback.
++ * @state:	The state for which the instance is installed
++ * @node:	The node for this individual state.
++ *
++ * Installs the instance for the @state and invokes the startup callback on
++ * the present cpus which have already reached the @state. The @state must have
++ * been earlier marked as multi-instance by @cpuhp_setup_state_multi.
++ */
++static inline int cpuhp_state_add_instance(enum cpuhp_state state,
++					   struct hlist_node *node)
++{
++	return __cpuhp_state_add_instance(state, node, true);
++}
++
++/**
++ * cpuhp_state_add_instance_nocalls - Add an instance for a state without
++ *                                    invoking the startup callback.
++ * @state:	The state for which the instance is installed
++ * @node:	The node for this individual state.
++ *
++ * Installs the instance for the @state The @state must have been earlier
++ * marked as multi-instance by @cpuhp_setup_state_multi.
++ */
++static inline int cpuhp_state_add_instance_nocalls(enum cpuhp_state state,
++						   struct hlist_node *node)
++{
++	return __cpuhp_state_add_instance(state, node, false);
+ }
+ 
+ void __cpuhp_remove_state(enum cpuhp_state state, bool invoke);
+@@ -84,6 +143,51 @@ static inline void cpuhp_remove_state_nocalls(enum cpuhp_state state)
+ 	__cpuhp_remove_state(state, false);
+ }
+ 
++/**
++ * cpuhp_remove_multi_state - Remove hotplug multi state callback
++ * @state:	The state for which the calls are removed
++ *
++ * Removes the callback functions from a multi state. This is the reverse of
++ * cpuhp_setup_state_multi(). All instances should have been removed before
++ * invoking this function.
++ */
++static inline void cpuhp_remove_multi_state(enum cpuhp_state state)
++{
++	__cpuhp_remove_state(state, false);
++}
++
++int __cpuhp_state_remove_instance(enum cpuhp_state state,
++				  struct hlist_node *node, bool invoke);
++
++/**
++ * cpuhp_state_remove_instance - Remove hotplug instance from state and invoke
++ *                               the teardown callback
++ * @state:	The state from which the instance is removed
++ * @node:	The node for this individual state.
++ *
++ * Removes the instance and invokes the teardown callback on the present cpus
++ * which have already reached the @state.
++ */
++static inline int cpuhp_state_remove_instance(enum cpuhp_state state,
++					      struct hlist_node *node)
++{
++	return __cpuhp_state_remove_instance(state, node, true);
++}
++
++/**
++ * cpuhp_state_remove_instance_nocalls - Remove hotplug instance from state
++ *					 without invoking the reatdown callback
++ * @state:	The state from which the instance is removed
++ * @node:	The node for this individual state.
++ *
++ * Removes the instance without invoking the teardown callback.
++ */
++static inline int cpuhp_state_remove_instance_nocalls(enum cpuhp_state state,
++						      struct hlist_node *node)
++{
++	return __cpuhp_state_remove_instance(state, node, false);
++}
++
+ #ifdef CONFIG_SMP
+ void cpuhp_online_idle(enum cpuhp_state state);
+ #else
+diff --git a/include/trace/events/cpuhp.h b/include/trace/events/cpuhp.h
+index a72bd93ec7e5..996953db91d7 100644
+--- a/include/trace/events/cpuhp.h
++++ b/include/trace/events/cpuhp.h
+@@ -33,6 +33,34 @@ TRACE_EVENT(cpuhp_enter,
+ 		  __entry->cpu, __entry->target, __entry->idx, __entry->fun)
+ );
+ 
++TRACE_EVENT(cpuhp_multi_enter,
++
++	TP_PROTO(unsigned int cpu,
++		 int target,
++		 int idx,
++		 int (*fun)(unsigned int, struct hlist_node *),
++		 struct hlist_node *node),
++
++	TP_ARGS(cpu, target, idx, fun, node),
++
++	TP_STRUCT__entry(
++		__field( unsigned int,	cpu		)
++		__field( int,		target		)
++		__field( int,		idx		)
++		__field( void *,	fun		)
++	),
++
++	TP_fast_assign(
++		__entry->cpu	= cpu;
++		__entry->target	= target;
++		__entry->idx	= idx;
++		__entry->fun	= fun;
++	),
++
++	TP_printk("cpu: %04u target: %3d step: %3d (%pf)",
++		  __entry->cpu, __entry->target, __entry->idx, __entry->fun)
++);
++
+ TRACE_EVENT(cpuhp_exit,
+ 
+ 	TP_PROTO(unsigned int cpu,
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index 583bc38d63b5..0b97466d9ade 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -53,6 +53,7 @@ struct cpuhp_cpu_state {
+ 	bool			rollback;
+ 	bool			single;
+ 	bool			bringup;
++	struct hlist_node	*node;
+ 	enum cpuhp_state	cb_state;
+ 	int			result;
+ 	struct completion	done;
+@@ -71,11 +72,21 @@ static DEFINE_PER_CPU(struct cpuhp_cpu_state, cpuhp_state);
+  * @cant_stop:	Bringup/teardown can't be stopped at this step
+  */
+ struct cpuhp_step {
+-	const char	*name;
+-	int		(*startup)(unsigned int cpu);
+-	int		(*teardown)(unsigned int cpu);
+-	bool		skip_onerr;
+-	bool		cant_stop;
++	const char		*name;
++	union {
++		int		(*startup)(unsigned int cpu);
++		int		(*startup_multi)(unsigned int cpu,
++						 struct hlist_node *node);
++	};
++	union {
++		int		(*teardown)(unsigned int cpu);
++		int		(*teardown_multi)(unsigned int cpu,
++						  struct hlist_node *node);
++	};
++	struct hlist_head	list;
++	bool			skip_onerr;
++	bool			cant_stop;
++	bool			multi_instance;
+ };
+ 
+ static DEFINE_MUTEX(cpuhp_state_mutex);
+@@ -105,20 +116,59 @@ static struct cpuhp_step *cpuhp_get_step(enum cpuhp_state state)
+  * @step:	The step in the state machine
+  * @bringup:	True if the bringup callback should be invoked
+  *
+- * Called from cpu hotplug and from the state register machinery
++ * Called from cpu hotplug and from the state register machinery.
+  */
+ static int cpuhp_invoke_callback(unsigned int cpu, enum cpuhp_state state,
+-				 bool bringup)
++				 bool bringup, struct hlist_node *node)
+ {
+ 	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
+ 	struct cpuhp_step *step = cpuhp_get_step(state);
+-	int (*cb)(unsigned int cpu) = bringup ? step->startup : step->teardown;
+-	int ret = 0;
+-
+-	if (cb) {
++	int (*cbm)(unsigned int cpu, struct hlist_node *node);
++	int (*cb)(unsigned int cpu);
++	int ret, cnt;
++
++	if (!step->multi_instance) {
++		cb = bringup ? step->startup : step->teardown;
++		if (!cb)
++			return 0;
+ 		trace_cpuhp_enter(cpu, st->target, state, cb);
+ 		ret = cb(cpu);
+ 		trace_cpuhp_exit(cpu, st->state, state, ret);
++		return ret;
++	}
++	cbm = bringup ? step->startup_multi : step->teardown_multi;
++	if (!cbm)
++		return 0;
++
++	/* Single invocation for instance add/remove */
++	if (node) {
++		trace_cpuhp_multi_enter(cpu, st->target, state, cbm, node);
++		ret = cbm(cpu, node);
++		trace_cpuhp_exit(cpu, st->state, state, ret);
++		return ret;
++	}
++
++	/* State transition. Invoke on all instances */
++	cnt = 0;
++	hlist_for_each(node, &step->list) {
++		trace_cpuhp_multi_enter(cpu, st->target, state, cbm, node);
++		ret = cbm(cpu, node);
++		trace_cpuhp_exit(cpu, st->state, state, ret);
++		if (ret)
++			goto err;
++		cnt++;
++	}
++	return 0;
++err:
++	/* Rollback the instances if one failed */
++	cbm = !bringup ? step->startup_multi : step->teardown_multi;
++	if (!cbm)
++		return ret;
++
++	hlist_for_each(node, &step->list) {
++		if (!cnt--)
++			break;
++		cbm(cpu, node);
+ 	}
+ 	return ret;
+ }
+@@ -412,7 +462,7 @@ static void undo_cpu_down(unsigned int cpu, struct cpuhp_cpu_state *st)
+ 		struct cpuhp_step *step = cpuhp_get_step(st->state);
+ 
+ 		if (!step->skip_onerr)
+-			cpuhp_invoke_callback(cpu, st->state, true);
++			cpuhp_invoke_callback(cpu, st->state, true, NULL);
+ 	}
+ }
+ 
+@@ -423,7 +473,7 @@ static int cpuhp_down_callbacks(unsigned int cpu, struct cpuhp_cpu_state *st,
+ 	int ret = 0;
+ 
+ 	for (; st->state > target; st->state--) {
+-		ret = cpuhp_invoke_callback(cpu, st->state, false);
++		ret = cpuhp_invoke_callback(cpu, st->state, false, NULL);
+ 		if (ret) {
+ 			st->target = prev_state;
+ 			undo_cpu_down(cpu, st);
+@@ -439,7 +489,7 @@ static void undo_cpu_up(unsigned int cpu, struct cpuhp_cpu_state *st)
+ 		struct cpuhp_step *step = cpuhp_get_step(st->state);
+ 
+ 		if (!step->skip_onerr)
+-			cpuhp_invoke_callback(cpu, st->state, false);
++			cpuhp_invoke_callback(cpu, st->state, false, NULL);
+ 	}
+ }
+ 
+@@ -451,7 +501,7 @@ static int cpuhp_up_callbacks(unsigned int cpu, struct cpuhp_cpu_state *st,
+ 
+ 	while (st->state < target) {
+ 		st->state++;
+-		ret = cpuhp_invoke_callback(cpu, st->state, true);
++		ret = cpuhp_invoke_callback(cpu, st->state, true, NULL);
+ 		if (ret) {
+ 			st->target = prev_state;
+ 			undo_cpu_up(cpu, st);
+@@ -516,11 +566,11 @@ static void cpuhp_thread_fun(unsigned int cpu)
+ 		if (st->cb_state < CPUHP_AP_ONLINE) {
+ 			local_irq_disable();
+ 			ret = cpuhp_invoke_callback(cpu, st->cb_state,
+-						    st->bringup);
++						    st->bringup, st->node);
+ 			local_irq_enable();
+ 		} else {
+ 			ret = cpuhp_invoke_callback(cpu, st->cb_state,
+-						    st->bringup);
++						    st->bringup, st->node);
+ 		}
+ 	} else if (st->rollback) {
+ 		BUG_ON(st->state < CPUHP_AP_ONLINE_IDLE);
+@@ -548,7 +598,8 @@ static void cpuhp_thread_fun(unsigned int cpu)
+ 
+ /* Invoke a single callback on a remote cpu */
+ static int
+-cpuhp_invoke_ap_callback(int cpu, enum cpuhp_state state, bool bringup)
++cpuhp_invoke_ap_callback(int cpu, enum cpuhp_state state, bool bringup,
++			 struct hlist_node *node)
+ {
+ 	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
+ 
+@@ -560,11 +611,12 @@ cpuhp_invoke_ap_callback(int cpu, enum cpuhp_state state, bool bringup)
+ 	 * we invoke the thread function directly.
+ 	 */
+ 	if (!st->thread)
+-		return cpuhp_invoke_callback(cpu, state, bringup);
++		return cpuhp_invoke_callback(cpu, state, bringup, node);
+ 
+ 	st->cb_state = state;
+ 	st->single = true;
+ 	st->bringup = bringup;
++	st->node = node;
+ 
+ 	/*
+ 	 * Make sure the above stores are visible before should_run becomes
+@@ -740,7 +792,7 @@ static int take_cpu_down(void *_param)
+ 	st->state--;
+ 	/* Invoke the former CPU_DYING callbacks */
+ 	for (; st->state > target; st->state--)
+-		cpuhp_invoke_callback(cpu, st->state, false);
++		cpuhp_invoke_callback(cpu, st->state, false, NULL);
+ 
+ 	/* Give up timekeeping duties */
+ 	tick_handover_do_timer();
+@@ -937,7 +989,7 @@ void notify_cpu_starting(unsigned int cpu)
+ 
+ 	while (st->state < target) {
+ 		st->state++;
+-		cpuhp_invoke_callback(cpu, st->state, true);
++		cpuhp_invoke_callback(cpu, st->state, true, NULL);
+ 	}
+ }
+ 
+@@ -1287,7 +1339,8 @@ static int cpuhp_cb_check(enum cpuhp_state state)
+ static void cpuhp_store_callbacks(enum cpuhp_state state,
+ 				  const char *name,
+ 				  int (*startup)(unsigned int cpu),
+-				  int (*teardown)(unsigned int cpu))
++				  int (*teardown)(unsigned int cpu),
++				  bool multi_instance)
+ {
+ 	/* (Un)Install the callbacks for further cpu hotplug operations */
+ 	struct cpuhp_step *sp;
+@@ -1297,6 +1350,8 @@ static void cpuhp_store_callbacks(enum cpuhp_state state,
+ 	sp->startup = startup;
+ 	sp->teardown = teardown;
+ 	sp->name = name;
++	sp->multi_instance = multi_instance;
++	INIT_HLIST_HEAD(&sp->list);
+ 	mutex_unlock(&cpuhp_state_mutex);
+ }
+ 
+@@ -1309,7 +1364,8 @@ static void *cpuhp_get_teardown_cb(enum cpuhp_state state)
+  * Call the startup/teardown function for a step either on the AP or
+  * on the current CPU.
+  */
+-static int cpuhp_issue_call(int cpu, enum cpuhp_state state, bool bringup)
++static int cpuhp_issue_call(int cpu, enum cpuhp_state state, bool bringup,
++			    struct hlist_node *node)
+ {
+ 	struct cpuhp_step *sp = cpuhp_get_step(state);
+ 	int ret;
+@@ -1322,11 +1378,11 @@ static int cpuhp_issue_call(int cpu, enum cpuhp_state state, bool bringup)
+ 	 */
+ #ifdef CONFIG_SMP
+ 	if (cpuhp_is_ap_state(state))
+-		ret = cpuhp_invoke_ap_callback(cpu, state, bringup);
++		ret = cpuhp_invoke_ap_callback(cpu, state, bringup, node);
+ 	else
+-		ret = cpuhp_invoke_callback(cpu, state, bringup);
++		ret = cpuhp_invoke_callback(cpu, state, bringup, node);
+ #else
+-	ret = cpuhp_invoke_callback(cpu, state, bringup);
++	ret = cpuhp_invoke_callback(cpu, state, bringup, node);
+ #endif
+ 	BUG_ON(ret && !bringup);
+ 	return ret;
+@@ -1337,7 +1393,8 @@ static int cpuhp_issue_call(int cpu, enum cpuhp_state state, bool bringup)
+  *
+  * Note: The teardown callbacks for rollback are not allowed to fail!
+  */
+-static void cpuhp_rollback_install(int failedcpu, enum cpuhp_state state)
++static void cpuhp_rollback_install(int failedcpu, enum cpuhp_state state,
++				   struct hlist_node *node)
+ {
+ 	int cpu;
+ 
+@@ -1351,7 +1408,7 @@ static void cpuhp_rollback_install(int failedcpu, enum cpuhp_state state)
+ 
+ 		/* Did we invoke the startup call on that cpu ? */
+ 		if (cpustate >= state)
+-			cpuhp_issue_call(cpu, state, false);
++			cpuhp_issue_call(cpu, state, false, node);
+ 	}
+ }
+ 
+@@ -1378,6 +1435,52 @@ static int cpuhp_reserve_state(enum cpuhp_state state)
+ 	return -ENOSPC;
+ }
+ 
++int __cpuhp_state_add_instance(enum cpuhp_state state, struct hlist_node *node,
++			       bool invoke)
++{
++	struct cpuhp_step *sp;
++	int cpu;
++	int ret;
++
++	sp = cpuhp_get_step(state);
++	if (sp->multi_instance == false)
++		return -EINVAL;
++
++	get_online_cpus();
++
++	if (!invoke || !sp->startup_multi)
++		goto add_node;
++
++	/*
++	 * Try to call the startup callback for each present cpu
++	 * depending on the hotplug state of the cpu.
++	 */
++	for_each_present_cpu(cpu) {
++		struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
++		int cpustate = st->state;
++
++		if (cpustate < state)
++			continue;
++
++		ret = cpuhp_issue_call(cpu, state, true, node);
++		if (ret) {
++			if (sp->teardown_multi)
++				cpuhp_rollback_install(cpu, state, node);
++			goto err;
++		}
++	}
++add_node:
++	ret = 0;
++	mutex_lock(&cpuhp_state_mutex);
++	hlist_add_head(node, &sp->list);
++	mutex_unlock(&cpuhp_state_mutex);
++
++err:
++	put_online_cpus();
++	return ret;
++}
++EXPORT_SYMBOL_GPL(__cpuhp_state_add_instance);
++
+ /**
+  * __cpuhp_setup_state - Setup the callbacks for an hotplug machine state
+  * @state:	The state to setup
+@@ -1391,7 +1494,8 @@ static int cpuhp_reserve_state(enum cpuhp_state state)
+ int __cpuhp_setup_state(enum cpuhp_state state,
+ 			const char *name, bool invoke,
+ 			int (*startup)(unsigned int cpu),
+-			int (*teardown)(unsigned int cpu))
++			int (*teardown)(unsigned int cpu),
++			bool multi_instance)
+ {
+ 	int cpu, ret = 0;
+ 	int dyn_state = 0;
+@@ -1410,7 +1514,7 @@ int __cpuhp_setup_state(enum cpuhp_state state,
+ 		state = ret;
+ 	}
+ 
+-	cpuhp_store_callbacks(state, name, startup, teardown);
++	cpuhp_store_callbacks(state, name, startup, teardown, multi_instance);
+ 
+ 	if (!invoke || !startup)
+ 		goto out;
+@@ -1426,11 +1530,11 @@ int __cpuhp_setup_state(enum cpuhp_state state,
+ 		if (cpustate < state)
+ 			continue;
+ 
+-		ret = cpuhp_issue_call(cpu, state, true);
++		ret = cpuhp_issue_call(cpu, state, true, NULL);
+ 		if (ret) {
+ 			if (teardown)
+-				cpuhp_rollback_install(cpu, state);
+-			cpuhp_store_callbacks(state, NULL, NULL, NULL);
++				cpuhp_rollback_install(cpu, state, NULL);
++			cpuhp_store_callbacks(state, NULL, NULL, NULL, false);
+ 			goto out;
+ 		}
+ 	}
+@@ -1442,6 +1546,42 @@ out:
+ }
+ EXPORT_SYMBOL(__cpuhp_setup_state);
+ 
++int __cpuhp_state_remove_instance(enum cpuhp_state state,
++				  struct hlist_node *node, bool invoke)
++{
++	struct cpuhp_step *sp = cpuhp_get_step(state);
++	int cpu;
++
++	BUG_ON(cpuhp_cb_check(state));
++
++	if (!sp->multi_instance)
++		return -EINVAL;
++
++	get_online_cpus();
++	if (!invoke || !cpuhp_get_teardown_cb(state))
++		goto remove;
++	/*
++	 * Call the teardown callback for each present cpu depending
++	 * on the hotplug state of the cpu. This function is not
++	 * allowed to fail currently!
++	 */
++	for_each_present_cpu(cpu) {
++		struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
++		int cpustate = st->state;
++
++		if (cpustate >= state)
++			cpuhp_issue_call(cpu, state, false, node);
++	}
++
++remove:
++	mutex_lock(&cpuhp_state_mutex);
++	hlist_del(node);
++	mutex_unlock(&cpuhp_state_mutex);
++	put_online_cpus();
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(__cpuhp_state_remove_instance);
+ /**
+  * __cpuhp_remove_state - Remove the callbacks for an hotplug machine state
+  * @state:	The state to remove
+@@ -1453,12 +1593,20 @@ EXPORT_SYMBOL(__cpuhp_setup_state);
+  */
+ void __cpuhp_remove_state(enum cpuhp_state state, bool invoke)
+ {
++	struct cpuhp_step *sp = cpuhp_get_step(state);
+ 	int cpu;
+ 
+ 	BUG_ON(cpuhp_cb_check(state));
+ 
+ 	get_online_cpus();
+ 
++	if (sp->multi_instance) {
++		WARN(!hlist_empty(&sp->list),
++		     "Error: Removing state %d which has instances left.\n",
++		     state);
++		goto remove;
++	}
++
+ 	if (!invoke || !cpuhp_get_teardown_cb(state))
+ 		goto remove;
+ 
+@@ -1472,10 +1620,10 @@ void __cpuhp_remove_state(enum cpuhp_state state, bool invoke)
+ 		int cpustate = st->state;
+ 
+ 		if (cpustate >= state)
+-			cpuhp_issue_call(cpu, state, false);
++			cpuhp_issue_call(cpu, state, false, NULL);
+ 	}
+ remove:
+-	cpuhp_store_callbacks(state, NULL, NULL, NULL);
++	cpuhp_store_callbacks(state, NULL, NULL, NULL, false);
+ 	put_online_cpus();
+ }
+ EXPORT_SYMBOL(__cpuhp_remove_state);
+-- 
+2.17.1
+

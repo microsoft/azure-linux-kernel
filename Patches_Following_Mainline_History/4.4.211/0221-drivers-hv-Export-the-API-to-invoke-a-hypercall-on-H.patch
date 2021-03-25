@@ -1,0 +1,118 @@
+From 240e669b0a428f58e34da0224a1f27c1317a9fee Mon Sep 17 00:00:00 2001
+From: Jake Oshins <jakeo@microsoft.com>
+Date: Mon, 14 Dec 2015 16:01:40 -0800
+Subject: drivers:hv: Export the API to invoke a hypercall on Hyper-V
+Reply-To: joseph.salisbury@microsoft.com
+
+This patch exposes the function that hv_vmbus.ko uses to make hypercalls.  This
+is necessary for retargeting an interrupt when it is given a new affinity.
+
+Since we are exporting this API, rename the API as it will be visible outside
+the hv.c file.
+
+Signed-off-by: Jake Oshins <jakeo@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(backported from commit a108393dbf764efb2405f21ca759806c65b8bc16)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/hv/hv.c           | 20 ++++++++++----------
+ drivers/hv/hyperv_vmbus.h |  2 +-
+ include/linux/hyperv.h    |  3 +++
+ 3 files changed, 14 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/hv/hv.c b/drivers/hv/hv.c
+index 9a8976a79b29..965921660a69 100644
+--- a/drivers/hv/hv.c
++++ b/drivers/hv/hv.c
+@@ -90,9 +90,9 @@ static int query_hypervisor_info(void)
+ }
+ 
+ /*
+- * do_hypercall- Invoke the specified hypercall
++ * hv_do_hypercall- Invoke the specified hypercall
+  */
+-static u64 do_hypercall(u64 control, void *input, void *output)
++u64 hv_do_hypercall(u64 control, void *input, void *output)
+ {
+ 	u64 input_address = (input) ? virt_to_phys(input) : 0;
+ 	u64 output_address = (output) ? virt_to_phys(output) : 0;
+@@ -135,6 +135,7 @@ static u64 do_hypercall(u64 control, void *input, void *output)
+ 	return hv_status_lo | ((u64)hv_status_hi << 32);
+ #endif /* !x86_64 */
+ }
++EXPORT_SYMBOL_GPL(hv_do_hypercall);
+ 
+ #ifdef CONFIG_X86_64
+ static cycle_t read_hv_clock_tsc(struct clocksource *arg)
+@@ -328,7 +329,7 @@ int hv_post_message(union hv_connection_id connection_id,
+ {
+ 
+ 	struct hv_input_post_message *aligned_msg;
+-	u16 status;
++	u64 status;
+ 
+ 	if (payload_size > HV_MESSAGE_PAYLOAD_BYTE_COUNT)
+ 		return -EMSGSIZE;
+@@ -342,11 +343,10 @@ int hv_post_message(union hv_connection_id connection_id,
+ 	aligned_msg->payload_size = payload_size;
+ 	memcpy((void *)aligned_msg->payload, payload, payload_size);
+ 
+-	status = do_hypercall(HVCALL_POST_MESSAGE, aligned_msg, NULL)
+-		& 0xFFFF;
++	status = hv_do_hypercall(HVCALL_POST_MESSAGE, aligned_msg, NULL);
+ 
+ 	put_cpu();
+-	return status;
++	return status & 0xFFFF;
+ }
+ 
+ 
+@@ -356,13 +356,13 @@ int hv_post_message(union hv_connection_id connection_id,
+  *
+  * This involves a hypercall.
+  */
+-u16 hv_signal_event(void *con_id)
++int hv_signal_event(void *con_id)
+ {
+-	u16 status;
++	u64 status;
+ 
+-	status = (do_hypercall(HVCALL_SIGNAL_EVENT, con_id, NULL) & 0xFFFF);
++	status = hv_do_hypercall(HVCALL_SIGNAL_EVENT, con_id, NULL);
+ 
+-	return status;
++	return status & 0xFFFF;
+ }
+ 
+ static int hv_ce_set_next_event(unsigned long delta,
+diff --git a/drivers/hv/hyperv_vmbus.h b/drivers/hv/hyperv_vmbus.h
+index 2505221c5f8a..63493cf1b9b1 100644
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -515,7 +515,7 @@ extern int hv_post_message(union hv_connection_id connection_id,
+ 			 enum hv_message_type message_type,
+ 			 void *payload, size_t payload_size);
+ 
+-extern u16 hv_signal_event(void *con_id);
++extern int hv_signal_event(void *con_id);
+ 
+ extern int hv_synic_alloc(void);
+ 
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 72e20689196f..1080921773c9 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1003,6 +1003,9 @@ int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
+ 
+ int vmbus_cpu_number_to_vp_number(int cpu_number);
+ 
++int vmbus_cpu_number_to_vp_number(int cpu_number);
++u64 hv_do_hypercall(u64 control, void *input, void *output);
++
+ /**
+  * VMBUS_DEVICE - macro used to describe a specific hyperv vmbus device
+  *
+-- 
+2.17.1
+

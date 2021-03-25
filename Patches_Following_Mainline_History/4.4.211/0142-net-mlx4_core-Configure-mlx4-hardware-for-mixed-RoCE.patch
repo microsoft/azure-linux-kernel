@@ -1,0 +1,63 @@
+From e349d7edd332320dec620164ec45c852c00d6205 Mon Sep 17 00:00:00 2001
+From: Moni Shoua <monis@mellanox.com>
+Date: Thu, 14 Jan 2016 17:50:34 +0200
+Subject: net/mlx4_core: Configure mlx4 hardware for mixed RoCE v1/v2 modes
+Reply-To: joseph.salisbury@microsoft.com
+
+If the hardware supports RoCE v2 (mixed with RoCE v1) mode, we enable
+it. This is necessary in order to support RoCE v2.
+
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(cherry picked from commit 1da494cbc0d922f192f1c5cc96c8794a8171c3c0)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h | 5 ++++-
+ drivers/net/ethernet/mellanox/mlx4/port.c | 7 +++++++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index dedc059882f7..aded1ad0cb0e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -780,7 +780,10 @@ struct mlx4_set_port_general_context {
+ 	u16 reserved1;
+ 	u8 v_ignore_fcs;
+ 	u8 flags;
+-	u8 ignore_fcs;
++	union {
++		u8 ignore_fcs;
++		u8 roce_mode;
++	};
+ 	u8 reserved2;
+ 	__be16 mtu;
+ 	u8 pptx;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index f538d6ad5493..eeb6e08970cf 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -1520,6 +1520,8 @@ int mlx4_SET_PORT(struct mlx4_dev *dev, u8 port, int pkey_tbl_sz)
+ 	return err;
+ }
+ 
++#define SET_PORT_ROCE_2_FLAGS          0x10
++#define MLX4_SET_PORT_ROCE_V1_V2       0x2
+ int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
+ 			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx)
+ {
+@@ -1539,6 +1541,11 @@ int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
+ 	context->pprx = (pprx * (!pfcrx)) << 7;
+ 	context->pfcrx = pfcrx;
+ 
++	if (dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_ROCE_V1_V2) {
++		context->flags |= SET_PORT_ROCE_2_FLAGS;
++		context->roce_mode |=
++			MLX4_SET_PORT_ROCE_V1_V2 << 4;
++	}
+ 	in_mod = MLX4_SET_PORT_GENERAL << 8 | port;
+ 	err = mlx4_cmd(dev, mailbox->dma, in_mod, MLX4_SET_PORT_ETH_OPCODE,
+ 		       MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
+-- 
+2.17.1
+

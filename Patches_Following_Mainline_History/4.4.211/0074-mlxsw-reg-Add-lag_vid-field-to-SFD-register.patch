@@ -1,0 +1,74 @@
+From 755b2d0fe9da3d43dd1887c6b95357ebd34a96ec Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Tue, 15 Dec 2015 16:03:45 +0100
+Subject: mlxsw: reg: Add lag_vid field to SFD register
+Reply-To: joseph.salisbury@microsoft.com
+
+Unicast LAG records in the Switch Filtering Database (SFD) register have
+a lag_vid field indicating the VLAN ID in case of vFIDs. This field is
+no longer reserved since we are going to add support for VLAN devices on
+top of LAG.
+
+Add the lag_vid field to be used by VLAN devies on top of LAG.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit afd7f979b27b6ae263d7d5c1e81ab02b8830eb74)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/reg.h              | 10 +++++++++-
+ .../net/ethernet/mellanox/mlxsw/spectrum_switchdev.c   |  2 +-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 5dae896b7d73..f457c1dfe0f0 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -438,6 +438,13 @@ MLXSW_ITEM32_INDEXED(reg, sfd, uc_lag_sub_port, MLXSW_REG_SFD_BASE_LEN, 16, 8,
+ MLXSW_ITEM32_INDEXED(reg, sfd, uc_lag_fid_vid, MLXSW_REG_SFD_BASE_LEN, 0, 16,
+ 		     MLXSW_REG_SFD_REC_LEN, 0x08, false);
+ 
++/* reg_sfd_uc_lag_lag_vid
++ * Indicates VID in case of vFIDs. Reserved for FIDs.
++ * Access: RW
++ */
++MLXSW_ITEM32_INDEXED(reg, sfd, uc_lag_lag_vid, MLXSW_REG_SFD_BASE_LEN, 16, 12,
++		     MLXSW_REG_SFD_REC_LEN, 0x0C, false);
++
+ /* reg_sfd_uc_lag_lag_id
+  * LAG Identifier - pointer into the LAG descriptor table.
+  * Access: RW
+@@ -449,7 +456,7 @@ static inline void
+ mlxsw_reg_sfd_uc_lag_pack(char *payload, int rec_index,
+ 			  enum mlxsw_reg_sfd_rec_policy policy,
+ 			  const char *mac, u16 fid_vid,
+-			  enum mlxsw_reg_sfd_rec_action action,
++			  enum mlxsw_reg_sfd_rec_action action, u16 lag_vid,
+ 			  u16 lag_id)
+ {
+ 	mlxsw_reg_sfd_rec_pack(payload, rec_index,
+@@ -457,6 +464,7 @@ mlxsw_reg_sfd_uc_lag_pack(char *payload, int rec_index,
+ 			       policy, mac, action);
+ 	mlxsw_reg_sfd_uc_lag_sub_port_set(payload, rec_index, 0);
+ 	mlxsw_reg_sfd_uc_lag_fid_vid_set(payload, rec_index, fid_vid);
++	mlxsw_reg_sfd_uc_lag_lag_vid_set(payload, rec_index, lag_vid);
+ 	mlxsw_reg_sfd_uc_lag_lag_id_set(payload, rec_index, lag_id);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index c29ec56e48ae..310f905334ac 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -606,7 +606,7 @@ static int mlxsw_sp_port_fdb_uc_lag_op(struct mlxsw_sp *mlxsw_sp, u16 lag_id,
+ 
+ 	mlxsw_reg_sfd_pack(sfd_pl, mlxsw_sp_sfd_op(adding), 0);
+ 	mlxsw_reg_sfd_uc_lag_pack(sfd_pl, 0, mlxsw_sp_sfd_rec_policy(dynamic),
+-				  mac, fid, MLXSW_REG_SFD_REC_ACTION_NOP,
++				  mac, fid, MLXSW_REG_SFD_REC_ACTION_NOP, 0,
+ 				  lag_id);
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
+ 	kfree(sfd_pl);
+-- 
+2.17.1
+

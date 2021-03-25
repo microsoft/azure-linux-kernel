@@ -1,0 +1,87 @@
+From be12c2b37b8f9299e468cfeafe91a109061b535a Mon Sep 17 00:00:00 2001
+From: Jiri Pirko <jiri@mellanox.com>
+Date: Thu, 3 Dec 2015 12:12:24 +0100
+Subject: mlxsw: pci: Implement LAG processing for received packets
+Reply-To: joseph.salisbury@microsoft.com
+
+Completion queue element for receive queue provides information if the
+packet was received via LAG port. Extract this info and pass it along
+to core.
+
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit d2292e8761be2346732e3cc562ad2f38a19c325e)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/pci.c | 19 ++++++++-----------
+ drivers/net/ethernet/mellanox/mlxsw/pci.h |  4 +++-
+ 2 files changed, 11 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+index 8ca66a01b097..d2102e572b1d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+@@ -686,12 +686,14 @@ static void mlxsw_pci_cqe_rdq_handle(struct mlxsw_pci *mlxsw_pci,
+ 	if (q->consumer_counter++ != consumer_counter_limit)
+ 		dev_dbg_ratelimited(&pdev->dev, "Consumer counter does not match limit in RDQ\n");
+ 
+-	/* We do not support lag now */
+-	if (mlxsw_pci_cqe_lag_get(cqe))
+-		goto drop;
+-
+-	rx_info.is_lag = false;
+-	rx_info.u.sys_port = mlxsw_pci_cqe_system_port_get(cqe);
++	if (mlxsw_pci_cqe_lag_get(cqe)) {
++		rx_info.is_lag = true;
++		rx_info.u.lag_id = mlxsw_pci_cqe_lag_id_get(cqe);
++		rx_info.lag_port_index = mlxsw_pci_cqe_lag_port_index_get(cqe);
++	} else {
++		rx_info.is_lag = false;
++		rx_info.u.sys_port = mlxsw_pci_cqe_system_port_get(cqe);
++	}
+ 
+ 	rx_info.trap_id = mlxsw_pci_cqe_trap_id_get(cqe);
+ 
+@@ -701,7 +703,6 @@ static void mlxsw_pci_cqe_rdq_handle(struct mlxsw_pci *mlxsw_pci,
+ 	skb_put(skb, byte_count);
+ 	mlxsw_core_skb_receive(mlxsw_pci->core, skb, &rx_info);
+ 
+-put_new_skb:
+ 	memset(wqe, 0, q->elem_size);
+ 	err = mlxsw_pci_rdq_skb_alloc(mlxsw_pci, elem_info);
+ 	if (err)
+@@ -710,10 +711,6 @@ put_new_skb:
+ 	q->producer_counter++;
+ 	mlxsw_pci_queue_doorbell_producer_ring(mlxsw_pci, q);
+ 	return;
+-
+-drop:
+-	dev_kfree_skb_any(skb);
+-	goto put_new_skb;
+ }
+ 
+ static char *mlxsw_pci_cq_sw_cqe_get(struct mlxsw_pci_queue *q)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.h b/drivers/net/ethernet/mellanox/mlxsw/pci.h
+index a0fbe00dd690..26c2e08716bb 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/pci.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.h
+@@ -129,13 +129,15 @@ MLXSW_ITEM64_INDEXED(pci, wqe, address, 0x08, 0, 64, 0x8, 0x0, false);
+  */
+ MLXSW_ITEM32(pci, cqe, lag, 0x00, 23, 1);
+ 
+-/* pci_cqe_system_port
++/* pci_cqe_system_port/lag_id
+  * When lag=0: System port on which the packet was received
+  * When lag=1:
+  * bits [15:4] LAG ID on which the packet was received
+  * bits [3:0] sub_port on which the packet was received
+  */
+ MLXSW_ITEM32(pci, cqe, system_port, 0x00, 0, 16);
++MLXSW_ITEM32(pci, cqe, lag_id, 0x00, 4, 12);
++MLXSW_ITEM32(pci, cqe, lag_port_index, 0x00, 0, 4);
+ 
+ /* pci_cqe_wqe_counter
+  * WQE count of the WQEs completed on the associated dqn
+-- 
+2.17.1
+

@@ -1,0 +1,382 @@
+From 1ce2dba3b56c34909ecc8df21b5268e1704c8bea Mon Sep 17 00:00:00 2001
+From: Bart Van Assche <bart.vanassche@sandisk.com>
+Date: Thu, 12 May 2016 10:49:15 -0700
+Subject: IB/core: Enhance ib_map_mr_sg()
+Reply-To: joseph.salisbury@microsoft.com
+
+The SRP initiator allows to set max_sectors to a value that exceeds
+the largest amount of data that can be mapped at once with an mlx4
+HCA using fast registration and a page size of 4 KB. Hence modify
+ib_map_mr_sg() such that it can map partial sg-elements. If an
+sg-element has been mapped partially, let the caller know
+which fraction has been mapped by adjusting *sg_offset.
+
+Signed-off-by: Bart Van Assche <bart.vanassche@sandisk.com>
+Tested-by: Laurence Oberman <loberman@redhat.com>
+Cc: Christoph Hellwig <hch@lst.de>
+Cc: Sagi Grimberg <sagi@grimberg.me>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+(backported from commit 9aa8b3217ed3c13d4e3496020b140da0e6f49a08)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/infiniband/core/rw.c                |  2 +-
+ drivers/infiniband/core/verbs.c             | 28 ++++++++++++++++-----
+ drivers/infiniband/hw/cxgb3/iwch_provider.c |  2 +-
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h      |  2 +-
+ drivers/infiniband/hw/cxgb4/mem.c           |  2 +-
+ drivers/infiniband/hw/i40iw/i40iw_verbs.c   |  2 +-
+ drivers/infiniband/hw/mlx4/mlx4_ib.h        |  2 +-
+ drivers/infiniband/hw/mlx4/mr.c             |  2 +-
+ drivers/infiniband/hw/mlx5/mlx5_ib.h        |  2 +-
+ drivers/infiniband/hw/mlx5/mr.c             |  8 ++++--
+ drivers/infiniband/hw/nes/nes_verbs.c       |  2 +-
+ drivers/infiniband/hw/ocrdma/ocrdma_verbs.c |  2 +-
+ drivers/infiniband/hw/ocrdma/ocrdma_verbs.h |  2 +-
+ drivers/infiniband/ulp/iser/iser_memory.c   |  4 +--
+ include/rdma/ib_verbs.h                     |  8 +++---
+ net/sunrpc/xprtrdma/frwr_ops.c              |  2 +-
+ net/sunrpc/xprtrdma/svc_rdma_recvfrom.c     |  2 +-
+ 17 files changed, 47 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/infiniband/core/rw.c b/drivers/infiniband/core/rw.c
+index d8173eda66b3..cb37a68a4dbf 100644
+--- a/drivers/infiniband/core/rw.c
++++ b/drivers/infiniband/core/rw.c
+@@ -92,7 +92,7 @@ static int rdma_rw_init_one_mr(struct ib_qp *qp, u8 port_num,
+ 		reg->inv_wr.next = NULL;
+ 	}
+ 
+-	ret = ib_map_mr_sg(reg->mr, sg, nents, offset, PAGE_SIZE);
++	ret = ib_map_mr_sg(reg->mr, sg, nents, &offset, PAGE_SIZE);
+ 	if (ret < nents) {
+ 		ib_mr_pool_put(qp, &qp->rdma_mrs, reg->mr);
+ 		return -EINVAL;
+diff --git a/drivers/infiniband/core/verbs.c b/drivers/infiniband/core/verbs.c
+index 216ea76e80c6..02e0e35090f1 100644
+--- a/drivers/infiniband/core/verbs.c
++++ b/drivers/infiniband/core/verbs.c
+@@ -1630,7 +1630,7 @@ EXPORT_SYMBOL(ib_check_mr_status);
+  * is ready for registration.
+  */
+ int ib_map_mr_sg(struct ib_mr *mr, struct scatterlist *sg, int sg_nents,
+-		unsigned int sg_offset, unsigned int page_size)
++		 unsigned int *sg_offset, unsigned int page_size)
+ {
+ 	if (unlikely(!mr->device->map_mr_sg))
+ 		return -ENOSYS;
+@@ -1647,7 +1647,10 @@ EXPORT_SYMBOL(ib_map_mr_sg);
+  * @mr:            memory region
+  * @sgl:           dma mapped scatterlist
+  * @sg_nents:      number of entries in sg
+- * @sg_offset:     offset in bytes into sg
++ * @sg_offset_p:   IN:  start offset in bytes into sg
++ *                 OUT: offset in bytes for element n of the sg of the first
++ *                      byte that has not been processed where n is the return
++ *                      value of this function.
+  * @set_page:      driver page assignment function pointer
+  *
+  * Core service helper for drivers to convert the largest
+@@ -1659,19 +1662,24 @@ EXPORT_SYMBOL(ib_map_mr_sg);
+  * a page vector.
+  */
+ int ib_sg_to_pages(struct ib_mr *mr, struct scatterlist *sgl, int sg_nents,
+-		unsigned int sg_offset, int (*set_page)(struct ib_mr *, u64))
++		unsigned int *sg_offset_p, int (*set_page)(struct ib_mr *, u64))
+ {
+ 	struct scatterlist *sg;
+-	u64 last_end_dma_addr = 0, last_page_addr = 0;
++	u64 last_end_dma_addr = 0;
++	unsigned int sg_offset = sg_offset_p ? *sg_offset_p : 0;
+ 	unsigned int last_page_off = 0;
+ 	u64 page_mask = ~((u64)mr->page_size - 1);
+ 	int i, ret;
+ 
++	if (unlikely(sg_nents <= 0 || sg_offset > sg_dma_len(&sgl[0])))
++		return -EINVAL;
++
+ 	mr->iova = sg_dma_address(&sgl[0]) + sg_offset;
+ 	mr->length = 0;
+ 
+ 	for_each_sg(sgl, sg, sg_nents, i) {
+ 		u64 dma_addr = sg_dma_address(sg) + sg_offset;
++		u64 prev_addr = dma_addr;
+ 		unsigned int dma_len = sg_dma_len(sg) - sg_offset;
+ 		u64 end_dma_addr = dma_addr + dma_len;
+ 		u64 page_addr = dma_addr & page_mask;
+@@ -1696,8 +1704,14 @@ int ib_sg_to_pages(struct ib_mr *mr, struct scatterlist *sgl, int sg_nents,
+ 
+ 		do {
+ 			ret = set_page(mr, page_addr);
+-			if (unlikely(ret < 0))
+-				return i ? : ret;
++			if (unlikely(ret < 0)) {
++				sg_offset = prev_addr - sg_dma_address(sg);
++				mr->length += prev_addr - dma_addr;
++				if (sg_offset_p)
++					*sg_offset_p = sg_offset;
++				return i || sg_offset ? i : ret;
++			}
++			prev_addr = page_addr;
+ next_page:
+ 			page_addr += mr->page_size;
+ 		} while (page_addr < end_dma_addr);
+@@ -1709,6 +1723,8 @@ next_page:
+ 		sg_offset = 0;
+ 	}
+ 
++	if (sg_offset_p)
++		*sg_offset_p = 0;
+ 	return i;
+ }
+ EXPORT_SYMBOL(ib_sg_to_pages);
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_provider.c b/drivers/infiniband/hw/cxgb3/iwch_provider.c
+index c9c4354a1663..e58e7dd570b8 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_provider.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_provider.c
+@@ -805,7 +805,7 @@ static int iwch_set_page(struct ib_mr *ibmr, u64 addr)
+ }
+ 
+ static int iwch_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg,
+-		int sg_nents, unsigned sg_offset)
++			  int sg_nents, unsigned int *sg_offset)
+ {
+ 	struct iwch_mr *mhp = to_iwch_mr(ibmr);
+ 
+diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+index 24173dd37f44..6656aa272c87 100644
+--- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
++++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+@@ -958,7 +958,7 @@ struct ib_mr *c4iw_alloc_mr(struct ib_pd *pd,
+ 			    enum ib_mr_type mr_type,
+ 			    u32 max_num_sg);
+ int c4iw_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg, int sg_nents,
+-		unsigned int sg_offset);
++		   unsigned int *sg_offset);
+ int c4iw_dealloc_mw(struct ib_mw *mw);
+ struct ib_mw *c4iw_alloc_mw(struct ib_pd *pd, enum ib_mw_type type,
+ 			    struct ib_udata *udata);
+diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
+index c14acfef40e2..4fb1122ed215 100644
+--- a/drivers/infiniband/hw/cxgb4/mem.c
++++ b/drivers/infiniband/hw/cxgb4/mem.c
+@@ -873,7 +873,7 @@ static int c4iw_set_page(struct ib_mr *ibmr, u64 addr)
+ }
+ 
+ int c4iw_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg, int sg_nents,
+-		unsigned int sg_offset)
++		   unsigned int *sg_offset)
+ {
+ 	struct c4iw_mr *mhp = to_c4iw_mr(ibmr);
+ 
+diff --git a/drivers/infiniband/hw/i40iw/i40iw_verbs.c b/drivers/infiniband/hw/i40iw/i40iw_verbs.c
+index 825430e376fc..4a740f7a0519 100644
+--- a/drivers/infiniband/hw/i40iw/i40iw_verbs.c
++++ b/drivers/infiniband/hw/i40iw/i40iw_verbs.c
+@@ -1574,7 +1574,7 @@ static int i40iw_set_page(struct ib_mr *ibmr, u64 addr)
+  * @sg_nents: number of sg pages
+  */
+ static int i40iw_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg,
+-			   int sg_nents, unsigned int sg_offset)
++			   int sg_nents, unsigned int *sg_offset)
+ {
+ 	struct i40iw_mr *iwmr = to_iwmr(ibmr);
+ 
+diff --git a/drivers/infiniband/hw/mlx4/mlx4_ib.h b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+index 9f5cf765018b..21c6de7011e5 100644
+--- a/drivers/infiniband/hw/mlx4/mlx4_ib.h
++++ b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+@@ -710,7 +710,7 @@ struct ib_mr *mlx4_ib_alloc_mr(struct ib_pd *pd,
+ 			       enum ib_mr_type mr_type,
+ 			       u32 max_num_sg);
+ int mlx4_ib_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg, int sg_nents,
+-		unsigned int sg_offset);
++		      unsigned int *sg_offset);
+ int mlx4_ib_modify_cq(struct ib_cq *cq, u16 cq_count, u16 cq_period);
+ int mlx4_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata);
+ struct ib_cq *mlx4_ib_create_cq(struct ib_device *ibdev,
+diff --git a/drivers/infiniband/hw/mlx4/mr.c b/drivers/infiniband/hw/mlx4/mr.c
+index 602a0be36995..724d2f2df2ea 100644
+--- a/drivers/infiniband/hw/mlx4/mr.c
++++ b/drivers/infiniband/hw/mlx4/mr.c
+@@ -563,7 +563,7 @@ static int mlx4_set_page(struct ib_mr *ibmr, u64 addr)
+ }
+ 
+ int mlx4_ib_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg, int sg_nents,
+-		unsigned int sg_offset)
++		      unsigned int *sg_offset)
+ {
+ 	struct mlx4_ib_mr *mr = to_mmr(ibmr);
+ 	int rc;
+diff --git a/drivers/infiniband/hw/mlx5/mlx5_ib.h b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+index 927aaa87d2e7..014cab4a3c1a 100644
+--- a/drivers/infiniband/hw/mlx5/mlx5_ib.h
++++ b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+@@ -720,7 +720,7 @@ struct ib_mr *mlx5_ib_alloc_mr(struct ib_pd *pd,
+ 			       enum ib_mr_type mr_type,
+ 			       u32 max_num_sg);
+ int mlx5_ib_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg, int sg_nents,
+-		unsigned int sg_offset);
++		      unsigned int *sg_offset);
+ int mlx5_ib_process_mad(struct ib_device *ibdev, int mad_flags, u8 port_num,
+ 			const struct ib_wc *in_wc, const struct ib_grh *in_grh,
+ 			const struct ib_mad_hdr *in, size_t in_mad_size,
+diff --git a/drivers/infiniband/hw/mlx5/mr.c b/drivers/infiniband/hw/mlx5/mr.c
+index 804cb8ba9d1e..f1d6148e32c5 100644
+--- a/drivers/infiniband/hw/mlx5/mr.c
++++ b/drivers/infiniband/hw/mlx5/mr.c
+@@ -1774,10 +1774,11 @@ static int
+ mlx5_ib_sg_to_klms(struct mlx5_ib_mr *mr,
+ 		   struct scatterlist *sgl,
+ 		   unsigned short sg_nents,
+-		   unsigned int sg_offset)
++		   unsigned int *sg_offset_p)
+ {
+ 	struct scatterlist *sg = sgl;
+ 	struct mlx5_klm *klms = mr->descs;
++	unsigned int sg_offset = sg_offset_p ? *sg_offset_p : 0;
+ 	u32 lkey = mr->ibmr.pd->local_dma_lkey;
+ 	int i;
+ 
+@@ -1796,6 +1797,9 @@ mlx5_ib_sg_to_klms(struct mlx5_ib_mr *mr,
+ 		sg_offset = 0;
+ 	}
+ 
++	if (sg_offset_p)
++		*sg_offset_p = sg_offset;
++
+ 	return i;
+ }
+ 
+@@ -1814,7 +1818,7 @@ static int mlx5_set_page(struct ib_mr *ibmr, u64 addr)
+ }
+ 
+ int mlx5_ib_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg, int sg_nents,
+-		unsigned int sg_offset)
++		      unsigned int *sg_offset)
+ {
+ 	struct mlx5_ib_mr *mr = to_mmr(ibmr);
+ 	int n;
+diff --git a/drivers/infiniband/hw/nes/nes_verbs.c b/drivers/infiniband/hw/nes/nes_verbs.c
+index fe98cf33431d..365a7a5d617b 100644
+--- a/drivers/infiniband/hw/nes/nes_verbs.c
++++ b/drivers/infiniband/hw/nes/nes_verbs.c
+@@ -403,7 +403,7 @@ static int nes_set_page(struct ib_mr *ibmr, u64 addr)
+ }
+ 
+ static int nes_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg,
+-		int sg_nents, unsigned int sg_offset)
++			 int sg_nents, unsigned int *sg_offset)
+ {
+ 	struct nes_mr *nesmr = to_nesmr(ibmr);
+ 
+diff --git a/drivers/infiniband/hw/ocrdma/ocrdma_verbs.c b/drivers/infiniband/hw/ocrdma/ocrdma_verbs.c
+index b312d0997f1c..4cc9a26ebbef 100644
+--- a/drivers/infiniband/hw/ocrdma/ocrdma_verbs.c
++++ b/drivers/infiniband/hw/ocrdma/ocrdma_verbs.c
+@@ -3242,7 +3242,7 @@ static int ocrdma_set_page(struct ib_mr *ibmr, u64 addr)
+ }
+ 
+ int ocrdma_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg, int sg_nents,
+-		unsigned int sg_offset)
++		     unsigned int *sg_offset)
+ {
+ 	struct ocrdma_mr *mr = get_ocrdma_mr(ibmr);
+ 
+diff --git a/drivers/infiniband/hw/ocrdma/ocrdma_verbs.h b/drivers/infiniband/hw/ocrdma/ocrdma_verbs.h
+index 949c7cd353c3..7206d7a6be5b 100644
+--- a/drivers/infiniband/hw/ocrdma/ocrdma_verbs.h
++++ b/drivers/infiniband/hw/ocrdma/ocrdma_verbs.h
+@@ -126,6 +126,6 @@ struct ib_mr *ocrdma_alloc_mr(struct ib_pd *pd,
+ 			      enum ib_mr_type mr_type,
+ 			      u32 max_num_sg);
+ int ocrdma_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg, int sg_nents,
+-		unsigned sg_offset);
++		     unsigned int *sg_offset);
+ 
+ #endif				/* __OCRDMA_VERBS_H__ */
+diff --git a/drivers/infiniband/ulp/iser/iser_memory.c b/drivers/infiniband/ulp/iser/iser_memory.c
+index 07dc59a60b53..4b9a748e20ac 100644
+--- a/drivers/infiniband/ulp/iser/iser_memory.c
++++ b/drivers/infiniband/ulp/iser/iser_memory.c
+@@ -293,7 +293,7 @@ int iser_fast_reg_fmr(struct iscsi_iser_task *iser_task,
+ 	page_vec->npages = 0;
+ 	page_vec->fake_mr.page_size = SIZE_4K;
+ 	plen = ib_sg_to_pages(&page_vec->fake_mr, mem->sg,
+-			      mem->size, 0, iser_set_page);
++			      mem->size, NULL, iser_set_page);
+ 	if (unlikely(plen < mem->size)) {
+ 		iser_err("page vec too short to hold this SG\n");
+ 		iser_data_buf_dump(mem, device->ib_device);
+@@ -501,7 +501,7 @@ static int iser_fast_reg_mr(struct iscsi_iser_task *iser_task,
+ 	if (!rsc->mr_valid)
+ 		iser_inv_rkey(iser_tx_next_wr(tx_desc), mr);
+ 
+-	n = ib_map_mr_sg(mr, mem->sg, mem->size, 0, SIZE_4K);
++	n = ib_map_mr_sg(mr, mem->sg, mem->size, NULL, SIZE_4K);
+ 	if (unlikely(n != mem->size)) {
+ 		iser_err("failed to map sg (%d/%d)\n",
+ 			 n, mem->size);
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index d9c938ff3d20..d943b49e4e9c 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -1847,7 +1847,7 @@ struct ib_device {
+ 	int                        (*map_mr_sg)(struct ib_mr *mr,
+ 						struct scatterlist *sg,
+ 						int sg_nents,
+-						unsigned sg_offset);
++						unsigned int *sg_offset);
+ 	struct ib_mw *             (*alloc_mw)(struct ib_pd *pd,
+ 					       enum ib_mw_type type,
+ 					       struct ib_udata *udata);
+@@ -3149,11 +3149,11 @@ struct net_device *ib_get_net_dev_by_params(struct ib_device *dev, u8 port,
+ 					    const struct sockaddr *addr);
+ 
+ int ib_map_mr_sg(struct ib_mr *mr, struct scatterlist *sg, int sg_nents,
+-		unsigned int sg_offset, unsigned int page_size);
++		 unsigned int *sg_offset, unsigned int page_size);
+ 
+ static inline int
+ ib_map_mr_sg_zbva(struct ib_mr *mr, struct scatterlist *sg, int sg_nents,
+-		unsigned int sg_offset, unsigned int page_size)
++		  unsigned int *sg_offset, unsigned int page_size)
+ {
+ 	int n;
+ 
+@@ -3164,6 +3164,6 @@ ib_map_mr_sg_zbva(struct ib_mr *mr, struct scatterlist *sg, int sg_nents,
+ }
+ 
+ int ib_sg_to_pages(struct ib_mr *mr, struct scatterlist *sgl, int sg_nents,
+-		unsigned int sg_offset, int (*set_page)(struct ib_mr *, u64));
++		unsigned int *sg_offset, int (*set_page)(struct ib_mr *, u64));
+ 
+ #endif /* IB_VERBS_H */
+diff --git a/net/sunrpc/xprtrdma/frwr_ops.c b/net/sunrpc/xprtrdma/frwr_ops.c
+index 3d1817f8b08f..77abf90c42a7 100644
+--- a/net/sunrpc/xprtrdma/frwr_ops.c
++++ b/net/sunrpc/xprtrdma/frwr_ops.c
+@@ -367,7 +367,7 @@ frwr_op_map(struct rpcrdma_xprt *r_xprt, struct rpcrdma_mr_seg *seg,
+ 		return -ENOMEM;
+ 	}
+ 
+-	n = ib_map_mr_sg(mr, frmr->sg, frmr->sg_nents, 0, PAGE_SIZE);
++	n = ib_map_mr_sg(mr, frmr->sg, frmr->sg_nents, NULL, PAGE_SIZE);
+ 	if (unlikely(n != frmr->sg_nents)) {
+ 		pr_err("RPC:       %s: failed to map mr %p (%u/%u)\n",
+ 		       __func__, frmr->fr_mr, n, frmr->sg_nents);
+diff --git a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+index f401f3fde364..eed063ab4ef0 100644
+--- a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
++++ b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+@@ -281,7 +281,7 @@ int rdma_read_chunk_frmr(struct svcxprt_rdma *xprt,
+ 	}
+ 	atomic_inc(&xprt->sc_dma_used);
+ 
+-	n = ib_map_mr_sg(frmr->mr, frmr->sg, frmr->sg_nents, 0, PAGE_SIZE);
++	n = ib_map_mr_sg(frmr->mr, frmr->sg, frmr->sg_nents, NULL, PAGE_SIZE);
+ 	if (unlikely(n != frmr->sg_nents)) {
+ 		pr_err("svcrdma: failed to map mr %p (%d/%d elements)\n",
+ 		       frmr->mr, n, frmr->sg_nents);
+-- 
+2.17.1
+

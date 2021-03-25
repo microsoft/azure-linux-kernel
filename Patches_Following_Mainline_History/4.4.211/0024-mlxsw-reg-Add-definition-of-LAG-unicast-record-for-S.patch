@@ -1,0 +1,60 @@
+From 55fc6fd1a505dde0ff73376ca6a553d8fac32781 Mon Sep 17 00:00:00 2001
+From: Jiri Pirko <jiri@mellanox.com>
+Date: Thu, 3 Dec 2015 12:12:27 +0100
+Subject: mlxsw: reg: Add definition of LAG unicast record for SFN register
+Reply-To: joseph.salisbury@microsoft.com
+
+LAG-related records have specific format in SFN register.
+
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 3b71571c0123ec52c5b73233b4f012fa59aed61a)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 077e4935f4eb..2453f2aa48d9 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -519,8 +519,12 @@ MLXSW_ITEM32_INDEXED(reg, sfn, rec_swid, MLXSW_REG_SFN_BASE_LEN, 24, 8,
+ enum mlxsw_reg_sfn_rec_type {
+ 	/* MAC addresses learned on a regular port. */
+ 	MLXSW_REG_SFN_REC_TYPE_LEARNED_MAC = 0x5,
+-	/* Aged-out MAC address on a regular port */
++	/* MAC addresses learned on a LAG port. */
++	MLXSW_REG_SFN_REC_TYPE_LEARNED_MAC_LAG = 0x6,
++	/* Aged-out MAC address on a regular port. */
+ 	MLXSW_REG_SFN_REC_TYPE_AGED_OUT_MAC = 0x7,
++	/* Aged-out MAC address on a LAG port. */
++	MLXSW_REG_SFN_REC_TYPE_AGED_OUT_MAC_LAG = 0x8,
+ };
+ 
+ /* reg_sfn_rec_type
+@@ -568,6 +572,22 @@ static inline void mlxsw_reg_sfn_mac_unpack(char *payload, int rec_index,
+ 	*p_local_port = mlxsw_reg_sfn_mac_system_port_get(payload, rec_index);
+ }
+ 
++/* reg_sfn_mac_lag_lag_id
++ * LAG ID (pointer into the LAG descriptor table).
++ * Access: RO
++ */
++MLXSW_ITEM32_INDEXED(reg, sfn, mac_lag_lag_id, MLXSW_REG_SFN_BASE_LEN, 0, 10,
++		     MLXSW_REG_SFN_REC_LEN, 0x0C, false);
++
++static inline void mlxsw_reg_sfn_mac_lag_unpack(char *payload, int rec_index,
++						char *mac, u16 *p_vid,
++						u16 *p_lag_id)
++{
++	mlxsw_reg_sfn_rec_mac_memcpy_from(payload, rec_index, mac);
++	*p_vid = mlxsw_reg_sfn_mac_fid_get(payload, rec_index);
++	*p_lag_id = mlxsw_reg_sfn_mac_lag_lag_id_get(payload, rec_index);
++}
++
+ /* SPMS - Switch Port MSTP/RSTP State Register
+  * -------------------------------------------
+  * Configures the spanning tree state of a physical port.
+-- 
+2.17.1
+

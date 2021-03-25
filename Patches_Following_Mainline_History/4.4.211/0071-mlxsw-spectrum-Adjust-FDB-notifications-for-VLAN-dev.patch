@@ -1,0 +1,144 @@
+From e446c35f8d8501387f906eb0e89af91a857518be Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Tue, 15 Dec 2015 16:03:42 +0100
+Subject: mlxsw: spectrum: Adjust FDB notifications for VLAN devices
+Reply-To: joseph.salisbury@microsoft.com
+
+FDB notifications contain the FID and port (or LAG ID) on which the MAC
+was learned. In the case of the 802.1Q bridge one can easily derive the
+matching VID - as FID equals VID - and generate the appropriate
+notification for the software bridge. With VLAN devices this is no
+longer the case, as these are associated with a vFID.
+
+Solve that by converting the FID to a vFID and lookup the matching VLAN
+device. From that derive the VID and whether learning (and learning
+sync) should occur.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit aac78a44088728f0712eaea74fbb2493e12080dd)
+Signed-off-by: Joseph Salisbury <joseph.salisbury@microsoft.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum.h    | 25 ++++++++++++
+ .../mellanox/mlxsw/spectrum_switchdev.c       | 40 +++++++++++++++++--
+ 2 files changed, 61 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index ebebae9b4ede..174547a0ee6b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -73,6 +73,16 @@ static inline u16 mlxsw_sp_vfid_to_fid(u16 vfid)
+ 	return MLXSW_SP_VFID_BASE + vfid;
+ }
+ 
++static inline u16 mlxsw_sp_fid_to_vfid(u16 fid)
++{
++	return fid - MLXSW_SP_VFID_BASE;
++}
++
++static inline bool mlxsw_sp_fid_is_vfid(u16 fid)
++{
++	return fid >= MLXSW_SP_VFID_BASE;
++}
++
+ struct mlxsw_sp {
+ 	struct {
+ 		struct list_head list;
+@@ -179,6 +189,21 @@ mlxsw_sp_port_vport_find(const struct mlxsw_sp_port *mlxsw_sp_port, u16 vid)
+ 	return NULL;
+ }
+ 
++static inline struct mlxsw_sp_port *
++mlxsw_sp_port_vport_find_by_vfid(const struct mlxsw_sp_port *mlxsw_sp_port,
++				 u16 vfid)
++{
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++
++	list_for_each_entry(mlxsw_sp_vport, &mlxsw_sp_port->vports_list,
++			    vport.list) {
++		if (mlxsw_sp_vport_vfid_get(mlxsw_sp_vport) == vfid)
++			return mlxsw_sp_vport;
++	}
++
++	return NULL;
++}
++
+ enum mlxsw_sp_flood_table {
+ 	MLXSW_SP_FLOOD_TABLE_UC,
+ 	MLXSW_SP_FLOOD_TABLE_BM,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 2a4794d83636..f166df5ef56c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1000,6 +1000,24 @@ static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
+ 		return;
+ 	}
+ 
++	if (mlxsw_sp_fid_is_vfid(fid)) {
++		u16 vfid = mlxsw_sp_fid_to_vfid(fid);
++		struct mlxsw_sp_port *mlxsw_sp_vport;
++
++		mlxsw_sp_vport = mlxsw_sp_port_vport_find_by_vfid(mlxsw_sp_port,
++								  vfid);
++		if (!mlxsw_sp_vport) {
++			netdev_err(mlxsw_sp_port->dev, "Failed to find a matching vPort following FDB notification\n");
++			return;
++		}
++
++		vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
++		/* Override the physical port with the vPort. */
++		mlxsw_sp_port = mlxsw_sp_vport;
++	} else {
++		vid = fid;
++	}
++
+ 	err = mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port, mac, fid,
+ 				      adding && mlxsw_sp_port->learning, true);
+ 	if (err) {
+@@ -1008,8 +1026,6 @@ static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
+ 		return;
+ 	}
+ 
+-	vid = fid;
+-
+ 	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning,
+ 				    mlxsw_sp_port->learning_sync,
+ 				    adding, mac, vid, mlxsw_sp_port->dev);
+@@ -1032,6 +1048,24 @@ static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
+ 		return;
+ 	}
+ 
++	if (mlxsw_sp_fid_is_vfid(fid)) {
++		u16 vfid = mlxsw_sp_fid_to_vfid(fid);
++		struct mlxsw_sp_port *mlxsw_sp_vport;
++
++		mlxsw_sp_vport = mlxsw_sp_port_vport_find_by_vfid(mlxsw_sp_port,
++								  vfid);
++		if (!mlxsw_sp_vport) {
++			netdev_err(mlxsw_sp_port->dev, "Failed to find a matching vPort following FDB notification\n");
++			return;
++		}
++
++		vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
++		/* Override the physical port with the vPort. */
++		mlxsw_sp_port = mlxsw_sp_vport;
++	} else {
++		vid = fid;
++	}
++
+ 	err = mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp, lag_id, mac, fid,
+ 					  adding && mlxsw_sp_port->learning,
+ 					  true);
+@@ -1041,8 +1075,6 @@ static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
+ 		return;
+ 	}
+ 
+-	vid = fid;
+-
+ 	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning,
+ 				    mlxsw_sp_port->learning_sync,
+ 				    adding, mac, vid,
+-- 
+2.17.1
+

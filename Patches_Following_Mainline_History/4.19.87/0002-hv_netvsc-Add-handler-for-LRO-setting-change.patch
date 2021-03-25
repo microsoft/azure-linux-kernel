@@ -1,4 +1,4 @@
-From f485c3c13194a5a09cf5653ea66dbbd36637b760 Mon Sep 17 00:00:00 2001
+From 52b22f55d24ac1db9e35e4eb5502dbab3f7980bd Mon Sep 17 00:00:00 2001
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Date: Fri, 21 Sep 2018 18:20:36 +0000
 Subject: hv_netvsc: Add handler for LRO setting change
